@@ -41,18 +41,17 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNav() {
     val navController = rememberNavController()
-
-        NavHost(
-            navController = navController,
-            startDestination = "home"
-        ) {
-            composable("home") {
-                HomeScreen(navController)
-            }
-            composable("createSession") {
-                CreateSessionScreen(navController)
-            }
+    NavHost(
+        navController = navController,
+        startDestination = "home"
+    ) {
+        composable("home") {
+            HomeScreen(navController)
         }
+        composable("createSession") {
+            CreateSessionScreen(navController)
+        }
+    }
 
 }
 
@@ -90,9 +89,9 @@ fun CreateSessionScreen(navController: NavController) {
             text = "Настройка сессии",
             modifier = Modifier
                 .fillMaxWidth()
-                .padding (innerPadding),
-        style = MaterialTheme.typography.displaySmall,
-        textAlign = TextAlign.Center
+                .padding(innerPadding),
+            style = MaterialTheme.typography.displaySmall,
+            textAlign = TextAlign.Center
         )
     }
 }
