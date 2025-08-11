@@ -4,16 +4,25 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+//import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.datools.qrchecker.ui.theme.QRCheckerTheme
 
 class MainActivity : ComponentActivity() {
@@ -22,13 +31,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             QRCheckerTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        "User",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-
-                }
+                AppNav()
             }
         }
 
@@ -36,20 +39,60 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Your sessions, $name:",
-        modifier = modifier
-            .fillMaxWidth(),
-        style = MaterialTheme.typography.titleLarge,
-        textAlign = TextAlign.Center
-    )
+fun AppNav() {
+    val navController = rememberNavController()
+
+        NavHost(
+            navController = navController,
+            startDestination = "home"
+        ) {
+            composable("home") {
+                HomeScreen(navController)
+            }
+            composable("createSession") {
+                CreateSessionScreen(navController)
+            }
+        }
+
 }
 
-@Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
-    QRCheckerTheme {
-        Greeting("Android")
+fun HomeScreen(navController: NavController) {
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { navController.navigate("createSession") },
+                containerColor = Color.Yellow,
+                contentColor = Color.Black
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Новая сессия")
+            }
+        },
+        floatingActionButtonPosition = FabPosition.Center,
+    ) { innerPadding ->
+        Text(
+            text = "Сессии",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(innerPadding),
+            style = MaterialTheme.typography.displaySmall,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+fun CreateSessionScreen(navController: NavController) {
+    Scaffold(
+        topBar = { }
+    ) { innerPadding ->
+        Text(
+            text = "Настройка сессии",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding (innerPadding),
+        style = MaterialTheme.typography.displaySmall,
+        textAlign = TextAlign.Center
+        )
     }
 }
