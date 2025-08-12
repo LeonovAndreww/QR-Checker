@@ -120,6 +120,7 @@ fun CreateSessionScreen(navController: NavController) {
         onResult = { uri: Uri? ->
             if (uri != null) {
                 selectedPdfName = getFileName(uri, context)
+                selectedPdfUri = uri
                 Log.d("LogCat", "Uri открытого документа: $uri")
             }
         }
@@ -140,6 +141,7 @@ fun CreateSessionScreen(navController: NavController) {
                 style = MaterialTheme.typography.displaySmall,
                 textAlign = TextAlign.Center
             )
+            Spacer(Modifier.height(20.dp))
             TextField(
                 value = sessionName,
                 onValueChange = { input ->
@@ -151,9 +153,9 @@ fun CreateSessionScreen(navController: NavController) {
                     }
                 },
                 label = { Text("Имя сессии") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(72.dp)
             )
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(20.dp))
             Button(
                 onClick = {
                     documentPicker.launch(arrayOf("application/pdf"))
@@ -193,15 +195,12 @@ fun CreateSessionScreen(navController: NavController) {
             Spacer(modifier = Modifier.weight(1f))
             Button(
                 onClick = {
-                    if (sessionName != "") {
-                        //save session as session entity
-
-                        navController.navigate("scan")
-                    }
+                    Log.d("Logcat ", "$sessionName , $selectedPdfUri")
+                    navController.navigate("scan")
                 },
-                enabled = sessionName.isNotBlank(),
+                enabled = (sessionName.isNotBlank() && selectedPdfUri != null),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (sessionName.isNotBlank()) MaterialTheme.colorScheme.primary else Color.Gray
+                    containerColor = if (sessionName.isNotBlank() && selectedPdfUri != null) MaterialTheme.colorScheme.primary else Color.Gray
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
