@@ -1,7 +1,6 @@
 package com.datools.qrchecker
 
 import android.content.Context
-import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
@@ -47,7 +46,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-//import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.graphics.createBitmap
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -58,9 +57,10 @@ import com.google.zxing.LuminanceSource
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
+import com.google.zxing.Result
+import com.google.zxing.NotFoundException
 import java.io.File
 import java.io.FileOutputStream
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -256,7 +256,7 @@ private fun getFileName(uri: Uri, context: Context): String {
     return fileName
 }
 
-private fun QRParserPDF(uri: Uri, context: Context): List<String> {
+private fun qrParserPDF(uri: Uri, context: Context): List<String> {
     val bitmaps = mutableListOf<Bitmap>()
     val qrCodes = mutableListOf<String>()
 
@@ -299,7 +299,7 @@ private fun QRParserPDF(uri: Uri, context: Context): List<String> {
             try {
                 val result = reader.decode(binaryBitmap)
                 qrCodes.add(result.text)
-            } catch (e: Resources.NotFoundException) {
+            } catch (e: NotFoundException) {
                 // На этой странице QR не найден — пропускаем
             }
         }
