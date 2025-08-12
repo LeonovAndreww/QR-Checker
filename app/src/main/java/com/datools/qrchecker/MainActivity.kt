@@ -1,8 +1,10 @@
 package com.datools.qrchecker
 
 import android.content.Context
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -31,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,13 +46,21 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-//import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.graphics.createBitmap
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.datools.qrchecker.ui.theme.QRCheckerTheme
-
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.RGBLuminanceSource
+import com.google.zxing.common.HybridBinarizer
+import com.google.zxing.NotFoundException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,7 +88,7 @@ fun AppNav() {
             CreateSessionScreen(navController)
         }
         composable("scan") {
-            ScanScreen(navController)
+            ScanScreen(navController, 0.toLong())
         }
     }
 }
@@ -153,7 +164,10 @@ fun CreateSessionScreen(navController: NavController) {
                     }
                 },
                 label = { Text("Имя сессии") },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(72.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .height(72.dp)
             )
             Spacer(Modifier.height(20.dp))
             Button(
@@ -215,12 +229,26 @@ fun CreateSessionScreen(navController: NavController) {
                 )
             }
         }
+        LaunchedEffect(selectedPdfUri) {
+            selectedPdfUri?.let { uri ->
+                val result = withContext(Dispatchers.IO) {
+                    qrParserPDF(uri, context)
+                }
+                val cleanedResult = result.map { qrText ->
+                    qrText.filter { it >= ' ' }
+                }
+
+                Log.d("LogCat", "Scanned QR's: $cleanedResult")
+                Log.d("LogCat", "Number of scanned QR's: ${cleanedResult.size} ")
+                // здесь можно обновить состояние, например, показать результат или сохранить в переменную
+            }
+        }
     })
 }
 
 
 @Composable
-fun ScanScreen(navController: NavController) {
+fun ScanScreen( navController: NavController, id: Long) {
     // TODO
 }
 
@@ -240,4 +268,56 @@ private fun getFileName(uri: Uri, context: Context): String {
     }
     return fileName
 }
-//==========================================================================================================================
+
+private fun qrParserPDF(uri: Uri, context: Context): List<String> {
+    val qrCodes = mutableListOf<String>()
+    val tempFile = File(context.cacheDir, "temp.pdf")
+
+    try {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(tempFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        val fileDescriptor = ParcelFileDescriptor.open(tempFile, ParcelFileDescriptor.MODE_READ_ONLY)
+        val renderer = PdfRenderer(fileDescriptor)
+
+        val reader = MultiFormatReader()
+
+        for (pageIndex in 0 until renderer.pageCount) {
+            val page = renderer.openPage(pageIndex)
+
+            val bitmap = createBitmap(page.width * 3, page.height * 3)
+            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+            page.close()
+
+            val width = bitmap.width
+            val height = bitmap.height
+            val pixels = IntArray(width * height)
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+            val source = RGBLuminanceSource(width, height, pixels)
+            val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
+
+            try {
+                val result = reader.decode(binaryBitmap)
+                qrCodes.add(result.text)
+                } catch (_: NotFoundException) {
+                Log.d("QRParserPDF", "QR не найден на странице $pageIndex")
+            } finally {
+                bitmap.recycle()
+            }
+        }
+
+        renderer.close()
+        fileDescriptor.close()
+
+    } catch (e: Exception) {
+        Log.e("QRParserPDF", "Ошибка при парсинге PDF", e)
+    } finally {
+        tempFile.delete()
+    }
+
+    return qrCodes.distinct()
+}
