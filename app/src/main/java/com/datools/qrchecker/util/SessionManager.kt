@@ -7,7 +7,6 @@ import com.google.gson.GsonBuilder
 
 class SessionManager {
 
-    // один экземпляр Gson с выключенным HTML-escaping
     private val gson: Gson = GsonBuilder()
         .disableHtmlEscaping()
         .create()
