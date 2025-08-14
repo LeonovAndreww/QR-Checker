@@ -1,7 +1,7 @@
 package com.datools.qrchecker.util
 
 import android.content.Context
-import com.datools.qrchecker.ui.SessionData
+import com.datools.qrchecker.model.SessionData
 import com.google.gson.Gson
 
 class SessionManager {
@@ -16,5 +16,4 @@ class SessionManager {
         val json = prefs.getString(id, null) ?: return null
         return Gson().fromJson(json, SessionData::class.java)
     }
-
 }

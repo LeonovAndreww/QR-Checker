@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
+import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.util.getFileNameFromUri
 import com.datools.qrchecker.util.parsePdfForQRCodes
 import kotlinx.coroutines.launch
@@ -160,9 +161,3 @@ fun CreateSessionScreen(navController: NavController) {
         }
     }
 }
-data class SessionData(
-    val id: String,
-    val name: String,
-    val codes: MutableList<String>,
-    val scannedCodes: MutableList<String>
-)
