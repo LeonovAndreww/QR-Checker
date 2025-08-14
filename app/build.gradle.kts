@@ -64,4 +64,16 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    //noinspection UseTomlInstead
+    implementation("com.google.code.gson:gson:2.13.1")
+    //noinspection UseTomlInstead
+    implementation("androidx.camera:camera-core:1.4.2")
+    //noinspection UseTomlInstead
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    //noinspection UseTomlInstead
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    //noinspection UseTomlInstead
+    implementation("androidx.camera:camera-view:1.4.2")
+    //noinspection UseTomlInstead,Aligned16KB
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 }

@@ -12,7 +12,9 @@ import com.datools.qrchecker.ui.ScanScreen
 sealed class Screen(val route: String) {
     object Home : Screen("home")
     object CreateSession : Screen("createSession")
-    object Scan : Screen("scan")
+    object Scan : Screen("scan/{sessionId}"){
+        fun createRoute(sessionId: String) = "scan/$sessionId"
+    }
 }
 
 @Composable
@@ -34,8 +36,13 @@ fun AppNav() {
         }
 
         // Экран сканирования
-        composable(Screen.Scan.route) {
-            ScanScreen(navController = navController, 0L)
+        composable(route = Screen.Scan.route) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getString("sessionId")
+            if (sessionId != null) {
+                ScanScreen(navController = navController, sessionId = sessionId)
+            } else {
+                navController.popBackStack()
+            }
         }
     }
 }

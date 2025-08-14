@@ -1,5 +1,6 @@
 package com.datools.qrchecker.ui
 
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,10 +33,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.datools.qrchecker.R
+import com.datools.qrchecker.Screen
 import com.datools.qrchecker.util.getFileNameFromUri
 import com.datools.qrchecker.util.parsePdfForQRCodes
 import kotlinx.coroutines.launch
-
+import java.util.UUID
+import com.datools.qrchecker.util.SessionManager
 
 @Composable
 fun CreateSessionScreen(navController: NavController) {
@@ -53,13 +56,6 @@ fun CreateSessionScreen(navController: NavController) {
                 selectedPdfName = getFileNameFromUri(uri, context)
                 selectedPdfUriString = uri.toString()
                 Log.d("LogCat", "Uri opened: $uri")
-
-                coroutineScope.launch {
-                    val codes = parsePdfForQRCodes(context, uri)
-                    codes.forEach { code ->
-                        Log.d("LogCat", "QR Code: $code")
-                    }
-                }
             }
         }
     )
@@ -129,9 +125,26 @@ fun CreateSessionScreen(navController: NavController) {
             Button(
                 onClick = {
                     selectedPdfUriString?.let { uriStr ->
-                        navController.currentBackStackEntry?.savedStateHandle?.set("pdfUri", uriStr)
-                        navController.currentBackStackEntry?.savedStateHandle?.set("sessionName", sessionName)
-                        navController.navigate("scan")
+                        coroutineScope.launch {
+                            val pdfUri = Uri.parse(uriStr)
+                            val codes = parsePdfForQRCodes(context, pdfUri)
+                            val sessionId = UUID.randomUUID().toString()
+                            //create session
+                            val session = SessionData(
+                                id = sessionId,
+                                name = sessionName,
+                                codes = codes.toMutableList(),
+                                scannedCodes = mutableListOf()
+                            )
+
+                            // saving on phone (SharedPreferences or JSON file)
+                            SessionManager().saveSession(context, session)
+
+                            // next screen
+                            navController.currentBackStackEntry?.savedStateHandle?.set("sessionName", sessionName)
+                            navController.navigate(Screen.Scan.createRoute(sessionId))
+
+                        }
                     }
                 },
                 enabled = (sessionName.isNotBlank() && selectedPdfUriString != null),
@@ -147,3 +160,9 @@ fun CreateSessionScreen(navController: NavController) {
         }
     }
 }
+data class SessionData(
+    val id: String,
+    val name: String,
+    val codes: MutableList<String>,
+    val scannedCodes: MutableList<String>
+)
