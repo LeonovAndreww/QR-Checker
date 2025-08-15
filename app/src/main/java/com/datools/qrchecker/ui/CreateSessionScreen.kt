@@ -1,6 +1,5 @@
 package com.datools.qrchecker.ui
 
-import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -40,6 +39,7 @@ import com.datools.qrchecker.util.parsePdfForQRCodes
 import kotlinx.coroutines.launch
 import java.util.UUID
 import com.datools.qrchecker.util.SessionManager
+import androidx.core.net.toUri
 
 @Composable
 fun CreateSessionScreen(navController: NavController) {
@@ -127,7 +127,7 @@ fun CreateSessionScreen(navController: NavController) {
                 onClick = {
                     selectedPdfUriString?.let { uriStr ->
                         coroutineScope.launch {
-                            val pdfUri = Uri.parse(uriStr)
+                            val pdfUri = uriStr.toUri()
                             val codes = parsePdfForQRCodes(context, pdfUri)
                             val sessionId = UUID.randomUUID().toString()
                             //create session

@@ -55,7 +55,6 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.zxing.core)
     implementation(libs.zxing.embedded)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -64,16 +63,9 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    //noinspection UseTomlInstead
-    implementation("com.google.code.gson:gson:2.13.1")
-    //noinspection UseTomlInstead
-    implementation("androidx.camera:camera-core:1.4.2")
-    //noinspection UseTomlInstead
-    implementation("androidx.camera:camera-camera2:1.4.2")
-    //noinspection UseTomlInstead
-    implementation("androidx.camera:camera-lifecycle:1.4.2")
-    //noinspection UseTomlInstead
-    implementation("androidx.camera:camera-view:1.4.2")
-    //noinspection UseTomlInstead,Aligned16KB
-    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation(libs.gson)
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
 }

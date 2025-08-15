@@ -1,5 +1,6 @@
 package com.datools.qrchecker.ui
 
+import android.graphics.*
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -7,6 +8,7 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
@@ -15,17 +17,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.util.SessionManager
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.common.InputImage
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asExecutor
+import com.google.zxing.*
+import com.google.zxing.common.HybridBinarizer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,10 +33,10 @@ fun ScanScreen(
     sessionId: String
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var session by remember { mutableStateOf<SessionData?>(null) }
+    var lastScanned by remember { mutableStateOf("") }
 
-    // on start
     LaunchedEffect(sessionId) {
         session = SessionManager().loadSession(context, sessionId)
     }
@@ -56,11 +55,6 @@ fun ScanScreen(
     val totalCount = session!!.codes.size
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Сканирование QR") }
-            )
-        }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -68,18 +62,12 @@ fun ScanScreen(
                 .padding(padding),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = session!!.name,
-                style = MaterialTheme.typography.titleLarge
-            )
-            Text(
-                text = "Прогресс: $scannedCount / $totalCount",
-                style = MaterialTheme.typography.titleMedium
-            )
-
+            Text(session!!.name, style = MaterialTheme.typography.titleLarge)
+            Text("Прогресс: $scannedCount / $totalCount",
+                style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(10.dp))
+            Text("Последний QR: $lastScanned", style = MaterialTheme.typography.bodyMedium)
 
-            // camera
             AndroidView(
                 factory = { ctx ->
                     val previewView = PreviewView(ctx).apply {
@@ -93,26 +81,37 @@ fun ScanScreen(
                     cameraProviderFuture.addListener({
                         val cameraProvider = cameraProviderFuture.get()
 
-                        val preview = androidx.camera.core.Preview.Builder().build().apply {
-                            setSurfaceProvider(previewView.surfaceProvider)
+                        val preview = Preview.Builder().build().also {
+                            it.surfaceProvider = previewView.surfaceProvider
                         }
 
-                        val imageAnalyzer = ImageAnalysis.Builder()
-                            .build()
-                            .also {
-                                it.setAnalyzer(
-                                    Dispatchers.Default.asExecutor(),
-                                    QrAnalyzer { code ->
-                                        if (code in session!!.codes &&
-                                            code !in session!!.scannedCodes
-                                        ) {
-                                            session!!.scannedCodes.add(code)
+                        val analyzer = ImageAnalysis.Builder().build().also { analysis ->
+                            analysis.setAnalyzer(
+                                ContextCompat.getMainExecutor(ctx),
+                                ZxingQrCodeAnalyzer { result ->
+                                    val code = result.text
+                                    val normalizedCode = code.replace("\n", "").replace("\r", "").replace(Regex("\\p{C}"), "")
+                                    lastScanned = normalizedCode
+
+                                    if (normalizedCode in session!!.codes) {
+                                        if (normalizedCode in session!!.codes && normalizedCode !in session!!.scannedCodes) {
+                                            val newScanned = (session!!.scannedCodes + normalizedCode).toMutableList()  // создаём новый мутабельный список
+                                            session = session!!.copy(scannedCodes = newScanned)  // обновляем state
                                             SessionManager().saveSession(ctx, session!!)
-                                            Log.d("ScanScreen", "Найден новый QR: $code")
+                                            Log.d("LogCat", "Найден новый QR из PDF: $normalizedCode")
                                         }
+
+                                        else {
+                                            Log.d("LogCat", "QR уже отмечен, но камера его видит: $normalizedCode")
+                                        }
+                                    } else {
+                                        Log.d("LogCat", "QR не из PDF: $normalizedCode")
                                     }
-                                )
-                            }
+
+                                }
+
+                            )
+                        }
 
                         try {
                             cameraProvider.unbindAll()
@@ -120,10 +119,10 @@ fun ScanScreen(
                                 lifecycleOwner,
                                 CameraSelector.DEFAULT_BACK_CAMERA,
                                 preview,
-                                imageAnalyzer
+                                analyzer
                             )
                         } catch (exc: Exception) {
-                            Log.e("ScanScreen", "Ошибка запуска камеры", exc)
+                            Log.e("LogCat", "Ошибка запуска камеры", exc)
                         }
                     }, ContextCompat.getMainExecutor(ctx))
 
@@ -137,32 +136,43 @@ fun ScanScreen(
     }
 }
 
-class QrAnalyzer(
-    private val onCodeScanned: (String) -> Unit
+class ZxingQrCodeAnalyzer(
+    private val onQrCodesDetected: (Result) -> Unit
 ) : ImageAnalysis.Analyzer {
-    private val scanner = BarcodeScanning.getClient()
+
+    companion object {
+        private val reader = MultiFormatReader().apply {
+            setHints(mapOf(DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE)))
+        }
+    }
 
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image
-        if (mediaImage != null) {
-            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-            scanner.process(image)
-                .addOnSuccessListener { barcodes ->
-                    for (barcode in barcodes) {
-                        val rawValue = barcode.rawValue
-                        if (rawValue != null) {
-                            onCodeScanned(rawValue)
-                        }
-                    }
-                }
-                .addOnFailureListener {
-                    Log.e("QrAnalyzer", "Ошибка сканирования", it)
-                }
-                .addOnCompleteListener {
-                    imageProxy.close()
-                }
-        } else {
+        try {
+            val image = imageProxy.image ?: return
+            if (image.format != ImageFormat.YUV_420_888 || image.planes.size != 3) return
+
+            val yBuffer = image.planes[0].buffer
+            val yBytes = ByteArray(yBuffer.remaining())
+            yBuffer.get(yBytes)
+
+            val source = PlanarYUVLuminanceSource(
+                yBytes,
+                image.width,
+                image.height,
+                0,
+                0,
+                image.width,
+                image.height,
+                false
+            )
+
+            val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
+            try {
+                val result = reader.decode(binaryBitmap)
+                onQrCodesDetected(result)
+            } catch (_: NotFoundException) { /* QR не найден */ }
+        } finally {
             imageProxy.close()
         }
     }

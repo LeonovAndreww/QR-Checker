@@ -1,7 +1,6 @@
 package com.datools.qrchecker.util
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
@@ -53,17 +52,17 @@ suspend fun parsePdfForQRCodes(
                     page.close()
 
                     // Сохраняем первые 3 страницы в кеш для визуальной проверки
-                    if (pageIndex < 3) {
-                        try {
-                            val outFile = File(context.cacheDir, "pdf_page_${pageIndex}.png")
-                            FileOutputStream(outFile).use { fos ->
-                                bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
-                            }
-                            Log.d("LogCat", "Saved sample page $pageIndex -> ${outFile.absolutePath}")
-                        } catch (t: Throwable) {
-                            Log.w("LogCat", "Can't save sample page $pageIndex: ${t.message}")
-                        }
-                    }
+//                    if (pageIndex < 3) {
+//                        try {
+//                            val outFile = File(context.cacheDir, "pdf_page_${pageIndex}.png")
+//                            FileOutputStream(outFile).use { fos ->
+//                                bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+//                            }
+//                            Log.d("LogCat", "Saved sample page $pageIndex -> ${outFile.absolutePath}")
+//                        } catch (t: Throwable) {
+//                            Log.w("LogCat", "Can't save sample page $pageIndex: ${t.message}")
+//                        }
+//                    }
 
                     try {
                         val px = IntArray(bitmap.width * bitmap.height)
