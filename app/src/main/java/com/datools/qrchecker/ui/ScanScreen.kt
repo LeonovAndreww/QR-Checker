@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -35,7 +36,7 @@ fun ScanScreen(
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var session by remember { mutableStateOf<SessionData?>(null) }
-    var lastScanned by remember { mutableStateOf("") }
+    //var lastScanned by remember { mutableStateOf("") }
 
     LaunchedEffect(sessionId) {
         session = SessionManager().loadSession(context, sessionId)
@@ -55,20 +56,10 @@ fun ScanScreen(
     val totalCount = session!!.codes.size
 
     Scaffold { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(session!!.name, style = MaterialTheme.typography.titleLarge)
-            Text(
-                "Прогресс: $scannedCount / $totalCount",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text("Последний QR: $lastScanned", style = MaterialTheme.typography.bodyMedium)
-
             AndroidView(
                 factory = { ctx ->
                     val previewView = PreviewView(ctx).apply {
@@ -93,7 +84,7 @@ fun ScanScreen(
                                     val code = result.text
                                     val normalizedCode = code.replace("\n", "").replace("\r", "")
                                         .replace(Regex("\\p{C}"), "")
-                                    lastScanned = normalizedCode
+                                    //lastScanned = normalizedCode
 
                                     if (normalizedCode in session!!.codes) {
                                         if (normalizedCode in session!!.codes && normalizedCode !in session!!.scannedCodes) {
@@ -137,10 +128,25 @@ fun ScanScreen(
                     previewView
                 },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
+                    .fillMaxSize()
+            )
+            Text(
+                session!!.name, modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = padding.calculateTopPadding() + 4.dp),
+                style = MaterialTheme.typography.headlineMedium
+            )
+
+            Text(
+                text = "Прогресс:\n$scannedCount / $totalCount",
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = padding.calculateBottomPadding() + 4.dp),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyLarge
             )
         }
+
     }
 }
 
