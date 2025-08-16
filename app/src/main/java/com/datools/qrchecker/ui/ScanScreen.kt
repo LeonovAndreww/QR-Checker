@@ -54,8 +54,7 @@ fun ScanScreen(
     val scannedCount = session!!.scannedCodes.size
     val totalCount = session!!.codes.size
 
-    Scaffold(
-    ) { padding ->
+    Scaffold { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -63,8 +62,10 @@ fun ScanScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(session!!.name, style = MaterialTheme.typography.titleLarge)
-            Text("Прогресс: $scannedCount / $totalCount",
-                style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Прогресс: $scannedCount / $totalCount",
+                style = MaterialTheme.typography.titleMedium
+            )
             Spacer(modifier = Modifier.height(10.dp))
             Text("Последний QR: $lastScanned", style = MaterialTheme.typography.bodyMedium)
 
@@ -90,19 +91,26 @@ fun ScanScreen(
                                 ContextCompat.getMainExecutor(ctx),
                                 ZxingQrCodeAnalyzer { result ->
                                     val code = result.text
-                                    val normalizedCode = code.replace("\n", "").replace("\r", "").replace(Regex("\\p{C}"), "")
+                                    val normalizedCode = code.replace("\n", "").replace("\r", "")
+                                        .replace(Regex("\\p{C}"), "")
                                     lastScanned = normalizedCode
 
                                     if (normalizedCode in session!!.codes) {
                                         if (normalizedCode in session!!.codes && normalizedCode !in session!!.scannedCodes) {
-                                            val newScanned = (session!!.scannedCodes + normalizedCode).toMutableList()  // создаём новый мутабельный список
-                                            session = session!!.copy(scannedCodes = newScanned)  // обновляем state
+                                            val newScanned =
+                                                (session!!.scannedCodes + normalizedCode).toMutableList()  // создаём новый мутабельный список
+                                            session =
+                                                session!!.copy(scannedCodes = newScanned)  // обновляем state
                                             SessionManager().saveSession(ctx, session!!)
-                                            Log.d("LogCat", "Найден новый QR из PDF: $normalizedCode")
-                                        }
-
-                                        else {
-                                            Log.d("LogCat", "QR уже отмечен, но камера его видит: $normalizedCode")
+                                            Log.d(
+                                                "LogCat",
+                                                "Найден новый QR из PDF: $normalizedCode"
+                                            )
+                                        } else {
+                                            Log.d(
+                                                "LogCat",
+                                                "QR уже отмечен, но камера его видит: $normalizedCode"
+                                            )
                                         }
                                     } else {
                                         Log.d("LogCat", "QR не из PDF: $normalizedCode")
@@ -171,7 +179,8 @@ class ZxingQrCodeAnalyzer(
             try {
                 val result = reader.decode(binaryBitmap)
                 onQrCodesDetected(result)
-            } catch (_: NotFoundException) { /* QR не найден */ }
+            } catch (_: NotFoundException) { /* QR не найден */
+            }
         } finally {
             imageProxy.close()
         }

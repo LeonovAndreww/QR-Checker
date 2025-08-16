@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.zxing.embedded)
+    implementation(libs.identity.jvm)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
