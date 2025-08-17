@@ -95,7 +95,8 @@ fun ScanScreen(
 
                                     if (normalizedCode in session!!.codes && normalizedCode !in session!!.scannedCodes) {
                                         val newScanned = session!!.scannedCodes + normalizedCode
-                                        val updatedSession = session!!.copy(scannedCodes = newScanned)
+                                        val updatedSession =
+                                            session!!.copy(scannedCodes = newScanned)
                                         session = updatedSession
 
                                         // сохраняем в Room
