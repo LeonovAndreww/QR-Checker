@@ -9,7 +9,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.datools.qrchecker.model.SessionData
-import com.datools.qrchecker.util.SessionManager
 import com.datools.qrchecker.util.parsePdfForQRCodes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -77,7 +76,10 @@ class ScanViewModel(private val state: SavedStateHandle) : ViewModel() {
                 scannedCodes = mutableListOf()
             )
             try {
-                SessionManager().saveSession(context, session)
+                val repo = com.datools.qrchecker.data.SessionRepository(context)
+                // если нужно, сначала мигрируем старые prefs (опционально)
+                repo.migrateFromSharedPrefsIfNeeded()
+                repo.insert(session)
                 _createdSessionId.value = sessionId
             } catch (t: Throwable) {
                 _errorMessage.value = "Can't save session: ${t.message}"

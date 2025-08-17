@@ -1,15 +1,11 @@
 package com.datools.qrchecker.ui
 
-import android.graphics.*
+import android.graphics.ImageFormat
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import androidx.activity.compose.BackHandler
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.ExperimentalGetImage
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
+import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
@@ -25,7 +21,10 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.model.SessionData
-import com.datools.qrchecker.util.SessionManager
+import com.datools.qrchecker.data.SessionRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import com.google.zxing.*
 import com.google.zxing.common.HybridBinarizer
 
@@ -38,10 +37,11 @@ fun ScanScreen(
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var session by remember { mutableStateOf<SessionData?>(null) }
-    //var lastScanned by remember { mutableStateOf("") }
+    val repo = remember { SessionRepository(context) }
 
+    // Загружаем сессию из Room
     LaunchedEffect(sessionId) {
-        session = SessionManager().loadSession(context, sessionId)
+        session = repo.getById(sessionId)
     }
 
     BackHandler {
@@ -65,8 +65,7 @@ fun ScanScreen(
 
     Scaffold { padding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         ) {
             AndroidView(
                 factory = { ctx ->
@@ -90,33 +89,27 @@ fun ScanScreen(
                                 ContextCompat.getMainExecutor(ctx),
                                 ZxingQrCodeAnalyzer { result ->
                                     val code = result.text
-                                    val normalizedCode = code.replace("\n", "").replace("\r", "")
+                                    val normalizedCode = code.replace("\n", "")
+                                        .replace("\r", "")
                                         .replace(Regex("\\p{C}"), "")
-                                    //lastScanned = normalizedCode
 
-                                    if (normalizedCode in session!!.codes) {
-                                        if (normalizedCode in session!!.codes && normalizedCode !in session!!.scannedCodes) {
-                                            val newScanned =
-                                                (session!!.scannedCodes + normalizedCode).toMutableList()  // создаём новый мутабельный список
-                                            session =
-                                                session!!.copy(scannedCodes = newScanned)  // обновляем state
-                                            SessionManager().saveSession(ctx, session!!)
-                                            Log.d(
-                                                "LogCat",
-                                                "Найден новый QR из PDF: $normalizedCode"
-                                            )
-                                        } else {
-                                            Log.d(
-                                                "LogCat",
-                                                "QR уже отмечен, но камера его видит: $normalizedCode"
-                                            )
+                                    if (normalizedCode in session!!.codes && normalizedCode !in session!!.scannedCodes) {
+                                        val newScanned = session!!.scannedCodes + normalizedCode
+                                        val updatedSession = session!!.copy(scannedCodes = newScanned)
+                                        session = updatedSession
+
+                                        // сохраняем в Room
+                                        CoroutineScope(Dispatchers.IO).launch {
+                                            try {
+                                                repo.update(updatedSession)
+                                            } catch (t: Throwable) {
+                                                Log.e("ScanScreen", "Can't save session", t)
+                                            }
                                         }
-                                    } else {
-                                        Log.d("LogCat", "QR не из PDF: $normalizedCode")
+
+                                        Log.d("ScanScreen", "Найден новый QR: $normalizedCode")
                                     }
-
                                 }
-
                             )
                         }
 
@@ -129,17 +122,19 @@ fun ScanScreen(
                                 analyzer
                             )
                         } catch (exc: Exception) {
-                            Log.e("LogCat", "Ошибка запуска камеры", exc)
+                            Log.e("ScanScreen", "Ошибка запуска камеры", exc)
                         }
+
                     }, ContextCompat.getMainExecutor(ctx))
 
                     previewView
                 },
-                modifier = Modifier
-                    .fillMaxSize()
+                modifier = Modifier.fillMaxSize()
             )
+
             Text(
-                session!!.name, modifier = Modifier
+                session!!.name,
+                modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = padding.calculateTopPadding() + 4.dp),
                 style = MaterialTheme.typography.headlineMedium
@@ -154,7 +149,6 @@ fun ScanScreen(
                 style = MaterialTheme.typography.bodyLarge
             )
         }
-
     }
 }
 
@@ -193,7 +187,8 @@ class ZxingQrCodeAnalyzer(
             try {
                 val result = reader.decode(binaryBitmap)
                 onQrCodesDetected(result)
-            } catch (_: NotFoundException) { /* QR не найден */
+            } catch (_: NotFoundException) {
+                // QR не найден
             }
         } finally {
             imageProxy.close()
