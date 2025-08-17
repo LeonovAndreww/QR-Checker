@@ -8,7 +8,6 @@ import androidx.core.net.toUri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.android.identity.util.UUID
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.util.SessionManager
 import com.datools.qrchecker.util.parsePdfForQRCodes
@@ -70,7 +69,7 @@ class ScanViewModel(private val state: SavedStateHandle) : ViewModel() {
             _qrList.addAll(codes)
 
             // создаём и сохраняем сессию — это теперь делает ViewModel
-            val sessionId = UUID.randomUUID().toString()
+            val sessionId = java.util.UUID.randomUUID().toString()
             val session = SessionData(
                 id = sessionId,
                 name = sessionNameStr,

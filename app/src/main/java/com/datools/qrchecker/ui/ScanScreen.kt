@@ -4,6 +4,7 @@ import android.graphics.*
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import androidx.activity.compose.BackHandler
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.datools.qrchecker.Screen
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.util.SessionManager
 import com.google.zxing.*
@@ -40,6 +42,12 @@ fun ScanScreen(
 
     LaunchedEffect(sessionId) {
         session = SessionManager().loadSession(context, sessionId)
+    }
+
+    BackHandler {
+        navController.navigate(Screen.Home.route) {
+            popUpTo(Screen.Home.route) { inclusive = true }
+        }
     }
 
     if (session == null) {
