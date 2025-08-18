@@ -69,11 +69,8 @@ fun HomeScreen(navController: NavController) {
             )
             LazyColumn(
                 contentPadding = PaddingValues(bottom = 80.dp)
-                //modifier = Modifier
-                    //.padding(innerPadding)
-                //.padding(horizontal = 8.dp),
             ) {
-                items(sessions) { session ->
+                items(sessions.reversed()) { session ->
                     Button(
                         onClick = { navController.navigate("scan/${session.id}") },
                         modifier = Modifier
@@ -85,7 +82,6 @@ fun HomeScreen(navController: NavController) {
                         Text(
                             text = session.name,
                             style = MaterialTheme.typography.titleMedium
-                            //modifier = Modifier.padding(innerPadding)
                         )
                     }
                 }
