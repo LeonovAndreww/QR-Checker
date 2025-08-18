@@ -1,5 +1,6 @@
 package com.datools.qrchecker.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -44,6 +45,7 @@ fun HomeScreen(navController: NavController) {
     val database = AppDatabase.getInstance(context)
     val scope = rememberCoroutineScope()
     var sessions by remember { mutableStateOf<List<SessionEntity>>(emptyList()) }
+    var sessionToDelete by remember { mutableStateOf<SessionEntity?>(null) }
     val buttonHeight = 82.dp
 
     LaunchedEffect(Unit) {
@@ -98,10 +100,7 @@ fun HomeScreen(navController: NavController) {
 
                         FilledIconButton(
                             onClick = {
-                                scope.launch {
-                                    database.sessionDao().delete(session)
-                                    sessions = database.sessionDao().getAllFlow().first()
-                                }
+                                sessionToDelete = session
                             },
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = Color.Red,
@@ -120,5 +119,33 @@ fun HomeScreen(navController: NavController) {
                 }
             }
         }
+    }
+
+    sessionToDelete?.let { session ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { sessionToDelete = null },
+            title = {
+                Text("Удалить сессию?", style = MaterialTheme.typography.headlineSmall)
+            },
+            text = {
+                Text("Вы уверены, что хотите удалить \"${session.name}\"?", style = MaterialTheme.typography.bodyLarge)
+            },
+            confirmButton = {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement =     Arrangement.SpaceBetween) {
+                    Button(onClick = { sessionToDelete = null }) {
+                        Text("Отмена")
+                    }
+                    Button(onClick = {
+                        scope.launch {
+                            database.sessionDao().delete(session)
+                            sessions = database.sessionDao().getAllFlow().first()
+                            sessionToDelete = null
+                        }
+                    }) {
+                        Text("Удалить")
+                    }
+                }
+            }
+        )
     }
 }
