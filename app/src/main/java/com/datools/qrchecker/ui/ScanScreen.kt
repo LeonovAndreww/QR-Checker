@@ -1,10 +1,13 @@
 package com.datools.qrchecker.ui
 
+import android.Manifest
 import android.graphics.ImageFormat
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -14,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -38,6 +42,23 @@ fun ScanScreen(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var session by remember { mutableStateOf<SessionData?>(null) }
     val repo = remember { SessionRepository(context) }
+    val view = LocalView.current
+
+    DisposableEffect(Unit) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
+
+    var hasPermission by remember { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasPermission = granted
+    }
+
+    LaunchedEffect(Unit) {
+        permissionLauncher.launch(Manifest.permission.CAMERA)
+    }
 
     // Загружаем сессию из Room
     LaunchedEffect(sessionId) {
@@ -149,6 +170,17 @@ fun ScanScreen(
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyLarge
             )
+
+            if (!hasPermission) {
+                Text (
+                    text = "Не предоставлен доступ к камере",
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(bottom = padding.calculateBottomPadding() + 4.dp),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.displayMedium
+                )
+            }
         }
     }
 }
