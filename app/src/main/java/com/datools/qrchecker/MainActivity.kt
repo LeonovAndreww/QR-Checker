@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.datools.qrchecker.Screen.CodesList.AppNav
 import com.datools.qrchecker.ui.theme.QRCheckerTheme
 
 class MainActivity : ComponentActivity() {

@@ -84,6 +84,9 @@ fun ScanScreen(
     val scannedCount = session!!.scannedCodes.size
     val totalCount = session!!.codes.size
 
+    var showScannedDialog by remember { mutableStateOf(false) }
+    var showNotScannedDialog by remember { mutableStateOf(false) }
+
     Scaffold { padding ->
         Box(
             modifier = Modifier.fillMaxSize()
@@ -161,6 +164,29 @@ fun ScanScreen(
                     .padding(top = padding.calculateTopPadding() + 4.dp),
                 style = MaterialTheme.typography.headlineMedium
             )
+
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(top = padding.calculateTopPadding() + 1.dp, end = 8.dp, bottom = 50.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = { navController.navigate(Screen.CodesList.createRoute(sessionId, "scanned")) },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text("Сканированные")
+                }
+
+                Spacer(modifier = Modifier.padding(40.dp))
+
+                Button(
+                    onClick = { navController.navigate(Screen.CodesList.createRoute(sessionId, "not_scanned")) },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text("Неотсканированные")
+                }
+            }
 
             Text(
                 text = "Прогресс:\n$scannedCount / $totalCount",
