@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FilledIconButton
@@ -64,7 +65,7 @@ fun HomeScreen(navController: NavController) {
         },
         floatingActionButtonPosition = FabPosition.Center
     ) { innerPadding ->
-        Column (
+        Column(
             modifier = Modifier.padding(innerPadding)
         )
         {
@@ -83,8 +84,23 @@ fun HomeScreen(navController: NavController) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
+                        FilledIconButton(
+                            onClick = {
+                                // TODO
+                            },
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = Color.DarkGray,
+                                contentColor = MaterialTheme.colorScheme.surface
+                            ),
+                            modifier = Modifier
+                                .height(buttonHeight),
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = "Редактировать")
+                        }
                         Button(
                             onClick = { navController.navigate("scan/${session.id}") },
                             modifier = Modifier
@@ -104,10 +120,10 @@ fun HomeScreen(navController: NavController) {
                             },
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = Color.Red,
-                                contentColor = Color.White
+                                contentColor = MaterialTheme.colorScheme.surface
                             ),
                             modifier = Modifier
-                                .padding(start = 4.dp)
+                                //.padding(start = 4.dp)
                                 .height(buttonHeight),
                             shape = MaterialTheme.shapes.small
                         ) {
@@ -128,10 +144,16 @@ fun HomeScreen(navController: NavController) {
                 Text("Удалить сессию?", style = MaterialTheme.typography.headlineSmall)
             },
             text = {
-                Text("Вы уверены, что хотите удалить \"${session.name}\"?", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "Вы уверены, что хотите удалить \"${session.name}\"?",
+                    style = MaterialTheme.typography.bodyLarge
+                )
             },
             confirmButton = {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement =     Arrangement.SpaceBetween) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
                     Button(onClick = { sessionToDelete = null }) {
                         Text("Отмена")
                     }
