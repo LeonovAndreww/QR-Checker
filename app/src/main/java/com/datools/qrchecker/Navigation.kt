@@ -5,6 +5,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.datools.qrchecker.ui.CreateSessionScreen
+import com.datools.qrchecker.ui.EditSessionScreen
 import com.datools.qrchecker.ui.HomeScreen
 import com.datools.qrchecker.ui.ScanScreen
 
@@ -14,6 +15,9 @@ sealed class Screen(val route: String) {
     object CreateSession : Screen("createSession")
     object Scan : Screen("scan/{sessionId}"){
         fun createRoute(sessionId: String) = "scan/$sessionId"
+    }
+    object EditSession : Screen("edit/{sessionId}") {
+        fun createRoute(sessionId: String) = "edit/$sessionId"
     }
 }
 
@@ -44,5 +48,15 @@ fun AppNav() {
                 navController.popBackStack()
             }
         }
+
+        composable(route = Screen.EditSession.route) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getString("sessionId")
+            if (sessionId != null) {
+                EditSessionScreen(navController = navController, sessionId = sessionId)
+            } else {
+                navController.popBackStack()
+            }
+        }
+
     }
 }

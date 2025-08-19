@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.datools.qrchecker.Screen
 import com.datools.qrchecker.data.room.AppDatabase
 import com.datools.qrchecker.data.room.SessionEntity
 import kotlinx.coroutines.flow.first
@@ -89,7 +90,7 @@ fun HomeScreen(navController: NavController) {
                     ) {
                         FilledIconButton(
                             onClick = {
-                                // TODO
+                                navController.navigate(Screen.EditSession.createRoute(session.id))
                             },
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = Color.DarkGray,
