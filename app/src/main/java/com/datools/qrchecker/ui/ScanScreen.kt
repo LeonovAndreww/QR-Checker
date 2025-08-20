@@ -376,22 +376,39 @@ class ZxingQrCodeAnalyzer(
 
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
-        try {
-            val image = imageProxy.image ?: return
-            if (image.format != ImageFormat.YUV_420_888 || image.planes.size != 3) return
+        val image = imageProxy.image
+        if (image == null || image.format != ImageFormat.YUV_420_888 || image.planes.size < 3) {
+            imageProxy.close()
+            return
+        }
 
-            val yBuffer = image.planes[0].buffer
-            val yBytes = ByteArray(yBuffer.remaining())
-            yBuffer.get(yBytes)
+        try {
+            val yPlane = image.planes[0]
+            val yBuffer = yPlane.buffer
+            val rowStride = yPlane.rowStride
+            val width = image.width
+            val height = image.height
+
+            // создаём ровный массив Y
+            val yData = ByteArray(width * height)
+            if (rowStride == width) {
+                yBuffer.get(yData)
+            } else {
+                // stride != width — копируем построчно
+                for (row in 0 until height) {
+                    yBuffer.position(row * rowStride)
+                    yBuffer.get(yData, row * width, width)
+                }
+            }
 
             val source = PlanarYUVLuminanceSource(
-                yBytes,
-                image.width,
-                image.height,
+                yData,
+                width,
+                height,
                 0,
                 0,
-                image.width,
-                image.height,
+                width,
+                height,
                 false
             )
 
@@ -402,6 +419,7 @@ class ZxingQrCodeAnalyzer(
             } catch (_: NotFoundException) {
                 // QR не найден
             }
+
         } finally {
             imageProxy.close()
         }
