@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -168,37 +169,69 @@ fun ScanScreen(
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(top = padding.calculateTopPadding() + 1.dp, end = 8.dp, bottom = 50.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(
+                        start = 4.dp,
+                        end = 4.dp,
+                        bottom = padding.calculateBottomPadding() + 8.dp
+                    )
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Button(
-                    onClick = { navController.navigate(Screen.CodesList.createRoute(sessionId, "scanned")) },
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    onClick = {
+                        navController.navigate(Screen.CodesList.createRoute(sessionId, "scanned"))
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                    shape = MaterialTheme.shapes.small
                 ) {
-                    Text("Сканированные")
+                    Text(
+                        text = "Отсканированные",
+                        maxLines = 1,
+                        ///overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
-                Spacer(modifier = Modifier.padding(40.dp))
+                // Прогресс как простой Text — в центре между кнопками
+                Text(
+                    text = "Прогресс:\n$scannedCount / $totalCount",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyLarge,
+                    //modifier = Modifier.width(120.dp)
+                )
 
                 Button(
-                    onClick = { navController.navigate(Screen.CodesList.createRoute(sessionId, "not_scanned")) },
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    onClick = {
+                        navController.navigate(
+                            Screen.CodesList.createRoute(
+                                sessionId,
+                                "not_scanned"
+                            )
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                    shape = MaterialTheme.shapes.small
                 ) {
-                    Text("Неотсканированные")
+                    Text(
+                        text = "Неотсканированные",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
-            Text(
-                text = "Прогресс:\n$scannedCount / $totalCount",
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = padding.calculateBottomPadding() + 4.dp),
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodyLarge
-            )
-
             if (!hasPermission) {
-                Text (
+                Text(
                     text = "Не предоставлен доступ к камере",
                     modifier = Modifier
                         .align(Alignment.Center)
