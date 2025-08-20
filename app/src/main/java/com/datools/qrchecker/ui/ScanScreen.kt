@@ -2,6 +2,9 @@ package com.datools.qrchecker.ui
 
 import android.Manifest
 import android.graphics.ImageFormat
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -11,11 +14,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
@@ -29,6 +37,7 @@ import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.data.SessionRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.google.zxing.*
 import com.google.zxing.common.HybridBinarizer
@@ -53,15 +62,11 @@ fun ScanScreen(
     var hasPermission by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        hasPermission = granted
-    }
+    ) { granted -> hasPermission = granted }
 
-    LaunchedEffect(Unit) {
-        permissionLauncher.launch(Manifest.permission.CAMERA)
-    }
+    LaunchedEffect(Unit) { permissionLauncher.launch(Manifest.permission.CAMERA) }
 
-    // Загружаем сессию из Room
+    // load session
     LaunchedEffect(sessionId) {
         session = repo.getById(sessionId)
     }
@@ -73,10 +78,7 @@ fun ScanScreen(
     }
 
     if (session == null) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Сессия не найдена")
         }
         return
@@ -85,13 +87,59 @@ fun ScanScreen(
     val scannedCount = session!!.scannedCodes.size
     val totalCount = session!!.codes.size
 
-    var showScannedDialog by remember { mutableStateOf(false) }
-    var showNotScannedDialog by remember { mutableStateOf(false) }
+    // ----- FEEDBACK STATE -----
+    data class UiFeedback(val message: String, val color: Color, val vibrationMs: Long, val code: String?)
+
+    var feedback by remember { mutableStateOf<UiFeedback?>(null) }
+    val scope = rememberCoroutineScope()
+    val vibrator = remember {
+        ContextCompat.getSystemService(context, Vibrator::class.java)
+    }
+    var lastFeedbackAt by remember { mutableLongStateOf(0L) }
+    val cooldownMs = 1000L
+    val displayMs = 1200L
+    var lastShownCode by remember { mutableStateOf<String?>(null) } // чтобы не дублить по одному и тому же коду
+
+    fun showFeedback(message: String, color: Color, vibrMs: Long = 40L, code: String? = null) {
+        val now = System.currentTimeMillis()
+
+        // если уже показывается — не показываем второе (устраняет мерцание)
+        if (feedback != null) return
+
+        // дедупликация по коду + cooldown
+        if (code != null) {
+            if (code == lastShownCode && (now - lastFeedbackAt) < cooldownMs) return
+            lastShownCode = code
+        } else {
+            if (now - lastFeedbackAt < cooldownMs) return
+        }
+
+        lastFeedbackAt = now
+        feedback = UiFeedback(message, color, vibrMs, code)
+
+        try {
+            // проверяем hasVibrator() перед вызовом
+            vibrator?.takeIf { if (Build.VERSION.SDK_INT >= 26) it.hasVibrator() else true }?.let {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    it.vibrate(VibrationEffect.createOneShot(vibrMs, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    it.vibrate(vibrMs)
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w("ScanScreen", "Vibrate failed: ${t.message}")
+        }
+
+        scope.launch {
+            delay(displayMs)
+            feedback = null
+        }
+    }
+    // ----------------------------
 
     Scaffold { padding ->
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
             AndroidView(
                 factory = { ctx ->
                     val previewView = PreviewView(ctx).apply {
@@ -118,22 +166,48 @@ fun ScanScreen(
                                         .replace("\r", "")
                                         .replace(Regex("\\p{C}"), "")
 
-                                    if (normalizedCode in session!!.codes && normalizedCode !in session!!.scannedCodes) {
-                                        val newScanned = session!!.scannedCodes + normalizedCode
-                                        val updatedSession =
-                                            session!!.copy(scannedCodes = newScanned)
-                                        session = updatedSession
+                                    // 1) code present in list?
+                                    if (normalizedCode in session!!.codes) {
+                                        // 1a) already scanned?
+                                        if (normalizedCode in session!!.scannedCodes) {
+                                            // already scanned -> warning (orange)
+                                            showFeedback(
+                                                message = "Код уже был отсканирован ранее",
+                                                color = Color(0xFFFFA000),
+                                                vibrMs = 30L,
+                                                code = normalizedCode
+                                            )
+                                        } else {
+                                            // new scan -> add and success (green)
+                                            val newScanned = session!!.scannedCodes + normalizedCode
+                                            val updatedSession = session!!.copy(scannedCodes = newScanned)
+                                            session = updatedSession
 
-                                        // сохраняем в Room
-                                        CoroutineScope(Dispatchers.IO).launch {
-                                            try {
-                                                repo.update(updatedSession)
-                                            } catch (t: Throwable) {
-                                                Log.e("ScanScreen", "Can't save session", t)
+                                            // save in DB
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                try {
+                                                    repo.update(updatedSession)
+                                                } catch (t: Throwable) {
+                                                    Log.e("ScanScreen", "Can't save session", t)
+                                                }
                                             }
-                                        }
 
-                                        Log.d("ScanScreen", "Найден новый QR: $normalizedCode")
+                                            showFeedback(
+                                                message = "Успешно отсканировано",
+                                                color = Color(0xFF2E7D32),
+                                                vibrMs = 60L,
+                                                code = normalizedCode
+                                            )
+                                            Log.d("ScanScreen", "Найден новый QR: $normalizedCode")
+                                        }
+                                    } else {
+                                        // not in list -> error (red)
+                                        showFeedback(
+                                            message = "Код не найден в списке",
+                                            color = Color(0xFFD32F2F),
+                                            vibrMs = 120L,
+                                            code = normalizedCode
+                                        )
                                     }
                                 }
                             )
@@ -150,7 +224,6 @@ fun ScanScreen(
                         } catch (exc: Exception) {
                             Log.e("ScanScreen", "Ошибка запуска камеры", exc)
                         }
-
                     }, ContextCompat.getMainExecutor(ctx))
 
                     previewView
@@ -158,6 +231,7 @@ fun ScanScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
+            // title
             Text(
                 session!!.name,
                 modifier = Modifier
@@ -166,6 +240,7 @@ fun ScanScreen(
                 style = MaterialTheme.typography.headlineMedium
             )
 
+            // bottom row: two buttons + progress in center
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -197,7 +272,6 @@ fun ScanScreen(
                     )
                 }
 
-                // Прогресс как простой Text — в центре между кнопками
                 Text(
                     text = "Прогресс:\n$scannedCount / $totalCount",
                     textAlign = TextAlign.Center,
@@ -240,10 +314,56 @@ fun ScanScreen(
                     style = MaterialTheme.typography.displayMedium
                 )
             }
+
+            // permission text
+            if (!hasPermission) {
+                Text(
+                    text = "Не предоставлен доступ к камере",
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(bottom = padding.calculateBottomPadding() + 4.dp),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.displayMedium
+                )
+            }
+
+            // FEEDBACK OVERLAY (animated) — контролируем через visible = feedback != null
+            AnimatedVisibility(
+                visible = feedback != null,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = padding.calculateTopPadding() + 64.dp)
+            ) {
+                val f = feedback // snapshot
+                if (f != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .wrapContentHeight()
+                            .background(color = f.color, shape = MaterialTheme.shapes.small)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = f.message,
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
+/**
+ * Analyzer — оставил как у тебя, он возвращает ZXing Result в callback.
+ */
 class ZxingQrCodeAnalyzer(
     private val onQrCodesDetected: (Result) -> Unit
 ) : ImageAnalysis.Analyzer {

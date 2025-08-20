@@ -52,7 +52,7 @@ fun CodesListScreen(
                 title = {
                     Text(
                         when (type) {
-                            "scanned" -> "Сканированные (${session?.scannedCodes?.size ?: 0})"
+                            "scanned" -> "Отсканированные (${session?.scannedCodes?.size ?: 0})"
                             else -> "Неотсканированные (${session?.let { it.codes.size - it.scannedCodes.size } ?: 0})"
                         }
                     )
