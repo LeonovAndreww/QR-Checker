@@ -124,7 +124,6 @@ fun HomeScreen(navController: NavController) {
                                 contentColor = MaterialTheme.colorScheme.surface
                             ),
                             modifier = Modifier
-                                //.padding(start = 4.dp)
                                 .height(buttonHeight),
                             shape = MaterialTheme.shapes.small
                         ) {
