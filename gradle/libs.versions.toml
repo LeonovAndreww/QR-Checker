@@ -34,6 +34,7 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+material3 = { module = "androidx.compose.material3:material3" }
 zxing-embedded = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxing-embedded" }
 camera-core = { module = "androidx.camera:camera-core", version.ref = "camera" }
 camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camera" }
