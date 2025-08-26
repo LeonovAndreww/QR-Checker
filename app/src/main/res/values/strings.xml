@@ -1,3 +1,18 @@
 <resources>
     <string name="app_name">QR Checker</string>
+
+    <!-- HomeScreen -->
+    <string name="fab_new_session">Новая сессия</string>
+    <string name="sessions_title">Сессии</string>
+
+    <!-- icons content descriptions -->
+    <string name="cd_edit">Редактировать</string>
+    <string name="cd_delete">Удалить</string>
+    <string name="cd_new_session">Новая сессия</string>
+
+    <!-- dialog -->
+    <string name="delete_session_title">Удалить сессию?</string>
+    <string name="delete_session_confirm">Вы уверены, что хотите удалить "%1$s"?</string>
+    <string name="delete_cancel">Отмена</string>
+    <string name="delete_confirm">Удалить</string>
 </resources>

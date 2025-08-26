@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -54,6 +55,14 @@ fun HomeScreen(navController: NavController) {
         sessions = database.sessionDao().getAllFlow().first()
     }
 
+    val fabCd = stringResource(id = com.datools.qrchecker.R.string.cd_new_session)
+    val titleText = stringResource(id = com.datools.qrchecker.R.string.sessions_title)
+    val editCd = stringResource(id = com.datools.qrchecker.R.string.cd_edit)
+    val deleteCd = stringResource(id = com.datools.qrchecker.R.string.cd_delete)
+    val deleteTitle = stringResource(id = com.datools.qrchecker.R.string.delete_session_title)
+    val deleteCancel = stringResource(id = com.datools.qrchecker.R.string.delete_cancel)
+    val deleteConfirm = stringResource(id = com.datools.qrchecker.R.string.delete_confirm)
+
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
@@ -61,7 +70,7 @@ fun HomeScreen(navController: NavController) {
                 containerColor = Color.Yellow,
                 contentColor = Color.Black
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Новая сессия")
+                Icon(Icons.Default.Add, contentDescription = fabCd)
             }
         },
         floatingActionButtonPosition = FabPosition.Center
@@ -71,7 +80,7 @@ fun HomeScreen(navController: NavController) {
         )
         {
             Text(
-                text = "Сессии",
+                text = titleText,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp),
@@ -100,7 +109,7 @@ fun HomeScreen(navController: NavController) {
                                 .height(buttonHeight),
                             shape = MaterialTheme.shapes.small
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = "Редактировать")
+                            Icon(Icons.Default.Edit, contentDescription = editCd)
                         }
                         Button(
                             onClick = { navController.navigate("scan/${session.id}") },
@@ -127,7 +136,7 @@ fun HomeScreen(navController: NavController) {
                                 .height(buttonHeight),
                             shape = MaterialTheme.shapes.small
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = "Удалить")
+                            Icon(Icons.Default.Delete, contentDescription = deleteCd)
                         }
 
                     }
@@ -141,11 +150,14 @@ fun HomeScreen(navController: NavController) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { sessionToDelete = null },
             title = {
-                Text("Удалить сессию?", style = MaterialTheme.typography.headlineSmall)
+                Text(deleteTitle, style = MaterialTheme.typography.headlineSmall)
             },
             text = {
                 Text(
-                    "Вы уверены, что хотите удалить \"${session.name}\"?",
+                    text = stringResource(
+                        id = com.datools.qrchecker.R.string.delete_session_confirm,
+                        formatArgs = arrayOf(session.name)
+                    ),
                     style = MaterialTheme.typography.bodyLarge
                 )
             },
@@ -155,7 +167,7 @@ fun HomeScreen(navController: NavController) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Button(onClick = { sessionToDelete = null }) {
-                        Text("Отмена")
+                        Text(deleteCancel)
                     }
                     Button(onClick = {
                         scope.launch {
@@ -164,7 +176,7 @@ fun HomeScreen(navController: NavController) {
                             sessionToDelete = null
                         }
                     }) {
-                        Text("Удалить")
+                        Text(deleteConfirm)
                     }
                 }
             }
