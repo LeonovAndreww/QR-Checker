@@ -36,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.data.room.AppDatabase
 import com.datools.qrchecker.data.room.SessionEntity
@@ -55,13 +56,13 @@ fun HomeScreen(navController: NavController) {
         sessions = database.sessionDao().getAllFlow().first()
     }
 
-    val fabCd = stringResource(id = com.datools.qrchecker.R.string.cd_new_session)
-    val titleText = stringResource(id = com.datools.qrchecker.R.string.sessions_title)
-    val editCd = stringResource(id = com.datools.qrchecker.R.string.cd_edit)
-    val deleteCd = stringResource(id = com.datools.qrchecker.R.string.cd_delete)
-    val deleteTitle = stringResource(id = com.datools.qrchecker.R.string.delete_session_title)
-    val deleteCancel = stringResource(id = com.datools.qrchecker.R.string.delete_cancel)
-    val deleteConfirm = stringResource(id = com.datools.qrchecker.R.string.delete_confirm)
+    val fabCd = stringResource(id = R.string.cd_new_session)
+    val titleText = stringResource(id = R.string.sessions_title)
+    val editCd = stringResource(id = R.string.cd_edit)
+    val deleteCd = stringResource(id = R.string.cd_delete)
+    val deleteTitle = stringResource(id = R.string.delete_session_title)
+    val deleteCancel = stringResource(id = R.string.delete_cancel)
+    val deleteConfirm = stringResource(id = R.string.delete_confirm)
 
     Scaffold(
         floatingActionButton = {
@@ -155,7 +156,7 @@ fun HomeScreen(navController: NavController) {
             text = {
                 Text(
                     text = stringResource(
-                        id = com.datools.qrchecker.R.string.delete_session_confirm,
+                        id = R.string.delete_session_confirm,
                         formatArgs = arrayOf(session.name)
                     ),
                     style = MaterialTheme.typography.bodyLarge

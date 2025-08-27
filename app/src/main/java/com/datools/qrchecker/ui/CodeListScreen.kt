@@ -24,6 +24,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.res.stringResource
+import com.datools.qrchecker.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,22 +56,34 @@ fun CodesListScreen(
         }
     }
 
+    val titleScanned = stringResource(id = R.string.codes_title_scanned, session?.scannedCodes?.size ?: 0)
+    val titleNotScanned = stringResource(
+        id = R.string.codes_title_not_scanned,
+        session?.let { it.codes.size - it.scannedCodes.size } ?: 0
+    )
+    val loadingText = stringResource(id = R.string.loading_session)
+    val noScannedText = stringResource(id = R.string.no_scanned_codes)
+    val noNotScannedText = stringResource(id = R.string.no_not_scanned_codes)
+    val deleteCodeTitle = stringResource(id = R.string.delete_code_title)
+    val deleteCancel = stringResource(id = R.string.delete_cancel)
+    val deleteConfirm = stringResource(id = R.string.delete_confirm)
+    val deleteSuccess = stringResource(id = R.string.delete_code_success)
+    val deleteFailed = stringResource(id = R.string.delete_code_failed)
+    val deleteError = stringResource(id = R.string.delete_code_error)
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        when (type) {
-                            "scanned" -> "Отсканированные (${session?.scannedCodes?.size ?: 0})"
-                            else -> "Неотсканированные (${session?.let { it.codes.size - it.scannedCodes.size } ?: 0})"
-                        }
+                        text = if (type == "scanned") titleScanned else titleNotScanned
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Назад"
+                            contentDescription = stringResource(id = R.string.cd_back)
                         )
                     }
                 }
@@ -85,7 +99,7 @@ fun CodesListScreen(
 
             if (session == null) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Загрузка сессии...")
+                    Text(loadingText)
                 }
                 return@Box
             }
@@ -99,7 +113,7 @@ fun CodesListScreen(
             if (codes.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (type == "scanned") "Нет отсканированных кодов" else "Нет неотсканированных кодов"
+                        text = if (type == "scanned") noScannedText else noNotScannedText
                     )
                 }
             } else {
@@ -109,7 +123,7 @@ fun CodesListScreen(
                         .padding(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(codes) { code ->
+                    items(items = codes, key = { it }) { code ->
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier = Modifier
@@ -136,7 +150,7 @@ fun CodesListScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
-                                        contentDescription = "Удалить код"
+                                        contentDescription = stringResource(id = R.string.cd_delete_code)
                                     )
                                 }
                             }
@@ -146,14 +160,16 @@ fun CodesListScreen(
             }
 
             if (codeToDelete != null) {
+                // безопасно разворачиваем nullable для stringResource
+                val previewCode = codeToDelete ?: ""
                 AlertDialog(
                     onDismissRequest = { codeToDelete = null },
                     title = {
-                        Text("Удалить код?", style = MaterialTheme.typography.headlineSmall)
+                        Text(deleteCodeTitle, style = MaterialTheme.typography.headlineSmall)
                     },
                     text = {
                         Text(
-                            "Вы уверены, что хотите удалить этот код?\n\n${codeToDelete}",
+                            stringResource(id = R.string.delete_code_confirm_with_value, previewCode),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     },
@@ -163,7 +179,7 @@ fun CodesListScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Button(onClick = { codeToDelete = null }) {
-                                Text("Отмена")
+                                Text(deleteCancel)
                             }
                             Button(onClick = {
                                 val code = codeToDelete!!
@@ -197,24 +213,22 @@ fun CodesListScreen(
                                         if (updated != null) {
                                             session = updated
                                             codeToDelete = null
-                                            snackbarHostState.showSnackbar("Код удалён")
+                                            snackbarHostState.showSnackbar(deleteSuccess)
                                         } else {
                                             codeToDelete = null
-                                            snackbarHostState.showSnackbar("Не удалось удалить код")
+                                            snackbarHostState.showSnackbar(deleteFailed)
                                         }
                                     } catch (t: Throwable) {
                                         codeToDelete = null
-                                        snackbarHostState.showSnackbar("Ошибка при удалении: ${t.message}")
+                                        snackbarHostState.showSnackbar("$deleteError: ${t.message}")
                                     }
                                 }
                             }) {
-                                Text("Удалить")
+                                Text(deleteConfirm)
                             }
                         }
                     },
-                    // мы уже используем Row в confirmButton, dismissButton не нужен отдельно
-                    // но чтобы API не ругался, передаём пустую реализацию
-                    dismissButton = { /* пусто, используем кнопку "Отмена" в confirmButton Row */ }
+                    dismissButton = { /* empty — used custom Cancel above */ }
                 )
             }
         }

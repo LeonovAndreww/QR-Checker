@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +34,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.datools.qrchecker.R
 import com.datools.qrchecker.data.SessionRepository
@@ -74,14 +74,13 @@ fun EditSessionScreen(
     // confirmation dialog when replacing codes
     var showReplaceConfirm by remember { mutableStateOf(false) }
 
-    // document picker (like in CreateSessionScreen)
     val documentPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         selectedPdfUriString = uri.toString()
         selectedPdfName = getFileNameFromUri(uri, context)
-        // parse in background
+        // parse in background — здесь НЕ используем stringResource; используем context.getString в случае ошибок
         scope.launch {
             isLoading = true
             errorMessage = null
@@ -92,7 +91,7 @@ fun EditSessionScreen(
                 parsedCodes = codes
             } catch (t: Throwable) {
                 parsedCodes = emptyList()
-                errorMessage = "Ошибка парсинга PDF: ${t.message}"
+                errorMessage = context.getString(R.string.error_parsing_pdf, t.message ?: "")
                 Log.e("EditSession", "parse error", t)
             } finally {
                 isLoading = false
@@ -112,11 +111,22 @@ fun EditSessionScreen(
                 navController.popBackStack()
             }
         } catch (t: Throwable) {
-            errorMessage = "Не удалось загрузить сессию: ${t.message}"
+            errorMessage = context.getString(R.string.error_loading_session, t.message ?: "")
         } finally {
             isLoading = false
         }
     }
+
+    // strings for UI (safe to call stringResource here)
+    val titleText = stringResource(id = R.string.setup_session_title)
+    val nameLabel = stringResource(id = R.string.session_name_label)
+    val selectPdfLabel = stringResource(id = R.string.select_pdf_label)
+    val pdfIconDesc = stringResource(id = R.string.cd_pdf_icon)
+    val cancelText = stringResource(id = R.string.delete_cancel)
+    val saveText = stringResource(id = R.string.save_button)
+    val replacingTitle = stringResource(id = R.string.replace_codes_title)
+    val replaceAndSaveText = stringResource(id = R.string.replace_and_save)
+    val parsingText = stringResource(id = R.string.parsing_pdf)
 
     Scaffold { innerPadding ->
         Column(
@@ -128,7 +138,7 @@ fun EditSessionScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Настройка сессии",
+                text = titleText,
                 style = MaterialTheme.typography.displaySmall,
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
@@ -139,7 +149,7 @@ fun EditSessionScreen(
             TextField(
                 value = name,
                 onValueChange = { v -> name = v.filterNot { it == '\n' } },
-                label = { Text("Имя сессии") },
+                label = { Text(nameLabel) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(72.dp)
@@ -147,14 +157,12 @@ fun EditSessionScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // PDF picker button: same visual weight as CreateSessionScreen
             Button(
                 onClick = { documentPicker.launch(arrayOf("application/pdf")) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(72.dp),
-                shape = MaterialTheme.shapes.small,
-                colors = ButtonDefaults.buttonColors()
+                shape = MaterialTheme.shapes.small
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -163,12 +171,11 @@ fun EditSessionScreen(
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.pdf_icon),
-                        contentDescription = "PDF Icon"
+                        contentDescription = pdfIconDesc
                     )
 
-                    // Filename — right aligned on the button (no duplicate below)
                     Text(
-                        text = selectedPdfName.ifEmpty { "Выбрать PDF файл" },
+                        text = selectedPdfName.ifEmpty { selectPdfLabel },
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         textAlign = TextAlign.End,
@@ -189,18 +196,18 @@ fun EditSessionScreen(
                 val origCount = original?.codes?.size ?: 0
                 val selectedCountText = when {
                     parsedCodes != null -> parsedCodes!!.size.toString()
-                    selectedPdfName.isNotEmpty() && isLoading -> "Парсинг..."
+                    selectedPdfName.isNotEmpty() && isLoading -> parsingText
                     selectedPdfName.isNotEmpty() -> "..."
                     else -> "—"
                 }
 
                 Text(
-                    text = "Было QR-кодов: $origCount",
+                    text = context.getString(R.string.was_qr_count, origCount),
                     style = MaterialTheme.typography.bodyLarge
                 )
 
                 Text(
-                    text = "Станет QR-кодов: $selectedCountText",
+                    text = context.getString(R.string.will_be_qr_count, selectedCountText),
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.End
                 )
@@ -218,34 +225,31 @@ fun EditSessionScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp), // отступ от низа экрана
+                    .padding(bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
                     onClick = { navController.popBackStack() },
                     modifier = Modifier
                         .weight(1f)
-                        .height(72.dp), // увеличенная высота
+                        .height(72.dp),
                     shape = MaterialTheme.shapes.small
                 ) {
-                    Text("Отмена", style = MaterialTheme.typography.titleMedium)
+                    Text(cancelText)
                 }
 
                 Button(
                     onClick = {
                         val origCodes = original?.codes ?: emptyList()
-                        val newCodes = parsedCodes // may be null
+                        val newCodes = parsedCodes
                         val willReplace = (newCodes != null) && (newCodes != origCodes)
 
                         if (willReplace) {
                             showReplaceConfirm = true
                         } else {
-                            // save straight away
                             scope.launch {
                                 isLoading = true
                                 try {
@@ -260,7 +264,7 @@ fun EditSessionScreen(
                                     repo.update(updated)
                                     navController.popBackStack()
                                 } catch (t: Throwable) {
-                                    errorMessage = "Не удалось сохранить: ${t.message}"
+                                    errorMessage = context.getString(R.string.error_saving_session, t.message ?: "")
                                 } finally {
                                     isLoading = false
                                 }
@@ -273,7 +277,7 @@ fun EditSessionScreen(
                         .height(72.dp),
                     shape = MaterialTheme.shapes.small
                 ) {
-                    Text("Сохранить", style = MaterialTheme.typography.titleMedium)
+                    Text(saveText)
                 }
             }
         }
@@ -288,12 +292,12 @@ fun EditSessionScreen(
 
         AlertDialog(
             onDismissRequest = { showReplaceConfirm = false },
-            title = { Text("Заменить коды из PDF?") },
+            title = { Text(replacingTitle) },
             text = {
+                // используем context.getString чтобы заполнить параметры
+                val extra = if (willRemove > 0) "\n$willRemove ${context.getString(R.string.removed_scanned_count_suffix)}" else ""
                 Text(
-                    "При замене список кодов обновится.\n" +
-                            "Отсканированные коды, которые присутствуют в новом PDF, сохранятся ($willKeep)." +
-                            if (willRemove > 0) "\n$willRemove отсканированных кодов будет удалено." else ""
+                    text = context.getString(R.string.replace_codes_summary, willKeep, extra)
                 )
             },
             confirmButton = {
@@ -302,10 +306,9 @@ fun EditSessionScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Button(onClick = { showReplaceConfirm = false }) {
-                        Text("Отмена")
+                        Text(cancelText)
                     }
                     Button(onClick = {
-                        // perform replacement + save (keep intersection for scannedCodes)
                         showReplaceConfirm = false
                         scope.launch {
                             isLoading = true
@@ -321,13 +324,13 @@ fun EditSessionScreen(
                                 repo.update(updated)
                                 navController.popBackStack()
                             } catch (t: Throwable) {
-                                errorMessage = "Не удалось сохранить: ${t.message}"
+                                errorMessage = context.getString(R.string.error_saving_session, t.message ?: "")
                             } finally {
                                 isLoading = false
                             }
                         }
                     }) {
-                        Text("Заменить и сохранить")
+                        Text(replaceAndSaveText)
                     }
                 }
             }

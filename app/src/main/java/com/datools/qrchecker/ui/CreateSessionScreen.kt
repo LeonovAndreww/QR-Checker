@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -60,7 +61,7 @@ fun CreateSessionScreen(navController: NavController) {
         }
     )
 
-    // получаем ViewModel (SavedStateHandle конструктор уже совместим)
+    // получаем ViewModel
     val scanViewModel: ScanViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 
     val isLoading by remember { derivedStateOf { scanViewModel.isLoading.value } }
@@ -69,13 +70,18 @@ fun CreateSessionScreen(navController: NavController) {
     // Навигация: как только createdSessionId заполнится — идём на экран Scan
     LaunchedEffect(createdSessionId) {
         createdSessionId?.let { id ->
-            // устанавливаем имя в savedStateHandle (как раньше)
             navController.currentBackStackEntry?.savedStateHandle?.set("sessionName", sessionName)
             navController.navigate(Screen.Scan.createRoute(id))
-            // очистим, чтобы не сработало повторно при пересоздании
             scanViewModel.clearCreatedSessionId()
         }
     }
+
+    val titleText = stringResource(id = R.string.setup_session_title)
+    val nameLabel = stringResource(id = R.string.session_name_label)
+    val addPdfLabel = stringResource(id = R.string.add_pdf_label)
+    val continueText = stringResource(id = R.string.continue_button)
+    val parsingText = stringResource(id = R.string.parsing_pdf)
+    val pdfIconDesc = stringResource(id = R.string.cd_pdf_icon)
 
     Scaffold { innerPadding ->
         Column(
@@ -86,7 +92,7 @@ fun CreateSessionScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Настройка сессии",
+                text = titleText,
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.displaySmall,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -102,7 +108,7 @@ fun CreateSessionScreen(navController: NavController) {
                         sessionName = filtered
                     }
                 },
-                label = { Text("Имя сессии") },
+                label = { Text(nameLabel) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
@@ -126,10 +132,10 @@ fun CreateSessionScreen(navController: NavController) {
                 ) {
                     Image(
                         painter = painterResource(R.drawable.pdf_icon),
-                        contentDescription = "PDF Icon"
+                        contentDescription = pdfIconDesc
                     )
                     Text(
-                        text = selectedPdfName.ifEmpty { "Добавить PDF файл" },
+                        text = selectedPdfName.ifEmpty { addPdfLabel },
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -139,13 +145,10 @@ fun CreateSessionScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Кнопка теперь вызывает ViewModel, а не parsePdfForQRCodes напрямую
             Button(
                 onClick = {
                     selectedPdfUriString?.let { uriStr ->
                         val pdfUri = uriStr.toUri()
-                        // вызываем ViewModel — он сделает парсинг и сохранит сессию,
-                        // а затем выставит createdSessionId -> LaunchedEffect выше навигирует
                         scanViewModel.createSessionFromPdf(context, sessionName, pdfUri)
                     }
                 },
@@ -160,9 +163,9 @@ fun CreateSessionScreen(navController: NavController) {
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text("Парсинг PDF...")
+                    Text(parsingText)
                 } else {
-                    Text("Продолжить", style = MaterialTheme.typography.titleMedium)
+                    Text(continueText, style = MaterialTheme.typography.titleMedium)
                 }
             }
         }

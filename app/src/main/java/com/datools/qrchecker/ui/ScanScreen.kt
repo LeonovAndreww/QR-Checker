@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.google.zxing.*
 import com.google.zxing.common.HybridBinarizer
+import com.datools.qrchecker.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +81,7 @@ fun ScanScreen(
 
     if (session == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Сессия не найдена")
+            Text(stringResource(id = R.string.session_not_found))
         }
         return
     }
@@ -98,7 +100,16 @@ fun ScanScreen(
     var lastFeedbackAt by remember { mutableLongStateOf(0L) }
     val cooldownMs = 1000L
     val displayMs = 1200L
-    var lastShownCode by remember { mutableStateOf<String?>(null) } // чтобы не дублить по одному и тому же коду
+    var lastShownCode by remember { mutableStateOf<String?>(null) }
+
+    // localized strings
+    val alreadyScannedMsg = stringResource(id = R.string.msg_already_scanned)
+    val scannedMsg = stringResource(id = R.string.msg_scanned)
+    val notFoundMsg = stringResource(id = R.string.msg_not_in_list)
+    val scannedButtonText = stringResource(id = R.string.btn_scanned)
+    val notScannedButtonText = stringResource(id = R.string.btn_not_scanned)
+    val progressText = stringResource(id = R.string.progress_format, scannedCount, totalCount)
+    val noCameraPermissionText = stringResource(id = R.string.no_camera_permission)
 
     fun showFeedback(message: String, color: Color, vibrMs: Long = 40L, code: String? = null) {
         val now = System.currentTimeMillis()
@@ -118,7 +129,6 @@ fun ScanScreen(
         feedback = UiFeedback(message, color, vibrMs, code)
 
         try {
-            // проверяем hasVibrator() перед вызовом
             vibrator?.takeIf { if (Build.VERSION.SDK_INT >= 26) it.hasVibrator() else true }?.let {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     it.vibrate(VibrationEffect.createOneShot(vibrMs, VibrationEffect.DEFAULT_AMPLITUDE))
@@ -133,7 +143,8 @@ fun ScanScreen(
 
         scope.launch {
             delay(displayMs)
-            feedback = null
+            // сбрасываем только если это то же самое уведомление (защищаем от смещений)
+            if (feedback?.code == code) feedback = null
         }
     }
     // ----------------------------
@@ -170,15 +181,8 @@ fun ScanScreen(
                                     if (normalizedCode in session!!.codes) {
                                         // 1a) already scanned?
                                         if (normalizedCode in session!!.scannedCodes) {
-                                            // already scanned -> warning (orange)
-                                            showFeedback(
-                                                message = "Код уже был отсканирован ранее",
-                                                color = Color(0xFFFFA000),
-                                                vibrMs = 30L,
-                                                code = normalizedCode
-                                            )
+                                            showFeedback(alreadyScannedMsg, Color(0xFFFFA000), 30L, normalizedCode)
                                         } else {
-                                            // new scan -> add and success (green)
                                             val newScanned = session!!.scannedCodes + normalizedCode
                                             val updatedSession = session!!.copy(scannedCodes = newScanned)
                                             session = updatedSession
@@ -192,22 +196,11 @@ fun ScanScreen(
                                                 }
                                             }
 
-                                            showFeedback(
-                                                message = "Успешно отсканировано",
-                                                color = Color(0xFF2E7D32),
-                                                vibrMs = 60L,
-                                                code = normalizedCode
-                                            )
+                                            showFeedback(scannedMsg, Color(0xFF2E7D32), 60L, normalizedCode)
                                             Log.d("ScanScreen", "Найден новый QR: $normalizedCode")
                                         }
                                     } else {
-                                        // not in list -> error (red)
-                                        showFeedback(
-                                            message = "Код не найден в списке",
-                                            color = Color(0xFFD32F2F),
-                                            vibrMs = 120L,
-                                            code = normalizedCode
-                                        )
+                                        showFeedback(notFoundMsg, Color(0xFFD32F2F), 120L, normalizedCode)
                                     }
                                 }
                             )
@@ -231,7 +224,7 @@ fun ScanScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // title
+            // title (session name)
             Text(
                 session!!.name,
                 modifier = Modifier
@@ -264,19 +257,18 @@ fun ScanScreen(
                     shape = MaterialTheme.shapes.small
                 ) {
                     Text(
-                        text = "Отсканированные",
+                        text = scannedButtonText,
                         maxLines = 1,
-                        ///overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
 
                 Text(
-                    text = "Прогресс:\n$scannedCount / $totalCount",
+                    text = progressText,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyLarge,
-                    //modifier = Modifier.width(120.dp)
+                    modifier = Modifier.padding(horizontal = 8.dp)
                 )
 
                 Button(
@@ -295,7 +287,7 @@ fun ScanScreen(
                     shape = MaterialTheme.shapes.small
                 ) {
                     Text(
-                        text = "Неотсканированные",
+                        text = notScannedButtonText,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center,
@@ -306,7 +298,7 @@ fun ScanScreen(
 
             if (!hasPermission) {
                 Text(
-                    text = "Не предоставлен доступ к камере",
+                    text = noCameraPermissionText,
                     modifier = Modifier
                         .align(Alignment.Center)
                         .padding(bottom = padding.calculateBottomPadding() + 4.dp),
@@ -315,19 +307,7 @@ fun ScanScreen(
                 )
             }
 
-            // permission text
-            if (!hasPermission) {
-                Text(
-                    text = "Не предоставлен доступ к камере",
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(bottom = padding.calculateBottomPadding() + 4.dp),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.displayMedium
-                )
-            }
-
-            // FEEDBACK OVERLAY (animated) — контролируем через visible = feedback != null
+            // FEEDBACK OVERLAY (animated)
             AnimatedVisibility(
                 visible = feedback != null,
                 enter = fadeIn(),
@@ -336,7 +316,7 @@ fun ScanScreen(
                     .align(Alignment.TopCenter)
                     .padding(top = padding.calculateTopPadding() + 64.dp)
             ) {
-                val f = feedback // snapshot
+                val f = feedback
                 if (f != null) {
                     Box(
                         modifier = Modifier
@@ -362,7 +342,7 @@ fun ScanScreen(
 }
 
 /**
- * Analyzer — оставил как у тебя, он возвращает ZXing Result в callback.
+ * Analyzer — возвращает ZXing Result в callback.
  */
 class ZxingQrCodeAnalyzer(
     private val onQrCodesDetected: (Result) -> Unit
