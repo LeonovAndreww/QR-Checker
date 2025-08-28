@@ -1,68 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">QR Checker</string>
 
     <!-- HomeScreen -->
-    <string name="fab_new_session">Новая сессия</string>
-    <string name="sessions_title">Сессии</string>
+    <string name="fab_new_session">New session</string>
+    <string name="sessions_title">Sessions</string>
 
     <!-- common content descriptions -->
-    <string name="cd_edit">Редактировать</string>
-    <string name="cd_delete">Удалить</string>
-    <string name="cd_new_session">Новая сессия</string>
-    <string name="cd_back">Назад</string>
-    <string name="cd_delete_code">Удалить код</string>
-    <string name="cd_pdf_icon">PDF Icon</string>
+    <string name="cd_edit">Edit</string>
+    <string name="cd_delete">Delete</string>
+    <string name="cd_new_session">New session</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_delete_code">Delete code</string>
+    <string name="cd_pdf_icon">PDF icon</string>
 
     <!-- Home dialog -->
-    <string name="delete_session_title">Удалить сессию?</string>
-    <string name="delete_session_confirm">Вы уверены, что хотите удалить "%1$s"?</string>
-    <string name="delete_cancel">Отмена</string>
-    <string name="delete_confirm">Удалить</string>
+    <string name="delete_session_title">Delete session?</string>
+    <string name="delete_session_confirm">Are you sure you want to delete &quot;%1$s&quot;?</string>
+    <string name="delete_cancel">Cancel</string>
+    <string name="delete_confirm">Delete</string>
 
     <!-- CodesListScreen -->
-    <string name="codes_title_scanned">Отсканированные (%1$d)</string>
-    <string name="codes_title_not_scanned">Неотсканированные (%1$d)</string>
-    <string name="loading_session">Загрузка сессии…</string>
-    <string name="no_scanned_codes">Нет отсканированных кодов</string>
-    <string name="no_not_scanned_codes">Нет неотсканированных кодов</string>
-    <string name="delete_code_title">Удалить код?</string>
-    <string name="delete_code_confirm_with_value">Вы уверены, что хотите удалить этот код?\n\n%1$s</string>
-    <string name="delete_code_success">Код удалён</string>
-    <string name="delete_code_failed">Не удалось удалить код</string>
-    <string name="delete_code_error">Ошибка при удалении</string>
+    <string name="codes_title_scanned">Scanned (%1$d)</string>
+    <string name="codes_title_not_scanned">Not scanned (%1$d)</string>
+    <string name="loading_session">Loading session…</string>
+    <string name="no_scanned_codes">No scanned codes</string>
+    <string name="no_not_scanned_codes">No unscanned codes</string>
+    <string name="delete_code_title">Delete code?</string>
+    <string name="delete_code_confirm_with_value">Are you sure you want to delete this code?\n\n%1$s</string>
+    <string name="delete_code_success">Code deleted</string>
+    <string name="delete_code_failed">Failed to delete code</string>
+    <string name="delete_code_error">Error while deleting</string>
 
     <!-- CreateSessionScreen -->
-    <string name="setup_session_title">Настройка сессии</string>
-    <string name="session_name_label">Имя сессии</string>
-    <string name="add_pdf_label">Добавить PDF файл</string>
-    <string name="parsing_pdf">Парсинг PDF…</string>
-    <string name="continue_button">Продолжить</string>
+    <string name="setup_session_title">Session setup</string>
+    <string name="session_name_label">Session name</string>
+    <string name="add_pdf_label">Add PDF file</string>
+    <string name="parsing_pdf">Parsing PDF…</string>
+    <string name="continue_button">Continue</string>
 
     <!-- EditSessionScreen -->
-    <string name="select_pdf_label">Выбрать PDF файл</string>
-    <string name="was_qr_count">Было QR-кодов: %1$d</string>
-    <string name="will_be_qr_count">Станет QR-кодов: %1$s</string>
-    <string name="error_parsing_pdf">Ошибка парсинга PDF: %1$s</string>
-    <string name="error_loading_session">Не удалось загрузить сессию: %1$s</string>
-    <string name="error_saving_session">Не удалось сохранить: %1$s</string>
-    <string name="save_button">Сохранить</string>
-    <string name="removed_scanned_count_suffix">отсканированных кодов будет удалено.</string>
+    <string name="select_pdf_label">Select PDF file</string>
+    <string name="was_qr_count">Original QR count: %1$d</string>
+    <string name="will_be_qr_count">Resulting QR count: %1$s</string>
+    <string name="error_parsing_pdf">PDF parsing error: %1$s</string>
+    <string name="error_loading_session">Failed to load session: %1$s</string>
+    <string name="error_saving_session">Failed to save: %1$s</string>
+    <string name="save_button">Save</string>
+    <string name="removed_scanned_count_suffix">scanned codes will be removed.</string>
 
-    <string name="replace_codes_title">Заменить коды из PDF?</string>
-    <string name="replace_codes_summary">При замене список кодов обновится.\nОтсканированные коды, которые присутствуют в новом PDF, сохранятся (%1$d).%2$s</string>
-    <!-- helper: %2$s should be either empty or text like "\nX отсканированных кодов будет удалено." -->
-    <string name="replace_and_save">Заменить и сохранить</string>
+    <string name="replace_codes_title">Replace codes from PDF?</string>
+    <string name="replace_codes_summary">If replaced, the code list will be updated.\nScanned codes that are present in the new PDF will be kept (%1$d).%2$s</string>
+    <!-- helper: %2$s should be either empty or text like "\nX scanned codes will be removed." -->
+    <string name="replace_and_save">Replace and save</string>
 
     <!-- ScanScreen -->
-    <string name="session_not_found">Сессия не найдена</string>
-    <string name="msg_already_scanned">Код уже был отсканирован ранее</string>
-    <string name="msg_scanned">Успешно отсканировано</string>
-    <string name="msg_not_in_list">Код не найден в списке</string>
-    <string name="btn_scanned">Отсканированные</string>
-    <string name="btn_not_scanned">Неотсканированные</string>
-    <string name="progress_format">Прогресс:\n%1$d / %2$d</string>
-    <string name="no_camera_permission">Не предоставлен доступ к камере</string>
+    <string name="session_not_found">Session not found</string>
+    <string name="msg_already_scanned">This code was already scanned</string>
+    <string name="msg_scanned">Scanned successfully</string>
+    <string name="msg_not_in_list">Code not found in the list</string>
+    <string name="btn_scanned">Scanned</string>
+    <string name="btn_not_scanned">Not scanned</string>
+    <string name="progress_format">Progress:\n%1$d / %2$d</string>
+    <string name="no_camera_permission">Camera permission is not granted</string>
 
     <!-- generic -->
-    <string name="cd_delete_code_short">Удалить</string>
+    <string name="cd_delete_code_short">Delete</string>
 </resources>

@@ -1,0 +1,66 @@
+<resources>
+    <!-- HomeScreen -->
+    <string name="fab_new_session">Новая сессия</string>
+    <string name="sessions_title">Сессии</string>
+
+    <!-- common content descriptions -->
+    <string name="cd_edit">Редактировать</string>
+    <string name="cd_delete">Удалить</string>
+    <string name="cd_new_session">Новая сессия</string>
+    <string name="cd_back">Назад</string>
+    <string name="cd_delete_code">Удалить код</string>
+    <string name="cd_pdf_icon">PDF Icon</string>
+
+    <!-- Home dialog -->
+    <string name="delete_session_title">Удалить сессию?</string>
+    <string name="delete_session_confirm">Вы уверены, что хотите удалить "%1$s"?</string>
+    <string name="delete_cancel">Отмена</string>
+    <string name="delete_confirm">Удалить</string>
+
+    <!-- CodesListScreen -->
+    <string name="codes_title_scanned">Отсканированные (%1$d)</string>
+    <string name="codes_title_not_scanned">Неотсканированные (%1$d)</string>
+    <string name="loading_session">Загрузка сессии…</string>
+    <string name="no_scanned_codes">Нет отсканированных кодов</string>
+    <string name="no_not_scanned_codes">Нет неотсканированных кодов</string>
+    <string name="delete_code_title">Удалить код?</string>
+    <string name="delete_code_confirm_with_value">Вы уверены, что хотите удалить этот код?\n\n%1$s</string>
+    <string name="delete_code_success">Код удалён</string>
+    <string name="delete_code_failed">Не удалось удалить код</string>
+    <string name="delete_code_error">Ошибка при удалении</string>
+
+    <!-- CreateSessionScreen -->
+    <string name="setup_session_title">Настройка сессии</string>
+    <string name="session_name_label">Имя сессии</string>
+    <string name="add_pdf_label">Добавить PDF файл</string>
+    <string name="parsing_pdf">Парсинг PDF…</string>
+    <string name="continue_button">Продолжить</string>
+
+    <!-- EditSessionScreen -->
+    <string name="select_pdf_label">Выбрать PDF файл</string>
+    <string name="was_qr_count">Было QR-кодов: %1$d</string>
+    <string name="will_be_qr_count">Станет QR-кодов: %1$s</string>
+    <string name="error_parsing_pdf">Ошибка парсинга PDF: %1$s</string>
+    <string name="error_loading_session">Не удалось загрузить сессию: %1$s</string>
+    <string name="error_saving_session">Не удалось сохранить: %1$s</string>
+    <string name="save_button">Сохранить</string>
+    <string name="removed_scanned_count_suffix">отсканированных кодов будет удалено.</string>
+
+    <string name="replace_codes_title">Заменить коды из PDF?</string>
+    <string name="replace_codes_summary">При замене список кодов обновится.\nОтсканированные коды, которые присутствуют в новом PDF, сохранятся (%1$d).%2$s</string>
+    <!-- helper: %2$s should be either empty or text like "\nX отсканированных кодов будет удалено." -->
+    <string name="replace_and_save">Заменить и сохранить</string>
+
+    <!-- ScanScreen -->
+    <string name="session_not_found">Сессия не найдена</string>
+    <string name="msg_already_scanned">Код уже был отсканирован ранее</string>
+    <string name="msg_scanned">Успешно отсканировано</string>
+    <string name="msg_not_in_list">Код не найден в списке</string>
+    <string name="btn_scanned">Отсканированные</string>
+    <string name="btn_not_scanned">Неотсканированные</string>
+    <string name="progress_format">Прогресс:\n%1$d / %2$d</string>
+    <string name="no_camera_permission">Не предоставлен доступ к камере</string>
+
+    <!-- generic -->
+    <string name="cd_delete_code_short">Удалить</string>
+</resources>
