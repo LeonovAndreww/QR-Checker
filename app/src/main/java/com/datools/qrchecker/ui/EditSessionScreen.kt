@@ -61,7 +61,7 @@ fun EditSessionScreen(
     var name by remember { mutableStateOf("") }
 
     // file picker states
-    var selectedPdfUriString by remember { mutableStateOf<String?>(null) }
+    //var selectedPdfUriString by remember { mutableStateOf<String?>(null) }
     var selectedPdfName by remember { mutableStateOf("") }
 
     // parsed codes from newly selected PDF (null = nothing selected, empty list = parsed but no codes)
@@ -78,7 +78,7 @@ fun EditSessionScreen(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        selectedPdfUriString = uri.toString()
+        //selectedPdfUriString = uri.toString()
         selectedPdfName = getFileNameFromUri(uri, context)
         // parse in background — здесь НЕ используем stringResource; используем context.getString в случае ошибок
         scope.launch {
