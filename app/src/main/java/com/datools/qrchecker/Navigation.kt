@@ -35,20 +35,20 @@ sealed class Screen(val route: String) {
 
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route
+            startDestination = Home.route
         ) {
             // Главный экран
-            composable(Screen.Home.route) {
+            composable(Home.route) {
                 HomeScreen(navController = navController)
             }
 
             // Экран создания сессии
-            composable(Screen.CreateSession.route) {
+            composable(CreateSession.route) {
                 CreateSessionScreen(navController = navController)
             }
 
             // Экран сканирования
-            composable(route = Screen.Scan.route) { backStackEntry ->
+            composable(route = Scan.route) { backStackEntry ->
                 val sessionId = backStackEntry.arguments?.getString("sessionId")
                 if (sessionId != null) {
                     ScanScreen(navController = navController, sessionId = sessionId)
@@ -57,7 +57,7 @@ sealed class Screen(val route: String) {
                 }
             }
 
-            composable(route = Screen.EditSession.route) { backStackEntry ->
+            composable(route = EditSession.route) { backStackEntry ->
                 val sessionId = backStackEntry.arguments?.getString("sessionId")
                 if (sessionId != null) {
                     EditSessionScreen(navController = navController, sessionId = sessionId)
@@ -66,7 +66,7 @@ sealed class Screen(val route: String) {
                 }
             }
             composable(
-                route = Screen.CodesList.route,
+                route = CodesList.route,
                 arguments = listOf(
                     navArgument("sessionId") { type = NavType.StringType },
                     navArgument("type") { type = NavType.StringType }
