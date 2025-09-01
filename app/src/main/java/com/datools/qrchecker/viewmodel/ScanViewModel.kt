@@ -43,10 +43,6 @@ class ScanViewModel(private val state: SavedStateHandle) : ViewModel() {
         state["pdfUri"] = uri?.toString()
     }
 
-    /**
-     * Запускает парсинг PDF (внутри ViewModel).
-     * По завершении создаёт SessionData, сохраняет через SessionManager и выставляет createdSessionId.
-     */
     fun createSessionFromPdf(context: Context, sessionNameStr: String, uri: Uri, scale: Int = 3) {
         _isLoading.value = true
         _qrList.clear()
