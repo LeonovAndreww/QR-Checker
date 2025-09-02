@@ -77,7 +77,7 @@ suspend fun parsePdfForQRCodes(
                             qrCodes.add(text)
                         }
 
-                    //Log.d("LogCat", "Found QR on page $pageIndex: $text")
+                        //Log.d("LogCat", "Found QR on page $pageIndex: $text")
 
                     } catch (_: NotFoundException) {
                         Log.d("LogCat", "QR not found on page $pageIndex")
@@ -94,7 +94,8 @@ suspend fun parsePdfForQRCodes(
     } finally {
         try {
             tempFile.delete()
-        } catch (_: Throwable) { /* ignore */ }
+        } catch (_: Throwable) { /* ignore */
+        }
     }
 
     qrCodes.distinct()

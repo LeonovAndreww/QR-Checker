@@ -43,6 +43,7 @@ import com.datools.qrchecker.data.room.SessionEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+
 @Composable
 fun HomeScreen(navController: NavController) {
     val context = LocalContext.current

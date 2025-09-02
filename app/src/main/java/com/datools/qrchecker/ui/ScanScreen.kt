@@ -43,6 +43,9 @@ import kotlinx.coroutines.launch
 import com.google.zxing.*
 import com.google.zxing.common.HybridBinarizer
 import com.datools.qrchecker.R
+import com.datools.qrchecker.ui.theme.Success
+import com.datools.qrchecker.ui.theme.Warning
+import com.datools.qrchecker.ui.theme.Error
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,7 +93,12 @@ fun ScanScreen(
     val totalCount = session!!.codes.size
 
     // ----- FEEDBACK STATE -----
-    data class UiFeedback(val message: String, val color: Color, val vibrationMs: Long, val code: String?)
+    data class UiFeedback(
+        val message: String,
+        val color: Color,
+        val vibrationMs: Long,
+        val code: String?
+    )
 
     var feedback by remember { mutableStateOf<UiFeedback?>(null) }
     val scope = rememberCoroutineScope()
@@ -131,7 +139,12 @@ fun ScanScreen(
         try {
             vibrator?.takeIf { if (Build.VERSION.SDK_INT >= 26) it.hasVibrator() else true }?.let {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    it.vibrate(VibrationEffect.createOneShot(vibrMs, VibrationEffect.DEFAULT_AMPLITUDE))
+                    it.vibrate(
+                        VibrationEffect.createOneShot(
+                            vibrMs,
+                            VibrationEffect.DEFAULT_AMPLITUDE
+                        )
+                    )
                 } else {
                     @Suppress("DEPRECATION")
                     it.vibrate(vibrMs)
@@ -181,10 +194,16 @@ fun ScanScreen(
                                     if (normalizedCode in session!!.codes) {
                                         // 1a) already scanned?
                                         if (normalizedCode in session!!.scannedCodes) {
-                                            showFeedback(alreadyScannedMsg, Color(0xFFFFA000), 30L, normalizedCode)
+                                            showFeedback(
+                                                alreadyScannedMsg,
+                                                Warning,
+                                                30L,
+                                                normalizedCode
+                                            )
                                         } else {
                                             val newScanned = session!!.scannedCodes + normalizedCode
-                                            val updatedSession = session!!.copy(scannedCodes = newScanned)
+                                            val updatedSession =
+                                                session!!.copy(scannedCodes = newScanned)
                                             session = updatedSession
 
                                             // save in DB
@@ -196,11 +215,21 @@ fun ScanScreen(
                                                 }
                                             }
 
-                                            showFeedback(scannedMsg, Color(0xFF2E7D32), 60L, normalizedCode)
+                                            showFeedback(
+                                                scannedMsg,
+                                                Success,
+                                                60L,
+                                                normalizedCode
+                                            )
                                             Log.d("ScanScreen", "Найден новый QR: $normalizedCode")
                                         }
                                     } else {
-                                        showFeedback(notFoundMsg, Color(0xFFD32F2F), 120L, normalizedCode)
+                                        showFeedback(
+                                            notFoundMsg,
+                                            Error,
+                                            120L,
+                                            normalizedCode
+                                        )
                                     }
                                 }
                             )
