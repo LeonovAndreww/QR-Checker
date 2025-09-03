@@ -12,7 +12,7 @@ import com.datools.qrchecker.ui.EditSessionScreen
 import com.datools.qrchecker.ui.HomeScreen
 import com.datools.qrchecker.ui.ScanScreen
 
-// Определим имена маршрутов (routes) для навигации
+// Set of all screens (routes) for navigation
 sealed class Screen(val route: String) {
     object Home : Screen("home")
     object CreateSession : Screen("createSession")
@@ -37,17 +37,17 @@ sealed class Screen(val route: String) {
             navController = navController,
             startDestination = Home.route
         ) {
-            // Главный экран
+            // Main screen
             composable(Home.route) {
                 HomeScreen(navController = navController)
             }
 
-            // Экран создания сессии
+            // Create session screen
             composable(CreateSession.route) {
                 CreateSessionScreen(navController = navController)
             }
 
-            // Экран сканирования
+            // Scan screen
             composable(route = Scan.route) { backStackEntry ->
                 val sessionId = backStackEntry.arguments?.getString("sessionId")
                 if (sessionId != null) {
@@ -57,6 +57,7 @@ sealed class Screen(val route: String) {
                 }
             }
 
+            // Edit session screen
             composable(route = EditSession.route) { backStackEntry ->
                 val sessionId = backStackEntry.arguments?.getString("sessionId")
                 if (sessionId != null) {

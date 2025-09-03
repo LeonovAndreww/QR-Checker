@@ -29,10 +29,12 @@ class SessionRepository(private val context: Context) {
         return dao.getById(id)?.toModel()
     }
 
+    @Suppress("unused")
     fun getAllFlow(): Flow<List<SessionData>> {
         return dao.getAllFlow().map { list -> list.map { it.toModel() } }
     }
 
+    @Suppress("unused")
     suspend fun delete(session: SessionData) {
         dao.delete(session.toEntity())
     }

@@ -38,7 +38,7 @@ suspend fun parsePdfForQRCodes(
 
         ParcelFileDescriptor.open(tempFile, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
             PdfRenderer(pfd).use { renderer ->
-                Log.d("LogCat", "Всего страниц в PDF: ${renderer.pageCount}")
+                Log.d("LogCat", "Total pages in PDF: ${renderer.pageCount}")
 
                 val reader = MultiFormatReader()
                 for (pageIndex in 0 until renderer.pageCount) {
@@ -51,7 +51,7 @@ suspend fun parsePdfForQRCodes(
                     page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                     page.close()
 
-                    // Сохраняем первые 3 страницы в кеш для визуальной проверки
+                    // Save the first 3 pages to the cache for visual verification
 //                    if (pageIndex < 3) {
 //                        try {
 //                            val outFile = File(context.cacheDir, "pdf_page_${pageIndex}.png")
@@ -71,7 +71,7 @@ suspend fun parsePdfForQRCodes(
                         val source = RGBLuminanceSource(bitmap.width, bitmap.height, px)
                         val binary = BinaryBitmap(HybridBinarizer(source))
 
-                        val result = reader.decode(binary) // может бросить NotFoundException
+                        val result = reader.decode(binary) // can throw NotFoundException
                         val text = result.text.filter { it >= ' ' }
                         if (text.isNotEmpty()) {
                             qrCodes.add(text)

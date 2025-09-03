@@ -122,10 +122,10 @@ fun ScanScreen(
     fun showFeedback(message: String, color: Color, vibrMs: Long = 40L, code: String? = null) {
         val now = System.currentTimeMillis()
 
-        // если уже показывается — не показываем второе (устраняет мерцание)
+        // if something is already being shown - we don't show the new one
         if (feedback != null) return
 
-        // дедупликация по коду + cooldown
+        // code deduplication + cooldown
         if (code != null) {
             if (code == lastShownCode && (now - lastFeedbackAt) < cooldownMs) return
             lastShownCode = code
@@ -151,15 +151,16 @@ fun ScanScreen(
                 }
             }
         } catch (t: Throwable) {
-            Log.w("ScanScreen", "Vibrate failed: ${t.message}")
+            Log.w("LogCat", "Vibrate failed: ${t.message}")
         }
 
         scope.launch {
             delay(displayMs)
-            // сбрасываем только если это то же самое уведомление (защищаем от смещений)
+            // reset only if it is the same feedback
             if (feedback?.code == code) feedback = null
         }
     }
+
     // ----------------------------
 
     Scaffold { padding ->
@@ -211,7 +212,7 @@ fun ScanScreen(
                                                 try {
                                                     repo.update(updatedSession)
                                                 } catch (t: Throwable) {
-                                                    Log.e("ScanScreen", "Can't save session", t)
+                                                    Log.e("LogCat", "Can't save session", t)
                                                 }
                                             }
 
@@ -221,7 +222,7 @@ fun ScanScreen(
                                                 60L,
                                                 normalizedCode
                                             )
-                                            Log.d("ScanScreen", "Найден новый QR: $normalizedCode")
+                                            Log.d("LogCat", "Found new QR: $normalizedCode")
                                         }
                                     } else {
                                         showFeedback(
@@ -244,7 +245,7 @@ fun ScanScreen(
                                 analyzer
                             )
                         } catch (exc: Exception) {
-                            Log.e("ScanScreen", "Ошибка запуска камеры", exc)
+                            Log.e("LogCat", "Camera launch error", exc)
                         }
                     }, ContextCompat.getMainExecutor(ctx))
 
@@ -371,7 +372,7 @@ fun ScanScreen(
 }
 
 /**
- * Analyzer — возвращает ZXing Result в callback.
+ * Analyzer — returns ZXing Result to callback.
  */
 class ZxingQrCodeAnalyzer(
     private val onQrCodesDetected: (Result) -> Unit
@@ -398,12 +399,11 @@ class ZxingQrCodeAnalyzer(
             val width = image.width
             val height = image.height
 
-            // создаём ровный массив Y
             val yData = ByteArray(width * height)
             if (rowStride == width) {
                 yBuffer.get(yData)
             } else {
-                // stride != width — копируем построчно
+                // if stride != width - copy line by line
                 for (row in 0 until height) {
                     yBuffer.position(row * rowStride)
                     yBuffer.get(yData, row * width, width)
@@ -426,7 +426,7 @@ class ZxingQrCodeAnalyzer(
                 val result = reader.decode(binaryBitmap)
                 onQrCodesDetected(result)
             } catch (_: NotFoundException) {
-                // QR не найден
+                // QR code not found
             }
 
         } finally {

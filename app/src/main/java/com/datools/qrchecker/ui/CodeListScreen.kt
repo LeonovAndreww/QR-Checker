@@ -160,7 +160,6 @@ fun CodesListScreen(
             }
 
             if (codeToDelete != null) {
-                // безопасно разворачиваем nullable для stringResource
                 val previewCode = codeToDelete ?: ""
                 AlertDialog(
                     onDismissRequest = { codeToDelete = null },

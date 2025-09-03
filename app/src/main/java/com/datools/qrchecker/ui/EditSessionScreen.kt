@@ -61,7 +61,6 @@ fun EditSessionScreen(
     var name by remember { mutableStateOf("") }
 
     // file picker states
-    //var selectedPdfUriString by remember { mutableStateOf<String?>(null) }
     var selectedPdfName by remember { mutableStateOf("") }
 
     // parsed codes from newly selected PDF (null = nothing selected, empty list = parsed but no codes)
@@ -78,9 +77,7 @@ fun EditSessionScreen(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        //selectedPdfUriString = uri.toString()
         selectedPdfName = getFileNameFromUri(uri, context)
-        // parse in background — здесь НЕ используем stringResource; используем context.getString в случае ошибок
         scope.launch {
             isLoading = true
             errorMessage = null
@@ -264,7 +261,10 @@ fun EditSessionScreen(
                                     repo.update(updated)
                                     navController.popBackStack()
                                 } catch (t: Throwable) {
-                                    errorMessage = context.getString(R.string.error_saving_session, t.message ?: "")
+                                    errorMessage = context.getString(
+                                        R.string.error_saving_session,
+                                        t.message ?: ""
+                                    )
                                 } finally {
                                     isLoading = false
                                 }
@@ -294,8 +294,8 @@ fun EditSessionScreen(
             onDismissRequest = { showReplaceConfirm = false },
             title = { Text(replacingTitle) },
             text = {
-                // используем context.getString чтобы заполнить параметры
-                val extra = if (willRemove > 0) "\n$willRemove ${context.getString(R.string.removed_scanned_count_suffix)}" else ""
+                val extra =
+                    if (willRemove > 0) "\n$willRemove ${context.getString(R.string.removed_scanned_count_suffix)}" else ""
                 Text(
                     text = context.getString(R.string.replace_codes_summary, willKeep, extra)
                 )
@@ -324,7 +324,10 @@ fun EditSessionScreen(
                                 repo.update(updated)
                                 navController.popBackStack()
                             } catch (t: Throwable) {
-                                errorMessage = context.getString(R.string.error_saving_session, t.message ?: "")
+                                errorMessage = context.getString(
+                                    R.string.error_saving_session,
+                                    t.message ?: ""
+                                )
                             } finally {
                                 isLoading = false
                             }

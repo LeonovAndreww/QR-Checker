@@ -27,15 +27,16 @@ class ScanViewModel(private val state: SavedStateHandle) : ViewModel() {
     val isLoading get() = _isLoading
 
     private val _qrList = mutableStateListOf<String>()
+    @Suppress("unused")
     val qrList: List<String> get() = _qrList
 
     private val _errorMessage = mutableStateOf<String?>(null)
+    @Suppress("unused")
     val errorMessage get() = _errorMessage
-
-    // Новое: id только что созданной сессии (null пока не создана)
     private val _createdSessionId = mutableStateOf<String?>(null)
     val createdSessionId: State<String?> get() = _createdSessionId
 
+    @Suppress("unused")
     fun setSession(name: String?, uri: Uri?) {
         sessionName.value = name
         pdfUriString.value = uri?.toString()
@@ -54,16 +55,13 @@ class ScanViewModel(private val state: SavedStateHandle) : ViewModel() {
                 try {
                     parsePdfForQRCodes(context, uri, scale)
                 } catch (e: Exception) {
-                    // сохраняем текст ошибки для UI
                     _errorMessage.value = e.message ?: "Unknown error"
                     emptyList()
                 }
             }
 
-            // результат в state
             _qrList.addAll(codes)
 
-            // создаём и сохраняем сессию — это теперь делает ViewModel
             val sessionId = java.util.UUID.randomUUID().toString()
             val session = SessionData(
                 id = sessionId,
@@ -73,7 +71,6 @@ class ScanViewModel(private val state: SavedStateHandle) : ViewModel() {
             )
             try {
                 val repo = com.datools.qrchecker.data.SessionRepository(context)
-                // если нужно, сначала мигрируем старые prefs (опционально)
                 repo.migrateFromSharedPrefsIfNeeded()
                 repo.insert(session)
                 _createdSessionId.value = sessionId
@@ -85,13 +82,12 @@ class ScanViewModel(private val state: SavedStateHandle) : ViewModel() {
         }
     }
 
-    // очистить значение после навигации (чтобы не навигировать дважды)
+    // clear the value after navigation (to avoid navigating twice)
     fun clearCreatedSessionId() {
         _createdSessionId.value = null
     }
 
     fun scanPdf(context: Context, uri: Uri, scale: Int = 3) {
-        // старый метод можно оставить, но теперь createSessionFromPdf — основной путь для CreateScreen
         _isLoading.value = true
         _qrList.clear()
         _errorMessage.value = null
@@ -110,6 +106,7 @@ class ScanViewModel(private val state: SavedStateHandle) : ViewModel() {
         }
     }
 
+    @Suppress("unused")
     fun startScanIfNeeded(context: Context) {
         pdfUriString.value?.let { uriStr ->
             val uri = uriStr.toUri()

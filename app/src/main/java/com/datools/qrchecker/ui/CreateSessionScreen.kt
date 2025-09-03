@@ -61,13 +61,12 @@ fun CreateSessionScreen(navController: NavController) {
         }
     )
 
-    // получаем ViewModel
+    // getting ViewModel
     val scanViewModel: ScanViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 
     val isLoading by remember { derivedStateOf { scanViewModel.isLoading.value } }
     val createdSessionId by remember { derivedStateOf { scanViewModel.createdSessionId.value } }
 
-    // Навигация: как только createdSessionId заполнится — идём на экран Scan
     LaunchedEffect(createdSessionId) {
         createdSessionId?.let { id ->
             navController.currentBackStackEntry?.savedStateHandle?.set("sessionName", sessionName)
