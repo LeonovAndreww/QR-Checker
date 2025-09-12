@@ -5,7 +5,7 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
-import android.util.Log
+//import android.util.Log
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.NotFoundException
@@ -26,19 +26,19 @@ suspend fun parsePdfForQRCodes(
     val tempFile = File(context.cacheDir, "temp_${System.currentTimeMillis()}.pdf")
 
     try {
-        Log.d("LogCat", "Copying uri to temp file...")
+//        Log.d("LogCat", "Copying uri to temp file...")
         context.contentResolver.openInputStream(uri)?.use { input ->
             FileOutputStream(tempFile).use { output -> input.copyTo(output) }
         } ?: run {
-            Log.e("LogCat", "openInputStream returned null for uri=$uri")
+//            Log.e("LogCat", "openInputStream returned null for uri=$uri")
             return@withContext emptyList()
         }
 
-        Log.d("LogCat", "Temp PDF path: ${tempFile.absolutePath}")
+//        Log.d("LogCat", "Temp PDF path: ${tempFile.absolutePath}")
 
         ParcelFileDescriptor.open(tempFile, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
             PdfRenderer(pfd).use { renderer ->
-                Log.d("LogCat", "Total pages in PDF: ${renderer.pageCount}")
+//                Log.d("LogCat", "Total pages in PDF: ${renderer.pageCount}")
 
                 val reader = MultiFormatReader()
                 for (pageIndex in 0 until renderer.pageCount) {
@@ -80,9 +80,9 @@ suspend fun parsePdfForQRCodes(
                         //Log.d("LogCat", "Found QR on page $pageIndex: $text")
 
                     } catch (_: NotFoundException) {
-                        Log.d("LogCat", "QR not found on page $pageIndex")
+//                        Log.d("LogCat", "QR not found on page $pageIndex")
                     } catch (t: Throwable) {
-                        Log.e("LogCat", "Error decoding QR on page $pageIndex", t)
+//                        Log.e("LogCat", "Error decoding QR on page $pageIndex", t)
                     } finally {
                         bitmap.recycle()
                     }
@@ -90,7 +90,7 @@ suspend fun parsePdfForQRCodes(
             }
         }
     } catch (t: Throwable) {
-        Log.e("LogCat", "Error parsing PDF", t)
+//        Log.e("LogCat", "Error parsing PDF", t)
     } finally {
         try {
             tempFile.delete()
@@ -111,7 +111,7 @@ fun getFileNameFromUri(uri: Uri, context: Context): String {
             }
         }
     } catch (e: Exception) {
-        Log.e("LogCat", "Error getting file name", e)
+//        Log.e("LogCat", "Error getting file name", e)
     }
     return fileName
 }

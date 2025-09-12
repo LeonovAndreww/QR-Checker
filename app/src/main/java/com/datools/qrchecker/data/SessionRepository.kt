@@ -1,7 +1,7 @@
 package com.datools.qrchecker.data
 
 import android.content.Context
-import android.util.Log
+//import android.util.Log
 import com.datools.qrchecker.data.room.AppDatabase
 import com.datools.qrchecker.data.room.SessionEntity
 import com.datools.qrchecker.model.SessionData
@@ -49,7 +49,7 @@ class SessionRepository(private val context: Context) {
                 val old = gson.fromJson(json, SessionData::class.java)
                 if (old != null) dao.insert(old.toEntity())
             } catch (t: Throwable) {
-                Log.w("SessionRepo", "Can't migrate: ${t.message}")
+//                Log.w("LogCat", "Can't migrate: ${t.message}")
             }
         }
         prefs.edit { clear().putBoolean("migrated_to_room", true) }

@@ -5,7 +5,7 @@ import android.graphics.ImageFormat
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.util.Log
+//import android.util.Log
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import androidx.activity.compose.BackHandler
@@ -151,7 +151,7 @@ fun ScanScreen(
                 }
             }
         } catch (t: Throwable) {
-            Log.w("LogCat", "Vibrate failed: ${t.message}")
+//            Log.w("LogCat", "Vibrate failed: ${t.message}")
         }
 
         scope.launch {
@@ -212,7 +212,7 @@ fun ScanScreen(
                                                 try {
                                                     repo.update(updatedSession)
                                                 } catch (t: Throwable) {
-                                                    Log.e("LogCat", "Can't save session", t)
+//                                                    Log.e("LogCat", "Can't save session", t)
                                                 }
                                             }
 
@@ -222,7 +222,7 @@ fun ScanScreen(
                                                 60L,
                                                 normalizedCode
                                             )
-                                            Log.d("LogCat", "Found new QR: $normalizedCode")
+//                                            Log.d("LogCat", "Found new QR: $normalizedCode")
                                         }
                                     } else {
                                         showFeedback(
@@ -245,7 +245,7 @@ fun ScanScreen(
                                 analyzer
                             )
                         } catch (exc: Exception) {
-                            Log.e("LogCat", "Camera launch error", exc)
+//                            Log.e("LogCat", "Camera launch error", exc)
                         }
                     }, ContextCompat.getMainExecutor(ctx))
 

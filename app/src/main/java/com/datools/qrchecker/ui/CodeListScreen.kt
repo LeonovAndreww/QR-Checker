@@ -56,7 +56,8 @@ fun CodesListScreen(
         }
     }
 
-    val titleScanned = stringResource(id = R.string.codes_title_scanned, session?.scannedCodes?.size ?: 0)
+    val titleScanned =
+        stringResource(id = R.string.codes_title_scanned, session?.scannedCodes?.size ?: 0)
     val titleNotScanned = stringResource(
         id = R.string.codes_title_not_scanned,
         session?.let { it.codes.size - it.scannedCodes.size } ?: 0
@@ -168,7 +169,10 @@ fun CodesListScreen(
                     },
                     text = {
                         Text(
-                            stringResource(id = R.string.delete_code_confirm_with_value, previewCode),
+                            stringResource(
+                                id = R.string.delete_code_confirm_with_value,
+                                previewCode
+                            ),
                             style = MaterialTheme.typography.bodyLarge
                         )
                     },
