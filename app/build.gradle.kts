@@ -72,4 +72,5 @@ dependencies {
     implementation(libs.room.ktx)
     implementation(libs.gson)
     implementation(libs.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
 }
