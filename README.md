@@ -9,6 +9,11 @@ An Android application for scanning and extracting data from QR codes from camer
 [![Material Design 3](https://img.shields.io/badge/Material%20Design%203-FF6F00?style=for-the-badge&logo=material.io&logoColor=white)](https://m3.material.io/)
 [![Room](https://img.shields.io/badge/Room-00ACC1?style=for-the-badge&logo=sqlite&logoColor=white)](https://developer.android.com/training/data-storage/room)
 
+## Permissions
+
+- **Camera** - for scanning QR codes using device camera
+- **Storage** - for accessing PDF files to extract QR codes
+
 ## Installation
 ### Option A — Download APK
 1. Go to Releases: https://github.com/LeonovAndreww/QR-Checker/releases
