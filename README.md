@@ -3,6 +3,14 @@
 
 Android application for scanning and extracting data from QR codes from camera and multi-page PDF documents.
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/menu.jpg" width="260" />
+  <img src="screenshots/create.jpg" width="260" />
+  <img src="screenshots/scan.jpg" width="260" />
+</p>
+
 ## Technologies used
 [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org/) 
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/jetpack/compose)
