@@ -49,3 +49,7 @@ cd QR-Checker
 ./gradlew installDebug
 ```
 Or open the project in [Android Studio](https://developer.android.com) and run on an emulator or device.
+
+## Contact
+For bug reports and feature requests, please create an issue on GitHub:
+- [Create new issue](https://github.com/LeonovAndreww/QR-Checker/issues)
