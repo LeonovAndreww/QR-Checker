@@ -6,9 +6,9 @@ Android application for scanning and extracting data from QR codes from camera a
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/menu.jpg" width="260" />
-  <img src="screenshots/create.jpg" width="260" />
-  <img src="screenshots/scan.jpg" width="260" />
+  <img src="screenshots/menu.jpg" width="260" alt="Main menu" />
+  <img src="screenshots/create.jpg" width="260" alt="Create Session" />
+  <img src="screenshots/scan.jpg" width="260" alt="QR Scan Screen" />
 </p>
 
 ## Technologies used
@@ -17,6 +17,7 @@ Android application for scanning and extracting data from QR codes from camera a
 [![Material Design 3](https://img.shields.io/badge/Material%20Design%203-FF6F00?style=for-the-badge&logo=google&logoColor=white)](https://m3.material.io/)
 [![Room](https://img.shields.io/badge/Room-00ACC1?style=for-the-badge&logo=sqlite&logoColor=white)](https://developer.android.com/training/data-storage/room)
 [![CameraX](https://img.shields.io/badge/CameraX-5D9CEC?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/training/camerax)
+[![ZXing Android Embedded](https://img.shields.io/badge/ZXing%20Android%20Embedded-000000?style=for-the-badge&logo=android&logoColor=white)](https://github.com/journeyapps/zxing-android-embedded)
 
 ## Permissions
 
@@ -51,5 +52,5 @@ cd QR-Checker
 Or open the project in [Android Studio](https://developer.android.com) and run on an emulator or device.
 
 ## Contact
-For bug reports and feature requests, please create an issue on GitHub:
+To report issues or request features, use GitHub Issues:
 - [Create new issue](https://github.com/LeonovAndreww/QR-Checker/issues)
