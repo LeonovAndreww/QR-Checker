@@ -17,7 +17,7 @@ Android application for scanning and extracting data from QR codes from camera a
 [![Material Design 3](https://img.shields.io/badge/Material%20Design%203-FF6F00?style=for-the-badge&logo=google&logoColor=white)](https://m3.material.io/)
 [![Room](https://img.shields.io/badge/Room-00ACC1?style=for-the-badge&logo=sqlite&logoColor=white)](https://developer.android.com/training/data-storage/room)
 [![CameraX](https://img.shields.io/badge/CameraX-5D9CEC?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/training/camerax)
-[![ZXing Android Embedded](https://img.shields.io/badge/ZXing%20Android%20Embedded-000000?style=for-the-badge&logo=android&logoColor=white)](https://github.com/journeyapps/zxing-android-embedded)
+[![ZXing Embedded](https://img.shields.io/badge/ZXing%20Embedded-000000?style=for-the-badge&logo=android&logoColor=white)](https://github.com/journeyapps/zxing-android-embedded)
 
 ## Permissions
 
