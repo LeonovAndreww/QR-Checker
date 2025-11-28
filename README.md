@@ -22,8 +22,8 @@ Android application for scanning and extracting data from QR codes from camera a
 
 ## Permissions
 
-- **Camera** – required for scanning QR codes using the device camera.
-- **Vibrate** – provides haptic feedback for each scan result.
+- **Camera** - required for scanning QR codes using the device camera.
+- **Vibrate** - provides haptic feedback for each scan result.
 
 ## Privacy
 
@@ -38,11 +38,13 @@ Android application for scanning and extracting data from QR codes from camera a
   - There is no analytics/telemetry enabled.
 
 ## Installation
-### Option A — Download APK
+### Option A - Download APK
 1. Go to [Releases](https://github.com/LeonovAndreww/QR-Checker/releases).
-2. Download and install the latest APK on your device.
+2. Download the latest 'qr-checker.apk' on your device.
+3. Enable "Install from unknown sources" if needed.
+4. Install the application.
 
-### Option B — Build from source
+### Option B - Build from source
 ```bash
 git clone https://github.com/LeonovAndreww/QR-Checker.git
 cd QR-Checker
