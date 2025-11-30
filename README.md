@@ -7,9 +7,9 @@ Android application for scanning and extracting data from QR codes from camera a
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/menu.jpg" width="260" alt="Main menu" />
-  <img src="screenshots/create.jpg" width="260" alt="Create Session" />
-  <img src="screenshots/scan.jpg" width="260" alt="QR Scan Screen" />
+  <img src="screenshots/menu.jpg" width="260" alt="Main menu"/>
+  <img src="screenshots/create.jpg" width="260" alt="Create Session"/>
+  <img src="screenshots/scan.jpg" width="260" alt="QR Scan Screen"/>
 </p>
 
 ## Technologies used
@@ -27,7 +27,7 @@ Android application for scanning and extracting data from QR codes from camera a
 
 ## Privacy
 
-- The app works fully locally - scanned data and history are stored on the device and are **NOT** sent to any server.
+- The app works fully locally - scanned data and history are stored on the device and are **not** sent to any server.
 - What is stored:
   - Scan history (scanned text/URLs).
   - Temporary files used for PDF processing.
