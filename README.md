@@ -22,7 +22,7 @@ Android application for scanning and extracting data from QR codes from camera a
 
 ## Permissions
 
-- **Camera** - required for scanning QR codes using the device camera.
+- **Camera** - required to scan QR codes in real time.
 - **Vibrate** - provides haptic feedback for each scan result.
 
 ## Privacy
