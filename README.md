@@ -2,7 +2,7 @@
 [![Release](https://img.shields.io/github/v/release/LeonovAndreww/QR-Checker)](https://github.com/LeonovAndreww/QR-Checker/releases)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat&logo=android)](https://www.android.com/)
 
-Android application for scanning and extracting data from QR codes from camera and multi-page PDF documents.
+Android application for scanning QR codes using the camera and extracting QR data from multi-page PDF documents.
 
 ## Screenshots
 
