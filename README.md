@@ -27,7 +27,7 @@ Android application for scanning QR codes using the camera and extracting QR dat
 
 ## Privacy
 
-- The app works fully locally - scanned data and history are stored on the device and are **not** sent to any server.
+- The app works fully locally - all scanned data and history are stored on the device and are **not** sent to any server.
 - What is stored:
   - Scan history (scanned text/URLs).
   - Temporary files used for PDF processing.
