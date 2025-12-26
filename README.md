@@ -8,8 +8,8 @@ Android application for scanning QR codes using the camera and extracting QR dat
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/menu.jpg" width="260" alt="Main menu"/>
-  <img src="screenshots/create.jpg" width="260" alt="Create Session"/>
+  <img src="screenshots/menu.jpg" width="260" alt="Main menu Screen"/>
+  <img src="screenshots/create.jpg" width="260" alt="Create Session Screen"/>
   <img src="screenshots/scan.jpg" width="260" alt="QR Scan Screen"/>
 </p>
 
