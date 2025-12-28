@@ -3,14 +3,14 @@
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat&logo=android)](https://www.android.com/)
 [![GitHub Stars](https://img.shields.io/github/stars/LeonovAndreww/QR-Checker)](https://github.com/LeonovAndreww/QR-Checker/stargazers)
 
-Android application for scanning QR codes using the camera and extracting QR data from multi-page PDF documents.
+Android application for scanning QR codes from the camera and multi-page PDF documents.
 
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/menu.jpg" width="260" alt="Main menu Screen"/>
-  <img src="screenshots/create.jpg" width="260" alt="Create Session Screen"/>
-  <img src="screenshots/scan.jpg" width="260" alt="QR Scan Screen"/>
+  <img src="screenshots/menu.jpg" width="260" alt="Main menu"/>
+  <img src="screenshots/create.jpg" width="260" alt="Create Session"/>
+  <img src="screenshots/scan.jpg" width="260" alt="QR Scan"/>
 </p>
 
 ## Technologies used
