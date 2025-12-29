@@ -56,5 +56,5 @@ cd QR-Checker
 Or open the project in [Android Studio](https://developer.android.com) and run on an emulator or device.
 
 ## Contact
-To report issues or request features, use GitHub Issues:
+Issues and feature requests are tracked via GitHub Issues:
 - [Create new issue](https://github.com/LeonovAndreww/QR-Checker/issues)
