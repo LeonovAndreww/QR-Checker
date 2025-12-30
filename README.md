@@ -53,7 +53,7 @@ cd QR-Checker
 
 ./gradlew installDebug
 ```
-Or open the project in [Android Studio](https://developer.android.com) and run on an emulator or device.
+Alternatively, open the project in [Android Studio](https://developer.android.com) and run on an emulator or device.
 
 ## Contact
 Issues and feature requests are tracked via GitHub Issues:
