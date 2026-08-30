@@ -1,17 +1,22 @@
 package com.datools.qrchecker.ui
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.ImageFormat
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
-//import android.util.Log
+import android.util.Log
 import android.view.ViewGroup
-import android.widget.LinearLayout
+import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
@@ -33,19 +38,36 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
-import com.datools.qrchecker.Screen
-import com.datools.qrchecker.model.SessionData
-import com.datools.qrchecker.data.SessionRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import com.google.zxing.*
-import com.google.zxing.common.HybridBinarizer
 import com.datools.qrchecker.R
+import com.datools.qrchecker.Screen
+import com.datools.qrchecker.TYPE_NOT_SCANNED
+import com.datools.qrchecker.TYPE_SCANNED
+import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.model.SessionData
+import com.datools.qrchecker.ui.theme.Error
 import com.datools.qrchecker.ui.theme.Success
 import com.datools.qrchecker.ui.theme.Warning
-import com.datools.qrchecker.ui.theme.Error
+import com.datools.qrchecker.util.normalizeCode
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.NotFoundException
+import com.google.zxing.PlanarYUVLuminanceSource
+import com.google.zxing.common.HybridBinarizer
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.Executors
+
+private const val TAG = "QRChecker"
+
+private data class UiFeedback(
+    val message: String,
+    val color: Color,
+    val code: String?
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,23 +77,41 @@ fun ScanScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    var session by remember { mutableStateOf<SessionData?>(null) }
     val repo = remember { SessionRepository(context) }
+    val scope = rememberCoroutineScope()
     val view = LocalView.current
+
+    var session by remember { mutableStateOf<SessionData?>(null) }
+
+    // ----- feedback state (declared before any early return so the composition
+    // ----- keeps a stable set of remembered slots) -----
+    var feedback by remember { mutableStateOf<UiFeedback?>(null) }
+    var lastFeedbackAt by remember { mutableLongStateOf(0L) }
+    var lastShownCode by remember { mutableStateOf<String?>(null) }
+    val vibrator = remember { ContextCompat.getSystemService(context, Vibrator::class.java) }
+
+    // serializes writes so two quick scans cannot overwrite each other's progress
+    val saveMutex = remember { Mutex() }
+
+    var hasPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                    PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted -> hasPermission = granted }
+
+    LaunchedEffect(Unit) {
+        if (!hasPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
+    }
 
     DisposableEffect(Unit) {
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
     }
 
-    var hasPermission by remember { mutableStateOf(false) }
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted -> hasPermission = granted }
-
-    LaunchedEffect(Unit) { permissionLauncher.launch(Manifest.permission.CAMERA) }
-
-    // load session
     LaunchedEffect(sessionId) {
         session = repo.getById(sessionId)
     }
@@ -82,33 +122,8 @@ fun ScanScreen(
         }
     }
 
-    if (session == null) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(stringResource(id = R.string.session_not_found))
-        }
-        return
-    }
-
-    val scannedCount = session!!.scannedCodes.size
-    val totalCount = session!!.codes.size
-
-    // ----- FEEDBACK STATE -----
-    data class UiFeedback(
-        val message: String,
-        val color: Color,
-        val vibrationMs: Long,
-        val code: String?
-    )
-
-    var feedback by remember { mutableStateOf<UiFeedback?>(null) }
-    val scope = rememberCoroutineScope()
-    val vibrator = remember {
-        ContextCompat.getSystemService(context, Vibrator::class.java)
-    }
-    var lastFeedbackAt by remember { mutableLongStateOf(0L) }
     val cooldownMs = 1000L
     val displayMs = 1200L
-    var lastShownCode by remember { mutableStateOf<String?>(null) }
 
     // localized strings
     val alreadyScannedMsg = stringResource(id = R.string.msg_already_scanned)
@@ -116,10 +131,9 @@ fun ScanScreen(
     val notFoundMsg = stringResource(id = R.string.msg_not_in_list)
     val scannedButtonText = stringResource(id = R.string.btn_scanned)
     val notScannedButtonText = stringResource(id = R.string.btn_not_scanned)
-    val progressText = stringResource(id = R.string.progress_format, scannedCount, totalCount)
     val noCameraPermissionText = stringResource(id = R.string.no_camera_permission)
 
-    fun showFeedback(message: String, color: Color, vibrMs: Long = 40L, code: String? = null) {
+    fun showFeedback(message: String, color: Color, vibrMs: Long, code: String?) {
         val now = System.currentTimeMillis()
 
         // if something is already being shown - we don't show the new one
@@ -134,16 +148,13 @@ fun ScanScreen(
         }
 
         lastFeedbackAt = now
-        feedback = UiFeedback(message, color, vibrMs, code)
+        feedback = UiFeedback(message, color, code)
 
         try {
-            vibrator?.takeIf { if (Build.VERSION.SDK_INT >= 26) it.hasVibrator() else true }?.let {
+            vibrator?.takeIf { it.hasVibrator() }?.let {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     it.vibrate(
-                        VibrationEffect.createOneShot(
-                            vibrMs,
-                            VibrationEffect.DEFAULT_AMPLITUDE
-                        )
+                        VibrationEffect.createOneShot(vibrMs, VibrationEffect.DEFAULT_AMPLITUDE)
                     )
                 } else {
                     @Suppress("DEPRECATION")
@@ -151,7 +162,7 @@ fun ScanScreen(
                 }
             }
         } catch (t: Throwable) {
-//            Log.w("LogCat", "Vibrate failed: ${t.message}")
+            Log.w(TAG, "Vibrate failed", t)
         }
 
         scope.launch {
@@ -161,102 +172,58 @@ fun ScanScreen(
         }
     }
 
-    // ----------------------------
+    // Runs on the main thread (posted from the analyzer), so reading and updating
+    // `session` here cannot interleave with another decoded frame.
+    fun onCodeScanned(rawCode: String) {
+        val current = session ?: return
+        val code = normalizeCode(rawCode)
+        if (code.isEmpty()) return
+
+        when {
+            code !in current.codes ->
+                showFeedback(notFoundMsg, Error, 120L, code)
+
+            code in current.scannedCodes ->
+                showFeedback(alreadyScannedMsg, Warning, 30L, code)
+
+            else -> {
+                val updated = current.copy(scannedCodes = current.scannedCodes + code)
+                session = updated
+                showFeedback(scannedMsg, Success, 60L, code)
+                scope.launch {
+                    try {
+                        saveMutex.withLock { repo.update(updated) }
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "Can't save session", t)
+                    }
+                }
+            }
+        }
+    }
+
+    val loaded = session
+    if (loaded == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(stringResource(id = R.string.session_not_found))
+        }
+        return
+    }
+
+    val progressText = stringResource(
+        id = R.string.progress_format,
+        loaded.scannedCodes.size,
+        loaded.codes.size
+    )
 
     Scaffold { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
-            AndroidView(
-                factory = { ctx ->
-                    val previewView = PreviewView(ctx).apply {
-                        layoutParams = LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
-                        )
-                    }
-
-                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                    cameraProviderFuture.addListener({
-                        val cameraProvider = cameraProviderFuture.get()
-
-                        val preview = Preview.Builder().build().also {
-                            it.surfaceProvider = previewView.surfaceProvider
-                        }
-
-                        val analyzer = ImageAnalysis.Builder().build().also { analysis ->
-                            analysis.setAnalyzer(
-                                ContextCompat.getMainExecutor(ctx),
-                                ZxingQrCodeAnalyzer { result ->
-                                    val code = result.text
-                                    val normalizedCode = code.replace("\n", "")
-                                        .replace("\r", "")
-                                        .replace(Regex("\\p{C}"), "")
-
-                                    // 1) code present in list?
-                                    if (normalizedCode in session!!.codes) {
-                                        // 1a) already scanned?
-                                        if (normalizedCode in session!!.scannedCodes) {
-                                            showFeedback(
-                                                alreadyScannedMsg,
-                                                Warning,
-                                                30L,
-                                                normalizedCode
-                                            )
-                                        } else {
-                                            val newScanned = session!!.scannedCodes + normalizedCode
-                                            val updatedSession =
-                                                session!!.copy(scannedCodes = newScanned)
-                                            session = updatedSession
-
-                                            // save in DB
-                                            CoroutineScope(Dispatchers.IO).launch {
-                                                try {
-                                                    repo.update(updatedSession)
-                                                } catch (t: Throwable) {
-//                                                    Log.e("LogCat", "Can't save session", t)
-                                                }
-                                            }
-
-                                            showFeedback(
-                                                scannedMsg,
-                                                Success,
-                                                60L,
-                                                normalizedCode
-                                            )
-//                                            Log.d("LogCat", "Found new QR: $normalizedCode")
-                                        }
-                                    } else {
-                                        showFeedback(
-                                            notFoundMsg,
-                                            Error,
-                                            120L,
-                                            normalizedCode
-                                        )
-                                    }
-                                }
-                            )
-                        }
-
-                        try {
-                            cameraProvider.unbindAll()
-                            cameraProvider.bindToLifecycle(
-                                lifecycleOwner,
-                                CameraSelector.DEFAULT_BACK_CAMERA,
-                                preview,
-                                analyzer
-                            )
-                        } catch (exc: Exception) {
-//                            Log.e("LogCat", "Camera launch error", exc)
-                        }
-                    }, ContextCompat.getMainExecutor(ctx))
-
-                    previewView
-                },
-                modifier = Modifier.fillMaxSize()
-            )
+            if (hasPermission) {
+                CameraPreview(onCodeScanned = { code -> onCodeScanned(code) })
+            }
 
             // title (session name)
             Text(
-                session!!.name,
+                loaded.name,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = padding.calculateTopPadding() + 4.dp),
@@ -278,7 +245,7 @@ fun ScanScreen(
             ) {
                 Button(
                     onClick = {
-                        navController.navigate(Screen.CodesList.createRoute(sessionId, "scanned"))
+                        navController.navigate(Screen.CodesList.createRoute(sessionId, TYPE_SCANNED))
                     },
                     modifier = Modifier
                         .weight(1f)
@@ -304,10 +271,7 @@ fun ScanScreen(
                 Button(
                     onClick = {
                         navController.navigate(
-                            Screen.CodesList.createRoute(
-                                sessionId,
-                                "not_scanned"
-                            )
+                            Screen.CodesList.createRoute(sessionId, TYPE_NOT_SCANNED)
                         )
                     },
                     modifier = Modifier
@@ -372,16 +336,91 @@ fun ScanScreen(
 }
 
 /**
- * Analyzer — returns ZXing Result to callback.
+ * Camera preview bound to the current lifecycle.
+ *
+ * Analysis runs on its own executor: decoding a frame takes tens of milliseconds and
+ * would otherwise block the UI thread on every frame. Both the executor and the camera
+ * binding are released when this leaves the composition, so the camera does not keep
+ * running after navigating away.
+ */
+@Composable
+private fun CameraPreview(onCodeScanned: (String) -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    val previewView = remember {
+        PreviewView(context).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+    }
+    val currentOnCodeScanned by rememberUpdatedState(onCodeScanned)
+    val mainExecutor = remember(context) { ContextCompat.getMainExecutor(context) }
+
+    DisposableEffect(lifecycleOwner) {
+        // owned by this effect: restarting it must not reuse an executor already shut down
+        val analysisExecutor = Executors.newSingleThreadExecutor()
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        var boundProvider: ProcessCameraProvider? = null
+
+        cameraProviderFuture.addListener({
+            try {
+                val cameraProvider = cameraProviderFuture.get()
+                boundProvider = cameraProvider
+
+                val preview = Preview.Builder().build().also {
+                    it.surfaceProvider = previewView.surfaceProvider
+                }
+
+                val analysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+                    .also { analysis ->
+                        analysis.setAnalyzer(
+                            analysisExecutor,
+                            ZxingQrCodeAnalyzer { text ->
+                                mainExecutor.execute { currentOnCodeScanned(text) }
+                            }
+                        )
+                    }
+
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    CameraSelector.DEFAULT_BACK_CAMERA,
+                    preview,
+                    analysis
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Camera launch error", e)
+            }
+        }, mainExecutor)
+
+        onDispose {
+            boundProvider?.unbindAll()
+            analysisExecutor.shutdown()
+        }
+    }
+
+    AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+}
+
+/**
+ * Decodes QR codes from camera frames. One reader per instance: [MultiFormatReader]
+ * keeps internal state and is not safe to share between threads.
  */
 class ZxingQrCodeAnalyzer(
-    private val onQrCodesDetected: (Result) -> Unit
+    private val onQrCodeDetected: (String) -> Unit
 ) : ImageAnalysis.Analyzer {
 
-    companion object {
-        private val reader = MultiFormatReader().apply {
-            setHints(mapOf(DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE)))
-        }
+    private val reader = MultiFormatReader().apply {
+        setHints(
+            mapOf(
+                DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE)
+            )
+        )
     }
 
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
@@ -395,6 +434,7 @@ class ZxingQrCodeAnalyzer(
         try {
             val yPlane = image.planes[0]
             val yBuffer = yPlane.buffer
+            yBuffer.rewind()
             val rowStride = yPlane.rowStride
             val width = image.width
             val height = image.height
@@ -411,24 +451,17 @@ class ZxingQrCodeAnalyzer(
             }
 
             val source = PlanarYUVLuminanceSource(
-                yData,
-                width,
-                height,
-                0,
-                0,
-                width,
-                height,
-                false
+                yData, width, height, 0, 0, width, height, false
             )
 
-            val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
             try {
-                val result = reader.decode(binaryBitmap)
-                onQrCodesDetected(result)
+                val result = reader.decode(BinaryBitmap(HybridBinarizer(source)))
+                onQrCodeDetected(result.text)
             } catch (_: NotFoundException) {
-                // QR code not found
+                // QR code not found in this frame
             }
-
+        } catch (t: Throwable) {
+            Log.w(TAG, "Frame analysis failed", t)
         } finally {
             imageProxy.close()
         }

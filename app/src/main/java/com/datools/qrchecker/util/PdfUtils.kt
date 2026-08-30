@@ -5,96 +5,104 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
-//import android.util.Log
+import android.util.Log
+import androidx.core.graphics.createBitmap
+import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.NotFoundException
 import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import androidx.core.graphics.createBitmap
+import kotlin.math.sqrt
 
+private const val TAG = "QRChecker"
+
+/** The camera scanner only reads QR codes, so parsing anything else here would be pointless. */
+private val QR_HINTS: Map<DecodeHintType, Any> = mapOf(
+    DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
+    DecodeHintType.TRY_HARDER to true
+)
+
+/**
+ * Upper bound for a rendered page. A4 at scale 3 is already ~4.5M pixels, and the
+ * decoder needs an extra IntArray of the same size, so an unbounded scale is an
+ * out-of-memory crash waiting for a large page on a low-end device.
+ */
+private const val MAX_PAGE_PIXELS = 4_000_000L
+
+/**
+ * Renders every page of the PDF and decodes the QR code found on it.
+ *
+ * Pages without a QR code are skipped silently — that is normal input. Anything that
+ * makes the document unreadable (no access to the uri, a broken PDF) is thrown to the
+ * caller so the UI can tell the user what went wrong instead of showing an empty list.
+ */
 suspend fun parsePdfForQRCodes(
     context: Context,
     uri: Uri,
     scale: Int = 3
 ): List<String> = withContext(Dispatchers.IO) {
     val qrCodes = mutableListOf<String>()
-    val tempFile = File(context.cacheDir, "temp_${System.currentTimeMillis()}.pdf")
+    val tempFile = File.createTempFile("qrchecker_", ".pdf", context.cacheDir)
 
     try {
-//        Log.d("LogCat", "Copying uri to temp file...")
         context.contentResolver.openInputStream(uri)?.use { input ->
             FileOutputStream(tempFile).use { output -> input.copyTo(output) }
-        } ?: run {
-//            Log.e("LogCat", "openInputStream returned null for uri=$uri")
-            return@withContext emptyList()
-        }
-
-//        Log.d("LogCat", "Temp PDF path: ${tempFile.absolutePath}")
+        } ?: throw IllegalStateException("Cannot open the selected file")
 
         ParcelFileDescriptor.open(tempFile, ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
             PdfRenderer(pfd).use { renderer ->
-//                Log.d("LogCat", "Total pages in PDF: ${renderer.pageCount}")
+                val reader = MultiFormatReader().apply { setHints(QR_HINTS) }
 
-                val reader = MultiFormatReader()
                 for (pageIndex in 0 until renderer.pageCount) {
-                    //Log.d("LogCat", "Rendering page $pageIndex ... (scale=$scale)")
+                    // parsing a big document takes a while — honour cancellation
+                    ensureActive()
+
                     val page = renderer.openPage(pageIndex)
-
-                    val width = page.width * scale
-                    val height = page.height * scale
-                    val bitmap = createBitmap(width, height)
-                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                    page.close()
-
-                    // Save the first 3 pages to the cache for visual verification
-//                    if (pageIndex < 3) {
-//                        try {
-//                            val outFile = File(context.cacheDir, "pdf_page_${pageIndex}.png")
-//                            FileOutputStream(outFile).use { fos ->
-//                                bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
-//                            }
-//                            Log.d("LogCat", "Saved sample page $pageIndex -> ${outFile.absolutePath}")
-//                        } catch (t: Throwable) {
-//                            Log.w("LogCat", "Can't save sample page $pageIndex: ${t.message}")
-//                        }
-//                    }
+                    val bitmap = try {
+                        var width = page.width * scale
+                        var height = page.height * scale
+                        val pixels = width.toLong() * height.toLong()
+                        if (pixels > MAX_PAGE_PIXELS) {
+                            val factor = sqrt(MAX_PAGE_PIXELS.toDouble() / pixels.toDouble())
+                            width = (width * factor).toInt().coerceAtLeast(1)
+                            height = (height * factor).toInt().coerceAtLeast(1)
+                        }
+                        createBitmap(width, height).also {
+                            page.render(it, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        }
+                    } finally {
+                        page.close()
+                    }
 
                     try {
                         val px = IntArray(bitmap.width * bitmap.height)
                         bitmap.getPixels(px, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
 
                         val source = RGBLuminanceSource(bitmap.width, bitmap.height, px)
-                        val binary = BinaryBitmap(HybridBinarizer(source))
+                        val result = reader.decode(BinaryBitmap(HybridBinarizer(source)))
 
-                        val result = reader.decode(binary) // can throw NotFoundException
-                        val text = result.text.filter { it >= ' ' }
-                        if (text.isNotEmpty()) {
-                            qrCodes.add(text)
-                        }
-
-                        //Log.d("LogCat", "Found QR on page $pageIndex: $text")
-
+                        val text = normalizeCode(result.text)
+                        if (text.isNotEmpty()) qrCodes.add(text)
                     } catch (_: NotFoundException) {
-//                        Log.d("LogCat", "QR not found on page $pageIndex")
-                    } catch (t: Throwable) {
-//                        Log.e("LogCat", "Error decoding QR on page $pageIndex", t)
+                        // no QR code on this page — expected for cover/filler pages
+                    } catch (e: OutOfMemoryError) {
+                        Log.e(TAG, "Out of memory decoding page $pageIndex", e)
                     } finally {
                         bitmap.recycle()
                     }
                 }
             }
         }
-    } catch (t: Throwable) {
-//        Log.e("LogCat", "Error parsing PDF", t)
     } finally {
-        try {
-            tempFile.delete()
-        } catch (_: Throwable) { /* ignore */
+        if (!tempFile.delete()) {
+            Log.w(TAG, "Could not delete temp file ${tempFile.absolutePath}")
         }
     }
 
@@ -102,16 +110,15 @@ suspend fun parsePdfForQRCodes(
 }
 
 fun getFileNameFromUri(uri: Uri, context: Context): String {
-    var fileName = ""
     try {
         context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
             val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             if (idx != -1 && cursor.moveToFirst()) {
-                fileName = cursor.getString(idx)
+                return cursor.getString(idx) ?: ""
             }
         }
     } catch (e: Exception) {
-//        Log.e("LogCat", "Error getting file name", e)
+        Log.w(TAG, "Could not read display name for $uri", e)
     }
-    return fileName
+    return uri.lastPathSegment.orEmpty().substringAfterLast('/')
 }
