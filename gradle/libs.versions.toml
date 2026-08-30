@@ -10,10 +10,9 @@ activityCompose = "1.12.2"
 composeBom = "2025.12.01"
 foundation = "1.10.0"
 navigationCompose = "2.9.6"
-zxing-embedded = "4.3.0"
+zxing-core = "3.5.4"
 camera = "1.5.2"
 gson = "2.13.2"
-identityJvm = "202411.1"
 room = "2.8.4"
 ksp = "2.2.20-2.0.4"
 
@@ -34,18 +33,16 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
-material3 = { module = "androidx.compose.material3:material3" }
-zxing-embedded = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxing-embedded" }
+androidx-compose-material-icons-core = { module = "androidx.compose.material:material-icons-core" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing-core" }
 camera-core = { module = "androidx.camera:camera-core", version.ref = "camera" }
 camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "camera" }
 camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camera" }
 camera-view = { module = "androidx.camera:camera-view", version.ref = "camera" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
-identity-jvm = { group = "com.android.identity", name = "identity-jvm", version.ref = "identityJvm" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
-androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
