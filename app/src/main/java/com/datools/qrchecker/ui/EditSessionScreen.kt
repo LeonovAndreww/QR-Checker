@@ -1,9 +1,10 @@
 package com.datools.qrchecker.ui
 
 import android.net.Uri
-//import android.util.Log
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,6 +46,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private const val TAG = "QRChecker"
+
+/**
+ * A failure to show, kept as a resource id so the text is resolved during composition and
+ * follows a locale change, instead of being baked in from a Context at the time it happened.
+ */
+private data class ScreenError(@param:StringRes val resId: Int, val detail: String)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditSessionScreen(
@@ -68,10 +77,28 @@ fun EditSessionScreen(
 
     // loading / error
     var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var errorMessage by remember { mutableStateOf<ScreenError?>(null) }
 
     // confirmation dialog when replacing codes
     var showReplaceConfirm by remember { mutableStateOf(false) }
+
+    fun saveAndClose(finalCodes: List<String>, finalScanned: List<String>) {
+        val current = original ?: return
+        scope.launch {
+            isLoading = true
+            try {
+                repo.update(
+                    current.copy(name = name, codes = finalCodes, scannedCodes = finalScanned)
+                )
+                navController.popBackStack()
+            } catch (t: Throwable) {
+                Log.e(TAG, "Can't save session", t)
+                errorMessage = ScreenError(R.string.error_saving_session, t.message ?: "")
+            } finally {
+                isLoading = false
+            }
+        }
+    }
 
     val documentPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -88,8 +115,8 @@ fun EditSessionScreen(
                 parsedCodes = codes
             } catch (t: Throwable) {
                 parsedCodes = emptyList()
-                errorMessage = context.getString(R.string.error_parsing_pdf, t.message ?: "")
-//                Log.e("LogCat", "parse error", t)
+                Log.e(TAG, "Can't parse the selected PDF", t)
+                errorMessage = ScreenError(R.string.error_parsing_pdf, t.message ?: "")
             } finally {
                 isLoading = false
             }
@@ -108,7 +135,8 @@ fun EditSessionScreen(
                 navController.popBackStack()
             }
         } catch (t: Throwable) {
-            errorMessage = context.getString(R.string.error_loading_session, t.message ?: "")
+            Log.e(TAG, "Can't load session $sessionId", t)
+            errorMessage = ScreenError(R.string.error_loading_session, t.message ?: "")
         } finally {
             isLoading = false
         }
@@ -199,12 +227,12 @@ fun EditSessionScreen(
                 }
 
                 Text(
-                    text = context.getString(R.string.was_qr_count, origCount),
+                    text = stringResource(R.string.was_qr_count, origCount),
                     style = MaterialTheme.typography.bodyLarge
                 )
 
                 Text(
-                    text = context.getString(R.string.will_be_qr_count, selectedCountText),
+                    text = stringResource(R.string.will_be_qr_count, selectedCountText),
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.End
                 )
@@ -217,7 +245,10 @@ fun EditSessionScreen(
 
             errorMessage?.let { err ->
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = err, color = MaterialTheme.colorScheme.error)
+                Text(
+                    text = stringResource(err.resId, err.detail),
+                    color = MaterialTheme.colorScheme.error
+                )
             }
 
             Spacer(modifier = Modifier.weight(1f))
@@ -247,28 +278,10 @@ fun EditSessionScreen(
                         if (willReplace) {
                             showReplaceConfirm = true
                         } else {
-                            scope.launch {
-                                isLoading = true
-                                try {
-                                    val finalCodes = newCodes ?: origCodes
-                                    val finalScanned = original?.scannedCodes ?: emptyList()
-                                    val updated = SessionData(
-                                        id = original!!.id,
-                                        name = name,
-                                        codes = finalCodes,
-                                        scannedCodes = finalScanned
-                                    )
-                                    repo.update(updated)
-                                    navController.popBackStack()
-                                } catch (t: Throwable) {
-                                    errorMessage = context.getString(
-                                        R.string.error_saving_session,
-                                        t.message ?: ""
-                                    )
-                                } finally {
-                                    isLoading = false
-                                }
-                            }
+                            saveAndClose(
+                                finalCodes = newCodes ?: origCodes,
+                                finalScanned = original?.scannedCodes ?: emptyList()
+                            )
                         }
                     },
                     enabled = name.isNotBlank() && !isLoading,
@@ -294,11 +307,9 @@ fun EditSessionScreen(
             onDismissRequest = { showReplaceConfirm = false },
             title = { Text(replacingTitle) },
             text = {
-                val extra =
-                    if (willRemove > 0) "\n$willRemove ${context.getString(R.string.removed_scanned_count_suffix)}" else ""
-                Text(
-                    text = context.getString(R.string.replace_codes_summary, willKeep, extra)
-                )
+                val removedSuffix = stringResource(R.string.removed_scanned_count_suffix)
+                val extra = if (willRemove > 0) "\n$willRemove $removedSuffix" else ""
+                Text(text = stringResource(R.string.replace_codes_summary, willKeep, extra))
             },
             confirmButton = {
                 Row(
@@ -310,28 +321,10 @@ fun EditSessionScreen(
                     }
                     Button(onClick = {
                         showReplaceConfirm = false
-                        scope.launch {
-                            isLoading = true
-                            try {
-                                val final = parsedCodes ?: original!!.codes
-                                val finalScanned = original!!.scannedCodes.filter { it in final }
-                                val updated = SessionData(
-                                    id = original!!.id,
-                                    name = name,
-                                    codes = final,
-                                    scannedCodes = finalScanned
-                                )
-                                repo.update(updated)
-                                navController.popBackStack()
-                            } catch (t: Throwable) {
-                                errorMessage = context.getString(
-                                    R.string.error_saving_session,
-                                    t.message ?: ""
-                                )
-                            } finally {
-                                isLoading = false
-                            }
-                        }
+                        saveAndClose(
+                            finalCodes = finalCodes,
+                            finalScanned = origScanned.filter { it in finalCodes }
+                        )
                     }) {
                         Text(replaceAndSaveText)
                     }

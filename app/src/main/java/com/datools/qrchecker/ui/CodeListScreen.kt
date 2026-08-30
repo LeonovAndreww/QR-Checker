@@ -14,6 +14,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import android.util.Log
+import com.datools.qrchecker.TYPE_SCANNED
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.model.SessionData
 import kotlinx.coroutines.Dispatchers
@@ -27,12 +29,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.res.stringResource
 import com.datools.qrchecker.R
 
+private const val TAG = "QRChecker"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CodesListScreen(
     navController: NavController,
     sessionId: String,
-    type: String // "scanned" or "not_scanned"
+    type: String // TYPE_SCANNED or TYPE_NOT_SCANNED
 ) {
     val context = LocalContext.current
     val repo = remember { SessionRepository(context) }
@@ -46,13 +50,14 @@ fun CodesListScreen(
     var codeToDelete by remember { mutableStateOf<String?>(null) }
     var codeToDeleteIsScanned by remember { mutableStateOf(false) }
 
+    // LaunchedEffect is already a coroutine tied to this composable, and repo.getById is a
+    // suspend Room call that dispatches itself — no extra scope or IO switch needed here
     LaunchedEffect(sessionId) {
-        scope.launch(Dispatchers.IO) {
-            session = try {
-                repo.getById(sessionId)
-            } catch (_: Throwable) {
-                null
-            }
+        session = try {
+            repo.getById(sessionId)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Can't load session $sessionId", t)
+            null
         }
     }
 
@@ -77,7 +82,7 @@ fun CodesListScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (type == "scanned") titleScanned else titleNotScanned
+                        text = if (type == TYPE_SCANNED) titleScanned else titleNotScanned
                     )
                 },
                 navigationIcon = {
@@ -105,7 +110,7 @@ fun CodesListScreen(
                 return@Box
             }
 
-            val codes: List<String> = if (type == "scanned") {
+            val codes: List<String> = if (type == TYPE_SCANNED) {
                 session!!.scannedCodes
             } else {
                 session!!.codes.filter { it !in session!!.scannedCodes }
@@ -114,7 +119,7 @@ fun CodesListScreen(
             if (codes.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (type == "scanned") noScannedText else noNotScannedText
+                        text = if (type == TYPE_SCANNED) noScannedText else noNotScannedText
                     )
                 }
             } else {
@@ -146,7 +151,7 @@ fun CodesListScreen(
                                 IconButton(
                                     onClick = {
                                         codeToDelete = code
-                                        codeToDeleteIsScanned = (type == "scanned")
+                                        codeToDeleteIsScanned = (type == TYPE_SCANNED)
                                     }
                                 ) {
                                     Icon(
@@ -231,7 +236,6 @@ fun CodesListScreen(
                             }
                         }
                     },
-                    dismissButton = { /* empty — used custom Cancel above */ }
                 )
             }
         }
