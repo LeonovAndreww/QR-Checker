@@ -1,6 +1,5 @@
 <resources>
     <!-- HomeScreen -->
-    <string name="fab_new_session">Новая сессия</string>
     <string name="sessions_title">Сессии</string>
 
     <!-- common content descriptions -->
@@ -41,6 +40,7 @@
     <string name="was_qr_count">Было QR-кодов: %1$d</string>
     <string name="will_be_qr_count">Станет QR-кодов: %1$s</string>
     <string name="error_parsing_pdf">Ошибка парсинга PDF: %1$s</string>
+    <string name="error_no_codes_in_pdf">В этом файле не найдено ни одного QR-кода</string>
     <string name="error_loading_session">Не удалось загрузить сессию: %1$s</string>
     <string name="error_saving_session">Не удалось сохранить: %1$s</string>
     <string name="save_button">Сохранить</string>
@@ -62,5 +62,4 @@
     <string name="no_camera_permission">Не предоставлен доступ к камере</string>
 
     <!-- generic -->
-    <string name="cd_delete_code_short">Удалить</string>
 </resources>

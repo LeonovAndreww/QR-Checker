@@ -1,7 +1,7 @@
 package com.datools.qrchecker.data
 
 import android.content.Context
-//import android.util.Log
+import android.util.Log
 import com.datools.qrchecker.data.room.AppDatabase
 import com.datools.qrchecker.data.room.SessionEntity
 import com.datools.qrchecker.model.SessionData
@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import androidx.core.content.edit
 
+private const val TAG = "QRChecker"
+
 class SessionRepository(private val context: Context) {
     private val db = AppDatabase.getInstance(context)
     private val dao = db.sessionDao()
@@ -21,20 +23,17 @@ class SessionRepository(private val context: Context) {
         dao.insert(session.toEntity())
     }
 
-    suspend fun update(session: SessionData) {
-        dao.insert(session.toEntity())
-    }
+    /** Rows are upserted, so saving an existing session is the same operation as inserting it. */
+    suspend fun update(session: SessionData) = insert(session)
 
     suspend fun getById(id: String): SessionData? {
         return dao.getById(id)?.toModel()
     }
 
-    @Suppress("unused")
     fun getAllFlow(): Flow<List<SessionData>> {
         return dao.getAllFlow().map { list -> list.map { it.toModel() } }
     }
 
-    @Suppress("unused")
     suspend fun delete(session: SessionData) {
         dao.delete(session.toEntity())
     }
@@ -49,7 +48,7 @@ class SessionRepository(private val context: Context) {
                 val old = gson.fromJson(json, SessionData::class.java)
                 if (old != null) dao.insert(old.toEntity())
             } catch (t: Throwable) {
-//                Log.w("LogCat", "Can't migrate: ${t.message}")
+                Log.w(TAG, "Can't migrate a legacy session", t)
             }
         }
         prefs.edit { clear().putBoolean("migrated_to_room", true) }
