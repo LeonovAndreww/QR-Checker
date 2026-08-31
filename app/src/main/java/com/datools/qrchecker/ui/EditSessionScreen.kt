@@ -82,14 +82,18 @@ fun EditSessionScreen(
     // confirmation dialog when replacing codes
     var showReplaceConfirm by remember { mutableStateOf(false) }
 
-    fun saveAndClose(finalCodes: List<String>, finalScanned: List<String>) {
+    /** [newCodes] is null when only the name changed, so the code rows are left alone. */
+    fun saveAndClose(newCodes: List<String>?) {
         val current = original ?: return
         scope.launch {
             isLoading = true
             try {
-                repo.update(
-                    current.copy(name = name, codes = finalCodes, scannedCodes = finalScanned)
-                )
+                if (newCodes == null) {
+                    repo.rename(current.id, name)
+                } else {
+                    // the repository keeps the scanned state of the codes that survive
+                    repo.replaceCodes(current.id, name, newCodes)
+                }
                 navController.popBackStack()
             } catch (t: Throwable) {
                 Log.e(TAG, "Can't save session", t)
@@ -278,10 +282,7 @@ fun EditSessionScreen(
                         if (willReplace) {
                             showReplaceConfirm = true
                         } else {
-                            saveAndClose(
-                                finalCodes = newCodes ?: origCodes,
-                                finalScanned = original?.scannedCodes ?: emptyList()
-                            )
+                            saveAndClose(newCodes = null)
                         }
                     },
                     enabled = name.isNotBlank() && !isLoading,
@@ -321,10 +322,7 @@ fun EditSessionScreen(
                     }
                     Button(onClick = {
                         showReplaceConfirm = false
-                        saveAndClose(
-                            finalCodes = finalCodes,
-                            finalScanned = origScanned.filter { it in finalCodes }
-                        )
+                        saveAndClose(newCodes = finalCodes)
                     }) {
                         Text(replaceAndSaveText)
                     }

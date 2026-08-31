@@ -43,6 +43,14 @@ android {
     }
 }
 
+// the exported schema is the reference the migrations are written against, and
+// MigrationTestHelper reads it from the androidTest assets
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+android.sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -57,6 +65,7 @@ dependencies {
     implementation(libs.zxing.core)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)

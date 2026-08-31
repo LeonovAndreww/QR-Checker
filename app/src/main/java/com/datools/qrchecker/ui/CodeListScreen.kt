@@ -18,9 +18,7 @@ import android.util.Log
 import com.datools.qrchecker.TYPE_SCANNED
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.model.SessionData
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -195,38 +193,24 @@ fun CodesListScreen(
 
                                 scope.launch {
                                     try {
-                                        val updated = withContext(Dispatchers.IO) {
-                                            val current =
-                                                repo.getById(sessionId) ?: return@withContext null
-                                            val newSession: SessionData = if (isScanned) {
-                                                val newScanned =
-                                                    current.scannedCodes.filter { it != code }
-                                                        .toMutableList()
-                                                current.copy(scannedCodes = newScanned)
-                                            } else {
-                                                val newCodes = current.codes.filter { it != code }
-                                                    .toMutableList()
-                                                val newScanned =
-                                                    current.scannedCodes.filter { it in newCodes }
-                                                        .toMutableList()
-                                                current.copy(
-                                                    codes = newCodes,
-                                                    scannedCodes = newScanned
-                                                )
-                                            }
-                                            repo.update(newSession)
-                                            newSession
+                                        // in the scanned list the code goes back to unscanned;
+                                        // in the unscanned list it leaves the session for good
+                                        if (isScanned) {
+                                            repo.unmarkScanned(sessionId, code)
+                                        } else {
+                                            repo.deleteCode(sessionId, code)
                                         }
 
+                                        val updated = repo.getById(sessionId)
+                                        codeToDelete = null
                                         if (updated != null) {
                                             session = updated
-                                            codeToDelete = null
                                             snackbarHostState.showSnackbar(deleteSuccess)
                                         } else {
-                                            codeToDelete = null
                                             snackbarHostState.showSnackbar(deleteFailed)
                                         }
                                     } catch (t: Throwable) {
+                                        Log.e(TAG, "Can't delete code from session $sessionId", t)
                                         codeToDelete = null
                                         snackbarHostState.showSnackbar("$deleteError: ${t.message}")
                                     }

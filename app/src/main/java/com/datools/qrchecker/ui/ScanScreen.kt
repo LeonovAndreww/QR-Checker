@@ -57,8 +57,6 @@ import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.Executors
 
 private const val TAG = "QRChecker"
@@ -89,9 +87,6 @@ fun ScanScreen(
     var lastFeedbackAt by remember { mutableLongStateOf(0L) }
     var lastShownCode by remember { mutableStateOf<String?>(null) }
     val vibrator = remember { ContextCompat.getSystemService(context, Vibrator::class.java) }
-
-    // serializes writes so two quick scans cannot overwrite each other's progress
-    val saveMutex = remember { Mutex() }
 
     var hasPermission by remember {
         mutableStateOf(
@@ -187,14 +182,14 @@ fun ScanScreen(
                 showFeedback(alreadyScannedMsg, Warning, 30L, code)
 
             else -> {
-                val updated = current.copy(scannedCodes = current.scannedCodes + code)
-                session = updated
+                session = current.copy(scannedCodes = current.scannedCodes + code)
                 showFeedback(scannedMsg, Success, 60L, code)
                 scope.launch {
                     try {
-                        saveMutex.withLock { repo.update(updated) }
+                        // a single UPDATE of one row; two scans cannot overwrite each other
+                        repo.markScanned(sessionId, code)
                     } catch (t: Throwable) {
-                        Log.e(TAG, "Can't save session", t)
+                        Log.e(TAG, "Can't save the scanned code", t)
                     }
                 }
             }

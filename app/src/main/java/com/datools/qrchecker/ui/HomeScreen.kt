@@ -40,7 +40,7 @@ import androidx.navigation.NavController
 import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.data.SessionRepository
-import com.datools.qrchecker.model.SessionData
+import com.datools.qrchecker.model.SessionSummary
 import kotlinx.coroutines.launch
 
 
@@ -49,9 +49,9 @@ fun HomeScreen(navController: NavController) {
     val context = LocalContext.current
     val repo = remember { SessionRepository(context) }
     val scope = rememberCoroutineScope()
-    // observed, so the list reflects sessions created or edited elsewhere without a manual reload
-    val sessions by remember { repo.getAllFlow() }.collectAsState(initial = emptyList())
-    var sessionToDelete by remember { mutableStateOf<SessionData?>(null) }
+    // summaries only: the list draws names, so pulling every code of every session would be waste
+    val sessions by remember { repo.getSummariesFlow() }.collectAsState(initial = emptyList())
+    var sessionToDelete by remember { mutableStateOf<SessionSummary?>(null) }
     val buttonHeight = 82.dp
 
     val fabCd = stringResource(id = R.string.cd_new_session)
@@ -170,7 +170,7 @@ fun HomeScreen(navController: NavController) {
                     }
                     Button(onClick = {
                         scope.launch {
-                            repo.delete(session)
+                            repo.delete(session.id)
                             sessionToDelete = null
                         }
                     }) {
