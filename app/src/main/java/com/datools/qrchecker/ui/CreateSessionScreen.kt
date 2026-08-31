@@ -1,7 +1,8 @@
 package com.datools.qrchecker.ui
 
+import android.content.Intent
 import android.net.Uri
-//import android.util.Log
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -23,10 +24,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -34,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -41,7 +41,10 @@ import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.util.getFileNameFromUri
 import androidx.core.net.toUri
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.datools.qrchecker.viewmodel.ScanViewModel
+
+private const val TAG = "QRChecker"
 
 @Composable
 fun CreateSessionScreen(navController: NavController) {
@@ -50,26 +53,36 @@ fun CreateSessionScreen(navController: NavController) {
     var selectedPdfUriString by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedPdfName by rememberSaveable { mutableStateOf("") }
 
+    // getting ViewModel
+    val scanViewModel: ScanViewModel = viewModel()
+
     val documentPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
         onResult = { uri: Uri? ->
             if (uri != null) {
+                // the uri is kept across process death via rememberSaveable, so the read
+                // grant has to outlive this activity instance as well
+                try {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (e: SecurityException) {
+                    Log.w(TAG, "Could not persist read access to $uri", e)
+                }
                 selectedPdfName = getFileNameFromUri(uri, context)
                 selectedPdfUriString = uri.toString()
-//                Log.d("LogCat", "Uri opened: $uri")
+                scanViewModel.clearError()
             }
         }
     )
 
-    // getting ViewModel
-    val scanViewModel: ScanViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-
-    val isLoading by remember { derivedStateOf { scanViewModel.isLoading.value } }
-    val createdSessionId by remember { derivedStateOf { scanViewModel.createdSessionId.value } }
+    val isLoading by scanViewModel.isLoading
+    val createdSessionId by scanViewModel.createdSessionId
+    val errorMessage by scanViewModel.errorMessage
 
     LaunchedEffect(createdSessionId) {
         createdSessionId?.let { id ->
-            navController.currentBackStackEntry?.savedStateHandle?.set("sessionName", sessionName)
             navController.navigate(Screen.Scan.createRoute(id))
             scanViewModel.clearCreatedSessionId()
         }
@@ -94,7 +107,7 @@ fun CreateSessionScreen(navController: NavController) {
                 text = titleText,
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.displaySmall,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = TextAlign.Center
             )
 
             Spacer(Modifier.height(20.dp))
@@ -140,6 +153,19 @@ fun CreateSessionScreen(navController: NavController) {
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
+
+            errorMessage?.let { message ->
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                )
             }
 
             Spacer(modifier = Modifier.weight(1f))

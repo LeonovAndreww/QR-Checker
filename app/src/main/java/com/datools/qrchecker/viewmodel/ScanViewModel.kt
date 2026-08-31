@@ -2,115 +2,90 @@ package com.datools.qrchecker.viewmodel
 
 import android.content.Context
 import android.net.Uri
-import androidx.compose.runtime.mutableStateListOf
+import android.util.Log
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
-import androidx.core.net.toUri
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.datools.qrchecker.R
+import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.util.parsePdfForQRCodes
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import androidx.compose.runtime.State
+import java.util.UUID
 
-class ScanViewModel(private val state: SavedStateHandle) : ViewModel() {
+private const val TAG = "QRChecker"
 
-    var sessionName = mutableStateOf(state.get<String>("sessionName"))
-        private set
-
-    var pdfUriString = mutableStateOf(state.get<String>("pdfUri"))
-        private set
+class ScanViewModel : ViewModel() {
 
     private val _isLoading = mutableStateOf(false)
-    val isLoading get() = _isLoading
-
-    private val _qrList = mutableStateListOf<String>()
-    @Suppress("unused")
-    val qrList: List<String> get() = _qrList
+    val isLoading: State<Boolean> get() = _isLoading
 
     private val _errorMessage = mutableStateOf<String?>(null)
-    @Suppress("unused")
-    val errorMessage get() = _errorMessage
+    val errorMessage: State<String?> get() = _errorMessage
+
     private val _createdSessionId = mutableStateOf<String?>(null)
     val createdSessionId: State<String?> get() = _createdSessionId
 
-    @Suppress("unused")
-    fun setSession(name: String?, uri: Uri?) {
-        sessionName.value = name
-        pdfUriString.value = uri?.toString()
-        state["sessionName"] = name
-        state["pdfUri"] = uri?.toString()
-    }
+    /**
+     * Parses the selected PDF and stores a new session.
+     *
+     * A session is created only when the document actually yielded codes — otherwise the
+     * user would end up with an empty session and no explanation of what went wrong.
+     */
+    fun createSessionFromPdf(
+        context: Context,
+        sessionName: String,
+        uri: Uri,
+        scale: Int = 3
+    ) {
+        if (_isLoading.value) return
+        val appContext = context.applicationContext
 
-    fun createSessionFromPdf(context: Context, sessionNameStr: String, uri: Uri, scale: Int = 3) {
         _isLoading.value = true
-        _qrList.clear()
         _errorMessage.value = null
         _createdSessionId.value = null
 
         viewModelScope.launch {
-            val codes = withContext(Dispatchers.IO) {
-                try {
-                    parsePdfForQRCodes(context, uri, scale)
-                } catch (e: Exception) {
-                    _errorMessage.value = e.message ?: "Unknown error"
-                    emptyList()
-                }
-            }
-
-            _qrList.addAll(codes)
-
-            val sessionId = java.util.UUID.randomUUID().toString()
-            val session = SessionData(
-                id = sessionId,
-                name = sessionNameStr,
-                codes = codes.toMutableList(),
-                scannedCodes = mutableListOf()
-            )
             try {
-                val repo = com.datools.qrchecker.data.SessionRepository(context)
+                // parsePdfForQRCodes switches to Dispatchers.IO on its own
+                val codes = parsePdfForQRCodes(appContext, uri, scale)
+
+                if (codes.isEmpty()) {
+                    _errorMessage.value = appContext.getString(R.string.error_no_codes_in_pdf)
+                    return@launch
+                }
+
+                val session = SessionData(
+                    id = UUID.randomUUID().toString(),
+                    name = sessionName,
+                    codes = codes,
+                    scannedCodes = emptyList()
+                )
+
+                val repo = SessionRepository(appContext)
                 repo.migrateFromSharedPrefsIfNeeded()
                 repo.insert(session)
-                _createdSessionId.value = sessionId
+                _createdSessionId.value = session.id
+            } catch (c: CancellationException) {
+                throw c
             } catch (t: Throwable) {
-                _errorMessage.value = "Can't save session: ${t.message}"
+                Log.e(TAG, "Can't create a session from the selected PDF", t)
+                _errorMessage.value =
+                    appContext.getString(R.string.error_parsing_pdf, t.message ?: "")
+            } finally {
+                _isLoading.value = false
             }
-
-            _isLoading.value = false
         }
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
     }
 
     // clear the value after navigation (to avoid navigating twice)
     fun clearCreatedSessionId() {
         _createdSessionId.value = null
-    }
-
-    fun scanPdf(context: Context, uri: Uri, scale: Int = 3) {
-        _isLoading.value = true
-        _qrList.clear()
-        _errorMessage.value = null
-
-        viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                try {
-                    parsePdfForQRCodes(context, uri, scale)
-                } catch (e: Exception) {
-                    _errorMessage.value = e.message
-                    emptyList()
-                }
-            }
-            _qrList.addAll(result)
-            _isLoading.value = false
-        }
-    }
-
-    @Suppress("unused")
-    fun startScanIfNeeded(context: Context) {
-        pdfUriString.value?.let { uriStr ->
-            val uri = uriStr.toUri()
-            scanPdf(context, uri)
-        }
     }
 }
