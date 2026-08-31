@@ -3,7 +3,6 @@
     <string name="app_name" translatable="false">QR Checker</string>
 
     <!-- HomeScreen -->
-    <string name="fab_new_session">New session</string>
     <string name="sessions_title">Sessions</string>
 
     <!-- common content descriptions -->
@@ -44,6 +43,7 @@
     <string name="was_qr_count">Original QR count: %1$d</string>
     <string name="will_be_qr_count">Resulting QR count: %1$s</string>
     <string name="error_parsing_pdf">PDF parsing error: %1$s</string>
+    <string name="error_no_codes_in_pdf">No QR codes were found in this file</string>
     <string name="error_loading_session">Failed to load session: %1$s</string>
     <string name="error_saving_session">Failed to save: %1$s</string>
     <string name="save_button">Save</string>
@@ -64,6 +64,4 @@
     <string name="progress_format">Progress:\n%1$d / %2$d</string>
     <string name="no_camera_permission">Camera permission is not granted</string>
 
-    <!-- generic -->
-    <string name="cd_delete_code_short">Delete</string>
 </resources>
