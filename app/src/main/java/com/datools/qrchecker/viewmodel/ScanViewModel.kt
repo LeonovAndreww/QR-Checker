@@ -50,12 +50,17 @@ class ScanViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 // parsePdfForQRCodes switches to Dispatchers.IO on its own
-                val codes = parsePdfForQRCodes(appContext, uri, scale)
+                val result = parsePdfForQRCodes(appContext, uri, scale)
 
-                if (codes.isEmpty()) {
-                    _errorMessage.value = appContext.getString(R.string.error_no_codes_in_pdf)
+                if (result.codes.isEmpty()) {
+                    _errorMessage.value = appContext.getString(
+                        R.string.error_no_codes_in_pdf,
+                        result.pageCount,
+                        result.renderedSize
+                    )
                     return@launch
                 }
+                val codes = result.codes
 
                 val session = SessionData(
                     id = UUID.randomUUID().toString(),
