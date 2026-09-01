@@ -30,6 +30,13 @@
     <string name="delete_code_success">Code deleted</string>
     <string name="delete_code_failed">Failed to delete code</string>
     <string name="delete_code_error">Error while deleting</string>
+    <string name="cd_export">Export list</string>
+    <string name="search_codes">Search</string>
+    <string name="cd_clear_search">Clear search</string>
+    <string name="no_search_results">Nothing found</string>
+    <string name="export_header_scanned">Scanned codes</string>
+    <string name="export_header_not_scanned">Not scanned codes</string>
+    <string name="export_failed">Could not export</string>
 
     <!-- CreateSessionScreen -->
     <string name="setup_session_title">Session setup</string>
@@ -63,5 +70,9 @@
     <string name="btn_not_scanned">Not scanned</string>
     <string name="progress_format">Progress:\n%1$d / %2$d</string>
     <string name="no_camera_permission">Camera permission is not granted</string>
+    <string name="cd_manual_entry">Enter code manually</string>
+    <string name="manual_entry_title">Enter code</string>
+    <string name="manual_entry_label">Code</string>
+    <string name="manual_entry_confirm">Check</string>
 
 </resources>
