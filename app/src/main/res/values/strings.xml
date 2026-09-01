@@ -50,7 +50,7 @@
     <string name="was_qr_count">Original QR count: %1$d</string>
     <string name="will_be_qr_count">Resulting QR count: %1$s</string>
     <string name="error_parsing_pdf">PDF parsing error: %1$s</string>
-    <string name="error_no_codes_in_pdf">No QR codes were found in this file</string>
+    <string name="error_no_codes_in_pdf">No codes were found in this file (pages checked: %1$d, rendered at %2$s)</string>
     <string name="error_loading_session">Failed to load session: %1$s</string>
     <string name="error_saving_session">Failed to save: %1$s</string>
     <string name="save_button">Save</string>

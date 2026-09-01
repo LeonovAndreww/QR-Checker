@@ -113,10 +113,9 @@ fun EditSessionScreen(
             isLoading = true
             errorMessage = null
             try {
-                val codes = withContext(Dispatchers.IO) {
+                parsedCodes = withContext(Dispatchers.IO) {
                     parsePdfForQRCodes(context, uri, 3)
-                }
-                parsedCodes = codes
+                }.codes
             } catch (t: Throwable) {
                 parsedCodes = emptyList()
                 Log.e(TAG, "Can't parse the selected PDF", t)

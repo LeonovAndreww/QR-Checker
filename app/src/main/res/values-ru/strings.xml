@@ -47,7 +47,7 @@
     <string name="was_qr_count">Было QR-кодов: %1$d</string>
     <string name="will_be_qr_count">Станет QR-кодов: %1$s</string>
     <string name="error_parsing_pdf">Ошибка парсинга PDF: %1$s</string>
-    <string name="error_no_codes_in_pdf">В этом файле не найдено ни одного QR-кода</string>
+    <string name="error_no_codes_in_pdf">В этом файле не найдено ни одного кода (проверено страниц: %1$d, рендер %2$s)</string>
     <string name="error_loading_session">Не удалось загрузить сессию: %1$s</string>
     <string name="error_saving_session">Не удалось сохранить: %1$s</string>
     <string name="save_button">Сохранить</string>

@@ -2,7 +2,6 @@ package com.datools.qrchecker.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.ImageFormat
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -50,13 +49,10 @@ import com.datools.qrchecker.ui.theme.Error
 import com.datools.qrchecker.ui.theme.Success
 import com.datools.qrchecker.ui.theme.Warning
 import com.datools.qrchecker.util.normalizeCode
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.BinaryBitmap
-import com.google.zxing.DecodeHintType
-import com.google.zxing.MultiFormatReader
-import com.google.zxing.NotFoundException
-import com.google.zxing.PlanarYUVLuminanceSource
-import com.google.zxing.common.HybridBinarizer
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
@@ -404,6 +400,9 @@ private fun CameraPreview(onCodeScanned: (String) -> Unit) {
     DisposableEffect(lifecycleOwner) {
         // owned by this effect: restarting it must not reuse an executor already shut down
         val analysisExecutor = Executors.newSingleThreadExecutor()
+        val analyzer = MlKitQrCodeAnalyzer { text ->
+            mainExecutor.execute { currentOnCodeScanned(text) }
+        }
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         var boundProvider: ProcessCameraProvider? = null
 
@@ -419,14 +418,7 @@ private fun CameraPreview(onCodeScanned: (String) -> Unit) {
                 val analysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
-                    .also { analysis ->
-                        analysis.setAnalyzer(
-                            analysisExecutor,
-                            ZxingQrCodeAnalyzer { text ->
-                                mainExecutor.execute { currentOnCodeScanned(text) }
-                            }
-                        )
-                    }
+                    .also { it.setAnalyzer(analysisExecutor, analyzer) }
 
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(
@@ -442,6 +434,7 @@ private fun CameraPreview(onCodeScanned: (String) -> Unit) {
 
         onDispose {
             boundProvider?.unbindAll()
+            analyzer.close()
             analysisExecutor.shutdown()
         }
     }
@@ -450,62 +443,40 @@ private fun CameraPreview(onCodeScanned: (String) -> Unit) {
 }
 
 /**
- * Decodes QR codes from camera frames. One reader per instance: [MultiFormatReader]
- * keeps internal state and is not safe to share between threads.
+ * Decodes QR codes from camera frames with ML Kit.
+ *
+ * The frame is handed over as-is together with its rotation, so codes are read at any
+ * orientation without copying and rebuilding the luminance plane by hand.
  */
-class ZxingQrCodeAnalyzer(
+class MlKitQrCodeAnalyzer(
     private val onQrCodeDetected: (String) -> Unit
-) : ImageAnalysis.Analyzer {
+) : ImageAnalysis.Analyzer, AutoCloseable {
 
-    private val reader = MultiFormatReader().apply {
-        setHints(
-            mapOf(
-                DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE)
-            )
-        )
-    }
+    private val scanner = BarcodeScanning.getClient(
+        BarcodeScannerOptions.Builder()
+            // must match what the PDF parser reads, or a scanned label never
+            // matches its entry in the session
+            .setBarcodeFormats(Barcode.FORMAT_DATA_MATRIX, Barcode.FORMAT_QR_CODE)
+            .build()
+    )
 
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
-        val image = imageProxy.image
-        if (image == null || image.format != ImageFormat.YUV_420_888 || image.planes.size < 3) {
+        val mediaImage = imageProxy.image
+        if (mediaImage == null) {
             imageProxy.close()
             return
         }
 
-        try {
-            val yPlane = image.planes[0]
-            val yBuffer = yPlane.buffer
-            yBuffer.rewind()
-            val rowStride = yPlane.rowStride
-            val width = image.width
-            val height = image.height
-
-            val yData = ByteArray(width * height)
-            if (rowStride == width) {
-                yBuffer.get(yData)
-            } else {
-                // if stride != width - copy line by line
-                for (row in 0 until height) {
-                    yBuffer.position(row * rowStride)
-                    yBuffer.get(yData, row * width, width)
-                }
+        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+        scanner.process(image)
+            .addOnSuccessListener { barcodes ->
+                barcodes.firstNotNullOfOrNull { it.rawValue }?.let(onQrCodeDetected)
             }
-
-            val source = PlanarYUVLuminanceSource(
-                yData, width, height, 0, 0, width, height, false
-            )
-
-            try {
-                val result = reader.decode(BinaryBitmap(HybridBinarizer(source)))
-                onQrCodeDetected(result.text)
-            } catch (_: NotFoundException) {
-                // QR code not found in this frame
-            }
-        } catch (t: Throwable) {
-            Log.w(TAG, "Frame analysis failed", t)
-        } finally {
-            imageProxy.close()
-        }
+            .addOnFailureListener { Log.w(TAG, "Frame analysis failed", it) }
+            // the frame must stay open until ML Kit is done with it
+            .addOnCompleteListener { imageProxy.close() }
     }
+
+    override fun close() = scanner.close()
 }
