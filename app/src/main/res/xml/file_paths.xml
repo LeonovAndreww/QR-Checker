@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- only the export folder is shared, not the whole cache -->
+    <cache-path name="export" path="export/" />
+</paths>

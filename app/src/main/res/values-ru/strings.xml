@@ -27,6 +27,13 @@
     <string name="delete_code_success">Код удалён</string>
     <string name="delete_code_failed">Не удалось удалить код</string>
     <string name="delete_code_error">Ошибка при удалении</string>
+    <string name="cd_export">Экспорт списка</string>
+    <string name="search_codes">Поиск</string>
+    <string name="cd_clear_search">Очистить поиск</string>
+    <string name="no_search_results">Ничего не найдено</string>
+    <string name="export_header_scanned">Отсканированные коды</string>
+    <string name="export_header_not_scanned">Неотсканированные коды</string>
+    <string name="export_failed">Не удалось экспортировать</string>
 
     <!-- CreateSessionScreen -->
     <string name="setup_session_title">Настройка сессии</string>
@@ -60,6 +67,10 @@
     <string name="btn_not_scanned">Неотсканированные</string>
     <string name="progress_format">Прогресс:\n%1$d / %2$d</string>
     <string name="no_camera_permission">Не предоставлен доступ к камере</string>
+    <string name="cd_manual_entry">Ввести код вручную</string>
+    <string name="manual_entry_title">Ввод кода</string>
+    <string name="manual_entry_label">Код</string>
+    <string name="manual_entry_confirm">Проверить</string>
 
     <!-- generic -->
 </resources>
