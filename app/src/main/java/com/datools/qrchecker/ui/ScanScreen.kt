@@ -24,6 +24,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -86,6 +88,9 @@ fun ScanScreen(
     var feedback by remember { mutableStateOf<UiFeedback?>(null) }
     var lastFeedbackAt by remember { mutableLongStateOf(0L) }
     var lastShownCode by remember { mutableStateOf<String?>(null) }
+
+    // a torn or smudged label is otherwise a dead end
+    var manualCode by remember { mutableStateOf<String?>(null) }
     val vibrator = remember { ContextCompat.getSystemService(context, Vibrator::class.java) }
 
     var hasPermission by remember {
@@ -127,6 +132,11 @@ fun ScanScreen(
     val scannedButtonText = stringResource(id = R.string.btn_scanned)
     val notScannedButtonText = stringResource(id = R.string.btn_not_scanned)
     val noCameraPermissionText = stringResource(id = R.string.no_camera_permission)
+    val manualEntryCd = stringResource(id = R.string.cd_manual_entry)
+    val manualEntryTitle = stringResource(id = R.string.manual_entry_title)
+    val manualEntryLabel = stringResource(id = R.string.manual_entry_label)
+    val manualEntryConfirm = stringResource(id = R.string.manual_entry_confirm)
+    val cancelText = stringResource(id = R.string.delete_cancel)
 
     fun showFeedback(message: String, color: Color, vibrMs: Long, code: String?) {
         val now = System.currentTimeMillis()
@@ -225,6 +235,15 @@ fun ScanScreen(
                 style = MaterialTheme.typography.headlineMedium
             )
 
+            IconButton(
+                onClick = { manualCode = "" },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = padding.calculateTopPadding() + 4.dp, end = 4.dp)
+            ) {
+                Icon(imageVector = Icons.Default.Edit, contentDescription = manualEntryCd)
+            }
+
             // bottom row: two buttons + progress in center
             Row(
                 modifier = Modifier
@@ -293,6 +312,34 @@ fun ScanScreen(
                         .padding(bottom = padding.calculateBottomPadding() + 4.dp),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.displayMedium
+                )
+            }
+
+            manualCode?.let { typed ->
+                AlertDialog(
+                    onDismissRequest = { manualCode = null },
+                    title = { Text(manualEntryTitle) },
+                    text = {
+                        OutlinedTextField(
+                            value = typed,
+                            onValueChange = { manualCode = it.filterNot { ch -> ch == '\n' } },
+                            label = { Text(manualEntryLabel) },
+                            singleLine = true
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            enabled = typed.isNotBlank(),
+                            onClick = {
+                                manualCode = null
+                                // same path as a decoded frame, so the feedback matches
+                                onCodeScanned(typed)
+                            }
+                        ) { Text(manualEntryConfirm) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { manualCode = null }) { Text(cancelText) }
+                    }
                 )
             }
 
