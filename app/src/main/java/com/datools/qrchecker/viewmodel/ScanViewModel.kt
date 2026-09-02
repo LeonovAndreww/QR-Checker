@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.datools.qrchecker.R
 import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.util.parsePdfForQRCodes
 import kotlinx.coroutines.CancellationException
@@ -72,6 +73,9 @@ class ScanViewModel : ViewModel() {
                 val repo = SessionRepository(appContext)
                 repo.migrateFromSharedPrefsIfNeeded()
                 repo.insert(session)
+                // новая сессия попадает в копию сразу: до первого скана может пройти час,
+                // а разобранный PDF - уже проделанная работа
+                SessionBackup.autoSave(appContext, session)
                 _createdSessionId.value = session.id
             } catch (c: CancellationException) {
                 throw c

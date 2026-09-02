@@ -53,9 +53,12 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import com.datools.qrchecker.util.SessionBackup
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
+
+private const val BACKUP_DEBOUNCE_MS = 5_000L
 
 private const val TAG = "QRChecker"
 
@@ -110,6 +113,26 @@ fun ScanScreen(
 
     LaunchedEffect(sessionId) {
         session = repo.getById(sessionId)
+    }
+
+    // Копия пишется через паузу после последней отметки, а не на каждую: партия бывает
+    // на тысячи коробок, и файл на каждый скан положил бы сканирование.
+    val scannedCount = session?.scannedCodes?.size
+    LaunchedEffect(scannedCount) {
+        val current = session ?: return@LaunchedEffect
+        if (scannedCount == null || scannedCount == 0) return@LaunchedEffect
+        delay(BACKUP_DEBOUNCE_MS)
+        SessionBackup.autoSave(context, current)
+    }
+
+    // ...и ещё раз при уходе с экрана, чтобы отметки последних секунд не остались только
+    // в базе. Область композиции здесь уже отменена, поэтому запись идёт на области
+    // приложения.
+    val sessionAtDispose by rememberUpdatedState(session)
+    DisposableEffect(Unit) {
+        onDispose {
+            sessionAtDispose?.let { SessionBackup.scheduleSave(context, it) }
+        }
     }
 
     BackHandler {

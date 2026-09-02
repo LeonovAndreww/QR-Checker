@@ -1,4 +1,5 @@
 [versions]
+documentfile = "1.1.0"
 agp = "8.13.2"
 kotlin = "2.3.0"
 coreKtx = "1.17.0"
@@ -40,6 +41,7 @@ camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cam
 camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camera" }
 camera-view = { module = "androidx.camera:camera-view", version.ref = "camera" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }

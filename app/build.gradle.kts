@@ -102,5 +102,6 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.room.ktx)
     implementation(libs.gson)
+    implementation(libs.androidx.documentfile)
     implementation(libs.androidx.compose.material.icons.core)
 }

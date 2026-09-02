@@ -11,6 +11,7 @@ import com.datools.qrchecker.ui.CreateSessionScreen
 import com.datools.qrchecker.ui.EditSessionScreen
 import com.datools.qrchecker.ui.HomeScreen
 import com.datools.qrchecker.ui.ScanScreen
+import com.datools.qrchecker.ui.SettingsScreen
 
 const val ARG_SESSION_ID = "sessionId"
 const val ARG_TYPE = "type"
@@ -19,6 +20,7 @@ const val ARG_TYPE = "type"
 sealed class Screen(val route: String) {
     object Home : Screen("home")
     object CreateSession : Screen("createSession")
+    object Settings : Screen("settings")
 
     object Scan : Screen("scan/{$ARG_SESSION_ID}") {
         fun createRoute(sessionId: String) = "scan/$sessionId"
@@ -49,6 +51,10 @@ fun AppNav() {
         // Main screen
         composable(Screen.Home.route) {
             HomeScreen(navController = navController)
+        }
+
+        composable(Screen.Settings.route) {
+            SettingsScreen(navController = navController)
         }
 
         // Create session screen
