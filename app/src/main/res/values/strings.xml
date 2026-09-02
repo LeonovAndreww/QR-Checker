@@ -80,4 +80,14 @@
     <string name="cd_expand_code">Show the full code</string>
     <string name="csv_column_on_box">Code on the box</string>
     <string name="csv_column_full">Full code</string>
+    <string name="cd_open_session">Open a session file</string>
+    <string name="share_session">Share the session as a file</string>
+    <string name="session_opened">Session opened: %1$d codes, %2$d of them scanned</string>
+    <string name="session_exists_title">This batch is already open</string>
+    <string name="session_exists_text">A session with the same set of codes exists: %1$s. Merge the marks into it, or add a separate session?</string>
+    <string name="session_merge">Merge</string>
+    <string name="session_add_new">Add a separate one</string>
+    <string name="session_merged">Merged: %1$d new marks</string>
+    <string name="session_file_failed">The file could not be opened</string>
+    <string name="session_share_failed">The session could not be shared</string>
 </resources>
