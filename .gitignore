@@ -13,3 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Реквизиты подписи релиза - только локально
+keystore.properties
+*.jks
+*.keystore
