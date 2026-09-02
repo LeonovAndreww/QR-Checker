@@ -1,5 +1,6 @@
 package com.datools.qrchecker
 
+import com.datools.qrchecker.util.GROUP_SEPARATOR
 import com.datools.qrchecker.util.buildCsv
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -7,42 +8,51 @@ import org.junit.Test
 
 class CsvExportTest {
 
+    private fun csv(codes: List<String>) =
+        buildCsv(title = "Codes", columnOnBox = "On the box", columnFull = "Full", codes = codes)
+
+    private fun rows(codes: List<String>) = csv(codes).split("\r\n").filter { it.isNotEmpty() }
+
     @Test
-    fun startsWithBomAndSeparatorHint() {
-        val csv = buildCsv("Codes", listOf("A1"))
-        assertTrue("Excel reads UTF-8 as ANSI without a BOM", csv.startsWith("﻿"))
-        assertEquals("sep=;", csv.lineSequence().first().removePrefix("﻿"))
+    fun `файл начинается с BOM и подсказки про разделитель`() {
+        val out = csv(listOf("A1"))
+        assertTrue(out.startsWith("﻿"))
+        assertEquals("﻿sep=;", rows(listOf("A1"))[0])
     }
 
     @Test
-    fun writesHeaderThenOneCodePerLine() {
-        val csv = buildCsv("Codes", listOf("A1", "A2", "A3"))
-        val lines = csv.removePrefix("﻿").split("\r\n").filter { it.isNotEmpty() }
-        assertEquals(listOf("sep=;", "Codes", "A1", "A2", "A3"), lines)
+    fun `после заголовка идёт строка с названиями колонок`() {
+        assertEquals("Codes", rows(listOf("A1"))[1])
+        assertEquals("On the box;Full", rows(listOf("A1"))[2])
     }
 
     @Test
-    fun quotesValuesHoldingTheSeparator() {
-        val csv = buildCsv("Codes", listOf("box;12"))
-        assertTrue(csv.contains("\"box;12\""))
+    fun `каждый код - строка из короткого и полного значения`() {
+        val marked = "0104680577333570215,'OfIXCFmCGl${GROUP_SEPARATOR}9180C3${GROUP_SEPARATOR}9212ab"
+        val row = rows(listOf(marked)).last()
+        assertEquals("0104680577333570215,'OfIXCFmCGl;$marked", row)
     }
 
     @Test
-    fun doublesEmbeddedQuotes() {
-        val csv = buildCsv("Codes", listOf("""say "hi""""))
-        assertTrue(csv.contains("\"say \"\"hi\"\"\""))
+    fun `значение с разделителем берётся в кавычки`() {
+        assertEquals("\"box;12\";\"box;12\"", rows(listOf("box;12")).last())
     }
 
     @Test
-    fun leavesPlainValuesUnquoted() {
-        val csv = buildCsv("Codes", listOf("A1"))
-        assertTrue(csv.contains("\r\nA1\r\n") || csv.endsWith("A1\r\n"))
+    fun `кавычка внутри значения удваивается`() {
+        assertEquals(
+            "\"say \"\"hi\"\"\";\"say \"\"hi\"\"\"",
+            rows(listOf("say \"hi\"")).last()
+        )
     }
 
     @Test
-    fun handlesAnEmptyList() {
-        val csv = buildCsv("Codes", emptyList())
-        val lines = csv.removePrefix("﻿").split("\r\n").filter { it.isNotEmpty() }
-        assertEquals(listOf("sep=;", "Codes"), lines)
+    fun `каждая строка заканчивается CRLF`() {
+        assertTrue(csv(listOf("A1")).endsWith("\r\n"))
+    }
+
+    @Test
+    fun `пустой список оставляет только шапку`() {
+        assertEquals(3, rows(emptyList()).size)
     }
 }

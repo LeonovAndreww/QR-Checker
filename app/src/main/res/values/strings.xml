@@ -75,4 +75,9 @@
     <string name="manual_entry_label">Code</string>
     <string name="manual_entry_confirm">Check</string>
 
+    <string name="cd_copy_code">Copy code</string>
+    <string name="code_copied">Code copied</string>
+    <string name="cd_expand_code">Show the full code</string>
+    <string name="csv_column_on_box">Code on the box</string>
+    <string name="csv_column_full">Full code</string>
 </resources>

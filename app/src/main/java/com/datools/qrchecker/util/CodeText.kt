@@ -1,16 +1,41 @@
 package com.datools.qrchecker.util
 
-/**
- * Control and formatting characters that some encoders embed into QR payloads
- * (line breaks, zero-width marks, DEL, ...).
- */
-private val CONTROL_CHARS = Regex("\\p{C}")
+/** Разделитель полей GS1 (FNC1). Внутри кода маркировки он значим и не вычищается. */
+const val GROUP_SEPARATOR = '\u001D'
 
 /**
- * Normalizes a raw decoded QR payload.
- *
- * Codes parsed from a PDF and codes read by the camera are compared to each other,
- * so both paths must clean the text exactly the same way — otherwise a scanned code
- * silently fails to match its entry in the session list.
+ * Символы, которые не несут смысла: переводы строк, нулевой ширины, DEL. Некоторые
+ * сканеры дописывают их к содержимому. GROUP_SEPARATOR исключён - он часть кода.
  */
-fun normalizeCode(raw: String): String = CONTROL_CHARS.replace(raw, "").trim()
+private val NOISE = Regex("[\\p{C}&&[^\\u001D]]")
+
+/**
+ * Приводит сырое содержимое кода к тому виду, в котором оно хранится и сравнивается.
+ *
+ * Коды из PDF и коды с камеры сверяются друг с другом, поэтому оба пути обязаны чистить
+ * текст одинаково - иначе отсканированный код молча не найдёт свою строку в списке.
+ */
+fun normalizeCode(raw: String): String = NOISE.replace(raw, "").trim()
+
+/** Код маркировки, у которого кодировщик не проставил разделители. */
+private val GS1_WITHOUT_SEPARATORS = Regex("^(01\\d{14}21.+?)91.{4}92.+$")
+
+/**
+ * (01)GTIN(21)серийник - ровно то, что напечатано под кодом на коробке.
+ *
+ * Дальше в коде маркировки идёт криптохвост (91)(92) на сотню знаков: на этикетку его не
+ * выводят и человеку он ничего не говорит. В списках показывается только эта часть, чтобы
+ * строка на экране совпадала со строкой на коробке.
+ *
+ * Границу задаёт разделитель GS1. Если его не проставили, она считается по структуре.
+ * Всё, что не разобралось, возвращается целиком: длинная строка лучше, чем обрезанная не
+ * в том месте.
+ */
+fun shortCode(raw: String): String {
+    val code = normalizeCode(raw)
+
+    val head = code.substringBefore(GROUP_SEPARATOR)
+    if (head.length != code.length) return head
+
+    return GS1_WITHOUT_SEPARATORS.matchEntire(code)?.groupValues?.get(1) ?: code
+}

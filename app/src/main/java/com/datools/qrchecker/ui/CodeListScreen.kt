@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -14,7 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -22,6 +25,7 @@ import android.util.Log
 import com.datools.qrchecker.TYPE_SCANNED
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.buildCsv
+import com.datools.qrchecker.util.shortCode
 import com.datools.qrchecker.util.shareCsv
 import com.datools.qrchecker.model.SessionData
 import kotlinx.coroutines.launch
@@ -30,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.datools.qrchecker.R
 
@@ -43,6 +48,7 @@ fun CodesListScreen(
     type: String // TYPE_SCANNED or TYPE_NOT_SCANNED
 ) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val repo = remember { SessionRepository(context) }
     var session by remember { mutableStateOf<SessionData?>(null) }
     val scope = rememberCoroutineScope()
@@ -52,6 +58,9 @@ fun CodesListScreen(
 
     // dialog state for delete confirmation
     var query by rememberSaveable { mutableStateOf("") }
+    // раскрыта всегда не больше одной плашки: две длинных строки рядом снова
+    // превращают список в стену текста, от которой всё это и уводит
+    var expandedCode by rememberSaveable { mutableStateOf<String?>(null) }
     var codeToDelete by remember { mutableStateOf<String?>(null) }
     var codeToDeleteIsScanned by remember { mutableStateOf(false) }
 
@@ -85,6 +94,11 @@ fun CodesListScreen(
     val searchLabel = stringResource(id = R.string.search_codes)
     val clearSearchCd = stringResource(id = R.string.cd_clear_search)
     val noSearchResults = stringResource(id = R.string.no_search_results)
+    val copyCodeText = stringResource(id = R.string.cd_copy_code)
+    val codeCopiedText = stringResource(id = R.string.code_copied)
+    val deleteCodeCd = stringResource(id = R.string.cd_delete_code)
+    val csvColumnOnBox = stringResource(id = R.string.csv_column_on_box)
+    val csvColumnFull = stringResource(id = R.string.csv_column_full)
     val exportFailed = stringResource(id = R.string.export_failed)
     val exportHeader = stringResource(
         id = if (type == TYPE_SCANNED) R.string.export_header_scanned
@@ -133,7 +147,12 @@ fun CodesListScreen(
                                     val intent = shareCsv(
                                         context = context,
                                         baseName = "${current.name}_$type",
-                                        content = buildCsv(exportHeader, exportableCodes)
+                                        content = buildCsv(
+                                            title = exportHeader,
+                                            columnOnBox = csvColumnOnBox,
+                                            columnFull = csvColumnFull,
+                                            codes = exportableCodes
+                                        )
                                     )
                                     context.startActivity(intent)
                                 } catch (t: Throwable) {
@@ -206,34 +225,71 @@ fun CodesListScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(items = visibleCodes, key = { it }) { code ->
-                                Card(modifier = Modifier.fillMaxWidth()) {
-                                    Row(
+                                val expanded = code == expandedCode
+                                Card(
+                                    onClick = {
+                                        expandedCode = if (expanded) null else code
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .animateContentSize()
+                                ) {
+                                    Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                                            .padding(horizontal = 12.dp, vertical = 10.dp)
                                     ) {
-                                        Text(
-                                            text = code,
-                                            maxLines = 4,
-                                            overflow = TextOverflow.Ellipsis,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .padding(end = 8.dp)
-                                        )
-
-                                        IconButton(
-                                            onClick = {
-                                                codeToDelete = code
-                                                codeToDeleteIsScanned = (type == TYPE_SCANNED)
-                                            }
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = stringResource(id = R.string.cd_delete_code)
+                                            // свёрнуто видно ровно то, что напечатано на
+                                            // коробке; криптохвост кода маркировки на
+                                            // этикетку не выводят и глазами не сверяют
+                                            Text(
+                                                text = if (expanded) code else shortCode(code),
+                                                maxLines = if (expanded) Int.MAX_VALUE else 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .padding(end = 8.dp)
                                             )
+
+                                            IconButton(
+                                                onClick = {
+                                                    codeToDelete = code
+                                                    codeToDeleteIsScanned = (type == TYPE_SCANNED)
+                                                }
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = deleteCodeCd
+                                                )
+                                            }
+                                        }
+
+                                        if (expanded) {
+                                            TextButton(
+                                                onClick = {
+                                                    clipboard.setText(AnnotatedString(code))
+                                                    scope.launch {
+                                                        snackbarHostState.showSnackbar(
+                                                            codeCopiedText
+                                                        )
+                                                    }
+                                                }
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(
+                                                        id = R.drawable.ic_content_copy
+                                                    ),
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(copyCodeText)
+                                            }
                                         }
                                     }
                                 }
@@ -244,7 +300,7 @@ fun CodesListScreen(
             }
 
             if (codeToDelete != null) {
-                val previewCode = codeToDelete ?: ""
+                val previewCode = codeToDelete?.let { shortCode(it) } ?: ""
                 AlertDialog(
                     onDismissRequest = { codeToDelete = null },
                     title = {
