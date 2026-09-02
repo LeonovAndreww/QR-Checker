@@ -15,7 +15,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,6 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.datools.qrchecker.R
 import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.util.shortCode
 import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.util.shareSessionFile
 import com.datools.qrchecker.model.SessionData
@@ -85,6 +92,12 @@ fun EditSessionScreen(
     // confirmation dialog when replacing codes
     var showReplaceConfirm by remember { mutableStateOf(false) }
     val shareSessionText = stringResource(id = R.string.share_session)
+    // «Заменить» - поведение, которое было до сих пор, поэтому оно и остаётся по умолчанию
+    var replaceCodesMode by remember { mutableStateOf(true) }
+    val codesFromPdfTitle = stringResource(id = R.string.codes_from_pdf_title)
+    val modeReplaceText = stringResource(id = R.string.codes_mode_replace)
+    val modeAppendText = stringResource(id = R.string.codes_mode_append)
+    val saveCodesText = stringResource(id = R.string.save_codes)
 
     /** [newCodes] is null when only the name changed, so the code rows are left alone. */
     fun saveAndClose(newCodes: List<String>?) {
@@ -158,8 +171,6 @@ fun EditSessionScreen(
     val pdfIconDesc = stringResource(id = R.string.cd_pdf_icon)
     val cancelText = stringResource(id = R.string.delete_cancel)
     val saveText = stringResource(id = R.string.save_button)
-    val replacingTitle = stringResource(id = R.string.replace_codes_title)
-    val replaceAndSaveText = stringResource(id = R.string.replace_and_save)
     val parsingText = stringResource(id = R.string.parsing_pdf)
 
     Scaffold { innerPadding ->
@@ -330,36 +341,131 @@ fun EditSessionScreen(
 
     }
 
-    if (showReplaceConfirm && original != null) {
-        val origScanned = original!!.scannedCodes
-        val finalCodes = parsedCodes ?: original!!.codes
-        val willKeep = origScanned.count { it in finalCodes }
-        val willRemove = origScanned.size - willKeep
+    original?.let { current ->
+        if (!showReplaceConfirm) return@let
+
+        val picked = parsedCodes ?: current.codes
+        val previousCodesForMode = current.codes.toHashSet()
+        // «Заменить» - список становится тем, что в PDF. «Добавить» - к тому, что уже
+        // есть, дописываются только незнакомые коды: партию догружают по частям, и
+        // повторная загрузка того же файла не должна ничего задваивать.
+        val finalCodes = if (replaceCodesMode) {
+            picked
+        } else {
+            current.codes + picked.filterNot { it in previousCodesForMode }
+        }
+        // множествами, а не списками: на партии в тысячи коробок contains по списку
+        // превращает подсчёт в квадрат
+        val nextCodes = finalCodes.toHashSet()
+        val previousCodes = current.codes.toHashSet()
+
+        val lostMarks = current.scannedCodes.filterNot { it in nextCodes }
+        val keptMarks = current.scannedCodes.size - lostMarks.size
+        val newCodes = finalCodes.count { it !in previousCodes }
 
         AlertDialog(
             onDismissRequest = { showReplaceConfirm = false },
-            title = { Text(replacingTitle) },
+            title = { Text(codesFromPdfTitle) },
             text = {
-                val removedSuffix = stringResource(R.string.removed_scanned_count_suffix)
-                val extra = if (willRemove > 0) "\n$willRemove $removedSuffix" else ""
-                Text(text = stringResource(R.string.replace_codes_summary, willKeep, extra))
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = replaceCodesMode,
+                            onClick = { replaceCodesMode = true },
+                            label = { Text(modeReplaceText) }
+                        )
+                        FilterChip(
+                            selected = !replaceCodesMode,
+                            onClick = { replaceCodesMode = false },
+                            label = { Text(modeAppendText) }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = stringResource(R.string.replace_diff_keep, keptMarks),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = stringResource(R.string.replace_diff_lost, lostMarks.size),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (lostMarks.isEmpty()) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        }
+                    )
+                    Text(
+                        text = stringResource(R.string.replace_diff_new, newCodes),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    if (!replaceCodesMode) {
+                        Text(
+                            text = stringResource(
+                                R.string.codes_already_present,
+                                picked.size - newCodes
+                            ),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.replace_diff_total, finalCodes.size),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+
+                    // Пропавшая отметка - это потерянная работа, поэтому её показываем
+                    // поимённо, а не числом. Новые коды перечислять незачем: их и так
+                    // видно в сессии после замены.
+                    if (lostMarks.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.replace_diff_lost_header),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        for (code in lostMarks.take(LOST_MARKS_SHOWN)) {
+                            Text(
+                                text = shortCode(code),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (lostMarks.size > LOST_MARKS_SHOWN) {
+                            Text(
+                                text = stringResource(
+                                    R.string.replace_diff_and_more,
+                                    lostMarks.size - LOST_MARKS_SHOWN
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             },
             confirmButton = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Button(onClick = { showReplaceConfirm = false }) {
-                        Text(cancelText)
-                    }
-                    Button(onClick = {
-                        showReplaceConfirm = false
-                        saveAndClose(newCodes = finalCodes)
-                    }) {
-                        Text(replaceAndSaveText)
-                    }
+                TextButton(onClick = {
+                    showReplaceConfirm = false
+                    saveAndClose(newCodes = finalCodes)
+                }) {
+                    Text(saveCodesText)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReplaceConfirm = false }) {
+                    Text(cancelText)
                 }
             }
         )
     }
 }
+
+/** Сколько пропадающих отметок показать поимённо, прежде чем свернуть в «и ещё N». */
+private const val LOST_MARKS_SHOWN = 12
