@@ -54,12 +54,8 @@
     <string name="error_loading_session">Failed to load session: %1$s</string>
     <string name="error_saving_session">Failed to save: %1$s</string>
     <string name="save_button">Save</string>
-    <string name="removed_scanned_count_suffix">scanned codes will be removed.</string>
 
-    <string name="replace_codes_title">Replace codes from PDF?</string>
-    <string name="replace_codes_summary">If replaced, the code list will be updated.\nScanned codes that are present in the new PDF will be kept (%1$d).%2$s</string>
     <!-- helper: %2$s should be either empty or text like "\nX scanned codes will be removed." -->
-    <string name="replace_and_save">Replace and save</string>
 
     <!-- ScanScreen -->
     <string name="session_not_found">Session not found</string>
@@ -103,4 +99,15 @@
     <string name="backup_folder_failed">Could not keep access to that folder</string>
     <string name="backup_restored">Restored: %1$d sessions</string>
     <string name="backup_restore_failed">Could not restore from the folder</string>
+    <string name="replace_diff_keep">Marks kept: %1$d</string>
+    <string name="replace_diff_lost">Marks lost: %1$d</string>
+    <string name="replace_diff_new">New codes: %1$d</string>
+    <string name="replace_diff_total">Codes after the replacement: %1$d</string>
+    <string name="replace_diff_lost_header">These marks will be lost:</string>
+    <string name="replace_diff_and_more">…and %1$d more</string>
+    <string name="codes_from_pdf_title">Codes from the PDF</string>
+    <string name="codes_mode_replace">Replace</string>
+    <string name="codes_mode_append">Add</string>
+    <string name="codes_already_present">Already in the session: %1$d</string>
+    <string name="save_codes">Save</string>
 </resources>

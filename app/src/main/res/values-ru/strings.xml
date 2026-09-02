@@ -51,12 +51,8 @@
     <string name="error_loading_session">Не удалось загрузить сессию: %1$s</string>
     <string name="error_saving_session">Не удалось сохранить: %1$s</string>
     <string name="save_button">Сохранить</string>
-    <string name="removed_scanned_count_suffix">отсканированных кодов будет удалено.</string>
 
-    <string name="replace_codes_title">Заменить коды из PDF?</string>
-    <string name="replace_codes_summary">При замене список кодов обновится.\nОтсканированные коды, которые присутствуют в новом PDF, сохранятся (%1$d).%2$s</string>
     <!-- helper: %2$s should be either empty or text like "\nX отсканированных кодов будет удалено." -->
-    <string name="replace_and_save">Заменить и сохранить</string>
 
     <!-- ScanScreen -->
     <string name="session_not_found">Сессия не найдена</string>
@@ -101,4 +97,15 @@
     <string name="backup_folder_failed">Не удалось сохранить доступ к папке</string>
     <string name="backup_restored">Восстановлено сессий: %1$d</string>
     <string name="backup_restore_failed">Не удалось восстановить из папки</string>
+    <string name="replace_diff_keep">Отметок останется: %1$d</string>
+    <string name="replace_diff_lost">Отметок пропадёт: %1$d</string>
+    <string name="replace_diff_new">Новых кодов: %1$d</string>
+    <string name="replace_diff_total">Кодов в сессии станет: %1$d</string>
+    <string name="replace_diff_lost_header">Эти отметки пропадут:</string>
+    <string name="replace_diff_and_more">…и ещё %1$d</string>
+    <string name="codes_from_pdf_title">Коды из PDF</string>
+    <string name="codes_mode_replace">Заменить</string>
+    <string name="codes_mode_append">Добавить</string>
+    <string name="codes_already_present">Уже в сессии: %1$d</string>
+    <string name="save_codes">Сохранить</string>
 </resources>
