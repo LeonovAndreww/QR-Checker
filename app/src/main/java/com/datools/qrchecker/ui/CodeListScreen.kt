@@ -25,6 +25,7 @@ import android.util.Log
 import com.datools.qrchecker.TYPE_SCANNED
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.buildCsv
+import com.datools.qrchecker.util.formatScanTimeForScreen
 import com.datools.qrchecker.util.shortCode
 import com.datools.qrchecker.util.shareCsv
 import com.datools.qrchecker.model.SessionData
@@ -99,6 +100,7 @@ fun CodesListScreen(
     val deleteCodeCd = stringResource(id = R.string.cd_delete_code)
     val csvColumnOnBox = stringResource(id = R.string.csv_column_on_box)
     val csvColumnFull = stringResource(id = R.string.csv_column_full)
+    val csvColumnScannedAt = stringResource(id = R.string.csv_column_scanned_at)
     val exportFailed = stringResource(id = R.string.export_failed)
     val exportHeader = stringResource(
         id = if (type == TYPE_SCANNED) R.string.export_header_scanned
@@ -151,7 +153,9 @@ fun CodesListScreen(
                                             title = exportHeader,
                                             columnOnBox = csvColumnOnBox,
                                             columnFull = csvColumnFull,
-                                            codes = exportableCodes
+                                            columnScannedAt = csvColumnScannedAt,
+                                            codes = exportableCodes,
+                                            scanTimes = current.scanTimes
                                         )
                                     )
                                     context.startActivity(intent)
@@ -270,6 +274,13 @@ fun CodesListScreen(
                                         }
 
                                         if (expanded) {
+                                            session?.scanTimes?.get(code)?.let { at ->
+                                                Text(
+                                                    text = formatScanTimeForScreen(at),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                             TextButton(
                                                 onClick = {
                                                     clipboard.setText(AnnotatedString(code))

@@ -110,4 +110,5 @@
     <string name="codes_mode_append">Add</string>
     <string name="codes_already_present">Already in the session: %1$d</string>
     <string name="save_codes">Save</string>
+    <string name="csv_column_scanned_at">Scanned at</string>
 </resources>

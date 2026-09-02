@@ -30,5 +30,11 @@ data class SessionCodeEntity(
     val sessionId: String,
     val code: String,
     val scanned: Boolean,
-    val position: Int
+    val position: Int,
+    /**
+     * Когда код отметили, в миллисекундах. null у неотсканированных и у тех, что были
+     * отмечены до появления этого столбца - «неизвестно» и «не отсканирован» это разные
+     * вещи, и различать их приходится.
+     */
+    val scannedAt: Long? = null
 )

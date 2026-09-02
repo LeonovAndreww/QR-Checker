@@ -212,12 +212,19 @@ fun ScanScreen(
                 showFeedback(alreadyScannedMsg, feedbackColors.warning, 30L, code)
 
             else -> {
-                session = current.copy(scannedCodes = current.scannedCodes + code)
+                // одно и то же время идёт и в базу, и в состояние экрана: с него потом
+                // снимается копия сессии, и разъехавшись они увезли бы в файл отметки
+                // без времени
+                val at = System.currentTimeMillis()
+                session = current.copy(
+                    scannedCodes = current.scannedCodes + code,
+                    scanTimes = current.scanTimes.orEmpty() + (code to at)
+                )
                 showFeedback(scannedMsg, feedbackColors.success, 60L, code)
                 scope.launch {
                     try {
                         // a single UPDATE of one row; two scans cannot overwrite each other
-                        repo.markScanned(sessionId, code)
+                        repo.markScanned(sessionId, code, at)
                     } catch (t: Throwable) {
                         Log.e(TAG, "Can't save the scanned code", t)
                     }

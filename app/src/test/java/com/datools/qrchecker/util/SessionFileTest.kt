@@ -105,4 +105,28 @@ class SessionFileTest {
         """.trimIndent()
         assertEquals(listOf("A1"), readSessionFile(text).session.codes)
     }
+
+    @Test
+    fun `время отметки переживает запись и чтение`() {
+        val withTimes = session.copy(scanTimes = mapOf("A2" to 1_700_000_000_000L))
+        val read = readSessionFile(writeSessionFile(withTimes)).session
+        assertEquals(mapOf("A2" to 1_700_000_000_000L), read.scanTimes)
+    }
+
+    @Test
+    fun `у неотмеченного кода времени нет, а не ноль`() {
+        val read = readSessionFile(writeSessionFile(session)).session
+        assertEquals(emptyMap<String, Long>(), read.scanTimes)
+    }
+
+    @Test
+    fun `файл прошлой версии без времени открывается`() {
+        val text = """
+            {"format":"qrchecker.session","version":1,"id":"s","name":"n",
+             "codes":[{"code":"A1","scanned":true}]}
+        """.trimIndent()
+        val read = readSessionFile(text).session
+        assertEquals(listOf("A1"), read.scannedCodes)
+        assertEquals(emptyMap<String, Long>(), read.scanTimes)
+    }
 }

@@ -30,7 +30,10 @@ class SessionRepository(private val context: Context) {
             id = session.id,
             name = session.name,
             codes = codes.map { it.code },
-            scannedCodes = codes.filter { it.scanned }.map { it.code }
+            scannedCodes = codes.filter { it.scanned }.map { it.code },
+            scanTimes = codes.mapNotNull { row ->
+                row.scannedAt?.let { row.code to it }
+            }.toMap()
         )
     }
 
@@ -42,8 +45,11 @@ class SessionRepository(private val context: Context) {
      * Marks one code as scanned, touching a single row. Returns false when the code is not
      * part of the session or was already scanned.
      */
-    suspend fun markScanned(sessionId: String, code: String): Boolean =
-        dao.markScanned(sessionId, code) > 0
+    suspend fun markScanned(
+        sessionId: String,
+        code: String,
+        at: Long = System.currentTimeMillis()
+    ): Boolean = dao.markScanned(sessionId, code, at) > 0
 
     /** Returns the code to the unscanned list without removing it from the session. */
     suspend fun unmarkScanned(sessionId: String, code: String) {
@@ -58,9 +64,11 @@ class SessionRepository(private val context: Context) {
 
     /** Replaces the code list, keeping the scanned state of the codes that survive. */
     suspend fun replaceCodes(sessionId: String, name: String, codes: List<String>) {
-        val stillScanned = dao.getCodes(sessionId)
-            .filter { it.scanned }
-            .mapTo(HashSet()) { it.code }
+        val previous = dao.getCodes(sessionId).filter { it.scanned }
+        val stillScanned = previous.mapTo(HashSet()) { it.code }
+        // время отметки переживает замену PDF вместе с самой отметкой
+        val previousTimes = previous.mapNotNull { row -> row.scannedAt?.let { row.code to it } }
+            .toMap()
 
         dao.renameSession(sessionId, name)
         dao.replaceCodes(
@@ -70,7 +78,8 @@ class SessionRepository(private val context: Context) {
                     sessionId = sessionId,
                     code = code,
                     scanned = code in stillScanned,
-                    position = position
+                    position = position,
+                    scannedAt = previousTimes[code]
                 )
             }
         )
@@ -99,8 +108,11 @@ class SessionRepository(private val context: Context) {
      * Пачка режется на куски: в списке IN у SQLite ограничение на число параметров, а
      * партия бывает и на несколько тысяч коробок.
      */
-    suspend fun mergeScanned(sessionId: String, scanned: Collection<String>): Int =
-        scanned.chunked(500).sumOf { dao.markScannedIn(sessionId, it) }
+    suspend fun mergeScanned(
+        sessionId: String,
+        scanned: Collection<String>,
+        at: Long = System.currentTimeMillis()
+    ): Int = scanned.chunked(500).sumOf { dao.markScannedIn(sessionId, it, at) }
 
     /** Идентификаторы всех сессий - чтобы при восстановлении не заводить дубликаты. */
     suspend fun existingIds(): Set<String> = dao.getSessionIds().toHashSet()
@@ -130,7 +142,8 @@ private fun SessionData.toCodeEntities(): List<SessionCodeEntity> {
             sessionId = id,
             code = code,
             scanned = code in scanned,
-            position = position
+            position = position,
+            scannedAt = scanTimes?.get(code)
         )
     }
 }
