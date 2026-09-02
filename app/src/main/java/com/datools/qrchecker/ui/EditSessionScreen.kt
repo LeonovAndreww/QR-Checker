@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.datools.qrchecker.R
 import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.util.shareSessionFile
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.util.getFileNameFromUri
 import com.datools.qrchecker.util.parsePdfForQRCodes
@@ -81,6 +83,7 @@ fun EditSessionScreen(
 
     // confirmation dialog when replacing codes
     var showReplaceConfirm by remember { mutableStateOf(false) }
+    val shareSessionText = stringResource(id = R.string.share_session)
 
     /** [newCodes] is null when only the name changed, so the code rows are left alone. */
     fun saveAndClose(newCodes: List<String>?) {
@@ -252,6 +255,33 @@ fun EditSessionScreen(
                     text = stringResource(err.resId, err.detail),
                     color = MaterialTheme.colorScheme.error
                 )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Сессия целиком - имя, все коды, отметки. Это и передача работы сменщику,
+            // и единственный способ не потерять её вместе с телефоном: удаление
+            // приложения стирает базу, а файл лежит там, куда его положил человек.
+            OutlinedButton(
+                onClick = {
+                    val current = original ?: return@OutlinedButton
+                    try {
+                        context.startActivity(shareSessionFile(context, current))
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "Can't share the session", t)
+                        errorMessage = ScreenError(
+                            R.string.session_share_failed,
+                            t.message ?: ""
+                        )
+                    }
+                },
+                enabled = original != null && !isLoading,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(72.dp),
+                shape = MaterialTheme.shapes.small
+            ) {
+                Text(shareSessionText)
             }
 
             Spacer(modifier = Modifier.weight(1f))

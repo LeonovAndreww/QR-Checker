@@ -36,6 +36,27 @@ abstract class SessionDao {
     @Query("UPDATE session_codes SET scanned = 1 WHERE sessionId = :sessionId AND code = :code AND scanned = 0")
     abstract suspend fun markScanned(sessionId: String, code: String): Int
 
+    /**
+     * Отмечает пачку кодов разом. Возвращает, сколько отметок реально добавилось: коды,
+     * которых в сессии нет или которые уже отмечены, не считаются.
+     */
+    @Query(
+        """
+        UPDATE session_codes SET scanned = 1
+        WHERE sessionId = :sessionId AND scanned = 0 AND code IN (:codes)
+        """
+    )
+    abstract suspend fun markScannedIn(sessionId: String, codes: List<String>): Int
+
+    @Query("SELECT COUNT(*) FROM session_codes WHERE sessionId = :sessionId")
+    abstract suspend fun countCodes(sessionId: String): Int
+
+    @Query("SELECT code FROM session_codes WHERE sessionId = :sessionId")
+    abstract suspend fun getCodeValues(sessionId: String): List<String>
+
+    @Query("SELECT id FROM sessions")
+    abstract suspend fun getSessionIds(): List<String>
+
     @Query("UPDATE session_codes SET scanned = 0 WHERE sessionId = :sessionId AND code = :code")
     abstract suspend fun markUnscanned(sessionId: String, code: String): Int
 

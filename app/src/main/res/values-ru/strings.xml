@@ -78,4 +78,14 @@
     <string name="cd_expand_code">Показать код целиком</string>
     <string name="csv_column_on_box">Код на коробке</string>
     <string name="csv_column_full">Полный код</string>
+    <string name="cd_open_session">Открыть файл сессии</string>
+    <string name="share_session">Поделиться сессией файлом</string>
+    <string name="session_opened">Сессия открыта: кодов %1$d, из них отсканировано %2$d</string>
+    <string name="session_exists_title">Эта партия уже открыта</string>
+    <string name="session_exists_text">Сессия с таким же набором кодов уже есть: %1$s. Перенести отметки в неё или добавить отдельную?</string>
+    <string name="session_merge">Перенести</string>
+    <string name="session_add_new">Добавить отдельную</string>
+    <string name="session_merged">Перенесено отметок: %1$d</string>
+    <string name="session_file_failed">Не удалось открыть файл</string>
+    <string name="session_share_failed">Не удалось поделиться сессией</string>
 </resources>

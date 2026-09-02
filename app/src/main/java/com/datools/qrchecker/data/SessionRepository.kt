@@ -76,6 +76,32 @@ class SessionRepository(private val context: Context) {
         )
     }
 
+    /**
+     * Сессия, у которой ровно тот же набор кодов, что у открываемого файла.
+     *
+     * Сравнивается набор, а не порядок: тот же PDF, разложенный в другом порядке, - та же
+     * партия. Сначала отсеиваются сессии другого размера, чтобы не тянуть коды всех
+     * сессий подряд.
+     */
+    suspend fun findWithSameCodes(codes: Collection<String>): SessionData? {
+        val wanted = codes.toHashSet()
+        for (id in dao.getSessionIds()) {
+            if (dao.countCodes(id) != wanted.size) continue
+            if (dao.getCodeValues(id).toHashSet() == wanted) return getById(id)
+        }
+        return null
+    }
+
+    /**
+     * Переносит отметки из другой копии той же сессии. Возвращает, сколько отметок
+     * добавилось - только их и стоит показывать пользователю, «объединено 0» это ответ.
+     *
+     * Пачка режется на куски: в списке IN у SQLite ограничение на число параметров, а
+     * партия бывает и на несколько тысяч коробок.
+     */
+    suspend fun mergeScanned(sessionId: String, scanned: Collection<String>): Int =
+        scanned.chunked(500).sumOf { dao.markScannedIn(sessionId, it) }
+
     suspend fun migrateFromSharedPrefsIfNeeded() = withContext(Dispatchers.IO) {
         val prefs = context.getSharedPreferences("sessions", Context.MODE_PRIVATE)
         if (prefs.getBoolean("migrated_to_room", false)) return@withContext
