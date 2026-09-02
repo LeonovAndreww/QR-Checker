@@ -51,6 +51,7 @@ import com.datools.qrchecker.Screen
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.model.SessionSummary
+import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.util.SessionFileException
 import com.datools.qrchecker.util.readSessionFile
 import com.datools.qrchecker.util.readTextFromUri
@@ -84,6 +85,7 @@ fun HomeScreen(navController: NavController) {
     val deleteCancel = stringResource(id = R.string.delete_cancel)
     val deleteConfirm = stringResource(id = R.string.delete_confirm)
     val openSessionCd = stringResource(id = R.string.cd_open_session)
+    val settingsCd = stringResource(id = R.string.cd_settings)
     val fileFailed = stringResource(id = R.string.session_file_failed)
     val existsTitle = stringResource(id = R.string.session_exists_title)
     val mergeText = stringResource(id = R.string.session_merge)
@@ -108,7 +110,9 @@ fun HomeScreen(navController: NavController) {
                 if (existing != null) {
                     conflict = Conflict(imported = imported, existing = existing)
                 } else {
-                    repo.insert(imported.copy(id = UUID.randomUUID().toString()))
+                    val added = imported.copy(id = UUID.randomUUID().toString())
+                    repo.insert(added)
+                    SessionBackup.scheduleSave(context, added)
                     snackbarHostState.showSnackbar(
                         openedTemplate.format(
                             imported.codes.size,
@@ -151,6 +155,15 @@ fun HomeScreen(navController: NavController) {
                     style = MaterialTheme.typography.displaySmall,
                     textAlign = TextAlign.Center
                 )
+                IconButton(
+                    onClick = { navController.navigate(Screen.Settings.route) },
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_settings),
+                        contentDescription = settingsCd
+                    )
+                }
                 IconButton(
                     onClick = { openSession.launch(arrayOf("*/*")) },
                     modifier = Modifier.align(Alignment.CenterEnd)
@@ -272,8 +285,9 @@ fun HomeScreen(navController: NavController) {
                     val marks = pending.imported.scannedCodes
                     conflict = null
                     scope.launch {
-                        val added = repo.mergeScanned(target.id, marks)
-                        snackbarHostState.showSnackbar(mergedTemplate.format(added))
+                        val addedMarks = repo.mergeScanned(target.id, marks)
+                        repo.getById(target.id)?.let { SessionBackup.scheduleSave(context, it) }
+                        snackbarHostState.showSnackbar(mergedTemplate.format(addedMarks))
                     }
                 }) {
                     Text(mergeText)
@@ -284,7 +298,9 @@ fun HomeScreen(navController: NavController) {
                     val imported = pending.imported
                     conflict = null
                     scope.launch {
-                        repo.insert(imported.copy(id = UUID.randomUUID().toString()))
+                        val added = imported.copy(id = UUID.randomUUID().toString())
+                        repo.insert(added)
+                        SessionBackup.scheduleSave(context, added)
                         snackbarHostState.showSnackbar(
                             openedTemplate.format(
                                 imported.codes.size,

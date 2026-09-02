@@ -88,4 +88,17 @@
     <string name="session_merged">Перенесено отметок: %1$d</string>
     <string name="session_file_failed">Не удалось открыть файл</string>
     <string name="session_share_failed">Не удалось поделиться сессией</string>
+    <string name="settings_title">Настройки</string>
+    <string name="cd_settings">Настройки</string>
+    <string name="backup_title">Копия сессий</string>
+    <string name="backup_why">Удаление приложения стирает его собственное хранилище, и никакая настройка этого не меняет. Файлы в выбранной вами папке принадлежат вам — они переживут и удаление, и смену телефона.</string>
+    <string name="backup_folder_none">Папка не выбрана</string>
+    <string name="backup_choose_folder">Выбрать папку</string>
+    <string name="backup_change_folder">Изменить</string>
+    <string name="backup_forget_folder">Забыть</string>
+    <string name="backup_auto">Копировать автоматически</string>
+    <string name="backup_restore">Восстановить из папки</string>
+    <string name="backup_folder_failed">Не удалось сохранить доступ к папке</string>
+    <string name="backup_restored">Восстановлено сессий: %1$d</string>
+    <string name="backup_restore_failed">Не удалось восстановить из папки</string>
 </resources>

@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.datools.qrchecker.R
 import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.util.shareSessionFile
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.util.getFileNameFromUri
@@ -97,6 +98,8 @@ fun EditSessionScreen(
                     // the repository keeps the scanned state of the codes that survive
                     repo.replaceCodes(current.id, name, newCodes)
                 }
+                // копия снимается с того, что легло в базу, а не с того, что было на экране
+                repo.getById(current.id)?.let { SessionBackup.scheduleSave(context, it) }
                 navController.popBackStack()
             } catch (t: Throwable) {
                 Log.e(TAG, "Can't save session", t)

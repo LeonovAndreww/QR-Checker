@@ -102,6 +102,9 @@ class SessionRepository(private val context: Context) {
     suspend fun mergeScanned(sessionId: String, scanned: Collection<String>): Int =
         scanned.chunked(500).sumOf { dao.markScannedIn(sessionId, it) }
 
+    /** Идентификаторы всех сессий - чтобы при восстановлении не заводить дубликаты. */
+    suspend fun existingIds(): Set<String> = dao.getSessionIds().toHashSet()
+
     suspend fun migrateFromSharedPrefsIfNeeded() = withContext(Dispatchers.IO) {
         val prefs = context.getSharedPreferences("sessions", Context.MODE_PRIVATE)
         if (prefs.getBoolean("migrated_to_room", false)) return@withContext
