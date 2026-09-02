@@ -73,4 +73,9 @@
     <string name="manual_entry_confirm">Проверить</string>
 
     <!-- generic -->
+    <string name="cd_copy_code">Копировать код</string>
+    <string name="code_copied">Код скопирован</string>
+    <string name="cd_expand_code">Показать код целиком</string>
+    <string name="csv_column_on_box">Код на коробке</string>
+    <string name="csv_column_full">Полный код</string>
 </resources>

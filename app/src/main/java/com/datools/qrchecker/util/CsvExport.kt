@@ -19,12 +19,33 @@ private const val BOM = "\uFEFF"
 
 private val FILE_STAMP = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US)
 
-fun buildCsv(header: String, codes: List<String>): String = buildString {
+/**
+ * Отчёт из двух колонок.
+ *
+ * Первая - код в том виде, в каком он напечатан на коробке: по ней сверяют глазами.
+ * Вторая - полное содержимое кода вместе с криптохвостом маркировки: она нужна, чтобы
+ * строку можно было загрузить в учётную систему, а не только прочитать.
+ *
+ * Оговорка про Excel: код, состоящий из одних цифр, Excel при открытии превратит в
+ * число и съест ведущий ноль. У кодов маркировки в серийнике почти всегда есть буквы,
+ * поэтому на практике это не срабатывает, но полагаться на это в отчёте для учёта
+ * нельзя - для такой выгрузки нужен xlsx, а не csv.
+ */
+fun buildCsv(
+    title: String,
+    columnOnBox: String,
+    columnFull: String,
+    codes: List<String>
+): String = buildString {
     append(BOM)
     append("sep=").append(SEPARATOR).append("\r\n")
-    append(escapeCsv(header)).append("\r\n")
+    append(escapeCsv(title)).append("\r\n")
+    append(escapeCsv(columnOnBox)).append(SEPARATOR).append(escapeCsv(columnFull)).append("\r\n")
     for (code in codes) {
-        append(escapeCsv(code)).append("\r\n")
+        append(escapeCsv(shortCode(code)))
+        append(SEPARATOR)
+        append(escapeCsv(code))
+        append("\r\n")
     }
 }
 
