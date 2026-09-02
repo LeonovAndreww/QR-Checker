@@ -45,9 +45,9 @@ import com.datools.qrchecker.TYPE_NOT_SCANNED
 import com.datools.qrchecker.TYPE_SCANNED
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.model.SessionData
-import com.datools.qrchecker.ui.theme.Error
-import com.datools.qrchecker.ui.theme.Success
-import com.datools.qrchecker.ui.theme.Warning
+import androidx.compose.material3.MaterialTheme
+import com.datools.qrchecker.ui.theme.FeedbackColor
+import com.datools.qrchecker.ui.theme.feedback
 import com.datools.qrchecker.util.normalizeCode
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -64,7 +64,7 @@ private const val TAG = "QRChecker"
 
 private data class UiFeedback(
     val message: String,
-    val color: Color,
+    val color: FeedbackColor,
     val code: String?
 )
 
@@ -78,6 +78,7 @@ fun ScanScreen(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val repo = remember { SessionRepository(context) }
     val scope = rememberCoroutineScope()
+    val feedbackColors = MaterialTheme.feedback
     val view = LocalView.current
 
     var session by remember { mutableStateOf<SessionData?>(null) }
@@ -157,7 +158,7 @@ fun ScanScreen(
     val manualEntryConfirm = stringResource(id = R.string.manual_entry_confirm)
     val cancelText = stringResource(id = R.string.delete_cancel)
 
-    fun showFeedback(message: String, color: Color, vibrMs: Long, code: String?) {
+    fun showFeedback(message: String, color: FeedbackColor, vibrMs: Long, code: String?) {
         val now = System.currentTimeMillis()
 
         // if something is already being shown - we don't show the new one
@@ -205,14 +206,14 @@ fun ScanScreen(
 
         when {
             code !in current.codes ->
-                showFeedback(notFoundMsg, Error, 120L, code)
+                showFeedback(notFoundMsg, feedbackColors.danger, 120L, code)
 
             code in current.scannedCodes ->
-                showFeedback(alreadyScannedMsg, Warning, 30L, code)
+                showFeedback(alreadyScannedMsg, feedbackColors.warning, 30L, code)
 
             else -> {
                 session = current.copy(scannedCodes = current.scannedCodes + code)
-                showFeedback(scannedMsg, Success, 60L, code)
+                showFeedback(scannedMsg, feedbackColors.success, 60L, code)
                 scope.launch {
                     try {
                         // a single UPDATE of one row; two scans cannot overwrite each other
@@ -377,13 +378,13 @@ fun ScanScreen(
                         modifier = Modifier
                             .fillMaxWidth(0.9f)
                             .wrapContentHeight()
-                            .background(color = f.color, shape = MaterialTheme.shapes.small)
+                            .background(color = f.color.container, shape = MaterialTheme.shapes.small)
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = f.message,
-                            color = Color.White,
+                            color = f.color.content,
                             style = MaterialTheme.typography.bodyLarge,
                             textAlign = TextAlign.Center,
                             maxLines = 2,

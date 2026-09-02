@@ -39,7 +39,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -133,8 +132,8 @@ fun HomeScreen(navController: NavController) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate(Screen.CreateSession.route) },
-                containerColor = Color.Yellow,
-                contentColor = Color.Black
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
             ) {
                 Icon(Icons.Default.Add, contentDescription = fabCd)
             }
@@ -189,8 +188,8 @@ fun HomeScreen(navController: NavController) {
                                 navController.navigate(Screen.EditSession.createRoute(session.id))
                             },
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = Color.DarkGray,
-                                contentColor = MaterialTheme.colorScheme.surface
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                             ),
                             modifier = Modifier
                                 .height(buttonHeight),
@@ -216,8 +215,8 @@ fun HomeScreen(navController: NavController) {
                                 sessionToDelete = session
                             },
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = Color.Red,
-                                contentColor = MaterialTheme.colorScheme.surface
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
                             ),
                             modifier = Modifier
                                 .height(buttonHeight),
