@@ -21,6 +21,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -63,6 +67,7 @@ import java.util.UUID
 private const val TAG = "QRChecker"
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(navController: NavController) {
     val context = LocalContext.current
@@ -85,6 +90,8 @@ fun HomeScreen(navController: NavController) {
     val deleteConfirm = stringResource(id = R.string.delete_confirm)
     val openSessionCd = stringResource(id = R.string.cd_open_session)
     val settingsCd = stringResource(id = R.string.cd_settings)
+    val progressTemplate = stringResource(id = R.string.sessions_progress)
+    val emptyText = stringResource(id = R.string.sessions_empty)
     val fileFailed = stringResource(id = R.string.session_file_failed)
     val existsTitle = stringResource(id = R.string.session_exists_title)
     val mergeText = stringResource(id = R.string.session_merge)
@@ -129,6 +136,29 @@ fun HomeScreen(navController: NavController) {
     }
 
     Scaffold(
+        topBar = {
+            // Та же панель, что на остальных экранах: раньше здесь был крупный текст, а
+            // кнопки висели по его краям, и главный экран выпадал из общего строя
+            CenterAlignedTopAppBar(
+                title = { Text(titleText) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigate(Screen.Settings.route) }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_settings),
+                            contentDescription = settingsCd
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { openSession.launch(arrayOf("*/*")) }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_file_open),
+                            contentDescription = openSessionCd
+                        )
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate(Screen.CreateSession.route) },
@@ -145,34 +175,24 @@ fun HomeScreen(navController: NavController) {
             modifier = Modifier.padding(innerPadding)
         )
         {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = titleText,
+            if (sessions.isEmpty()) {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp),
-                    style = MaterialTheme.typography.displaySmall,
-                    textAlign = TextAlign.Center
-                )
-                IconButton(
-                    onClick = { navController.navigate(Screen.Settings.route) },
-                    modifier = Modifier.align(Alignment.CenterStart)
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_settings),
-                        contentDescription = settingsCd
+                    Text(
+                        text = emptyText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(32.dp)
                     )
                 }
-                IconButton(
-                    onClick = { openSession.launch(arrayOf("*/*")) },
-                    modifier = Modifier.align(Alignment.CenterEnd)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_file_open),
-                        contentDescription = openSessionCd
-                    )
-                }
+                return@Column
             }
+
             LazyColumn(
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
@@ -204,10 +224,24 @@ fun HomeScreen(navController: NavController) {
                                 .weight(1f),
                             shape = MaterialTheme.shapes.small
                         ) {
-                            Text(
-                                text = session.name,
-                                style = MaterialTheme.typography.titleMedium
-                            )
+                            // счёт уже считался запросом для списка, но на экран не
+                            // выводился: приложение открывалось и не отвечало на
+                            // единственный вопрос, ради которого его открывают
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = session.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = progressTemplate.format(
+                                        session.scanned,
+                                        session.total
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         }
 
                         FilledIconButton(

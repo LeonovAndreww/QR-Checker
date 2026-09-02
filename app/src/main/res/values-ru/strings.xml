@@ -109,4 +109,6 @@
     <string name="codes_already_present">Уже в сессии: %1$d</string>
     <string name="save_codes">Сохранить</string>
     <string name="csv_column_scanned_at">Когда отсканирован</string>
+    <string name="sessions_progress">%1$d из %2$d</string>
+    <string name="sessions_empty">Сессий пока нет.\nСоздайте из PDF с кодами или откройте файл сессии.</string>
 </resources>

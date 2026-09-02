@@ -111,4 +111,6 @@
     <string name="codes_already_present">Already in the session: %1$d</string>
     <string name="save_codes">Save</string>
     <string name="csv_column_scanned_at">Scanned at</string>
+    <string name="sessions_progress">%1$d of %2$d</string>
+    <string name="sessions_empty">No sessions yet.\nStart one from a PDF of codes, or open a session file.</string>
 </resources>
