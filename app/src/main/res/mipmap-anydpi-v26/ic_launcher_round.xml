@@ -2,4 +2,11 @@
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background"/>
     <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <!--
+      Слой для тем оформления Android 13+: система красит его силуэт цветом обоев.
+      Взять сюда обычный foreground нельзя - у него непрозрачны и модули кода, и красный
+      лист под ними, так что заливка одним цветом дала бы сплошной квадрат. Здесь в альфе
+      оставлены только модули кода и скобки сканера.
+    -->
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome"/>
 </adaptive-icon>
