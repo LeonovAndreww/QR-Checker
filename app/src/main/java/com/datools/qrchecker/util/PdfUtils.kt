@@ -62,7 +62,13 @@ data class PdfScanResult(
 suspend fun parsePdfForQRCodes(
     context: Context,
     uri: Uri,
-    scale: Int = 3
+    scale: Int = 3,
+    /**
+     * Сколько страниц пройдено из скольких. Сотня страниц разбирается заметно дольше
+     * секунды, и без этого экран показывает крутилку, по которой не отличить работу от
+     * зависания.
+     */
+    onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
 ): PdfScanResult = withContext(Dispatchers.IO) {
     val qrCodes = LinkedHashSet<String>()
     var pageCount = 0
@@ -86,9 +92,12 @@ suspend fun parsePdfForQRCodes(
             PdfRenderer(pfd).use { renderer ->
                 pageCount = renderer.pageCount
 
+                onProgress(0, pageCount)
+
                 for (pageIndex in 0 until pageCount) {
                     // parsing a big document takes a while - honour cancellation
                     ensureActive()
+                    onProgress(pageIndex, pageCount)
 
                     val page = renderer.openPage(pageIndex)
                     val bitmap = try {
