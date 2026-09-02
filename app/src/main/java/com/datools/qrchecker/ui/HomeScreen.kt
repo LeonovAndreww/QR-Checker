@@ -1,7 +1,5 @@
 package com.datools.qrchecker.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,19 +50,9 @@ import androidx.navigation.NavController
 import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.data.SessionRepository
-import com.datools.qrchecker.model.SessionData
+import com.datools.qrchecker.ui.theme.accents
 import com.datools.qrchecker.model.SessionSummary
-import com.datools.qrchecker.util.SessionBackup
-import com.datools.qrchecker.util.SessionFileException
-import com.datools.qrchecker.util.readSessionFile
-import com.datools.qrchecker.util.readTextFromUri
-import android.util.Log
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.UUID
-
-private const val TAG = "QRChecker"
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,9 +64,8 @@ fun HomeScreen(navController: NavController) {
     // summaries only: the list draws names, so pulling every code of every session would be waste
     val sessions by remember { repo.getSummariesFlow() }.collectAsState(initial = emptyList())
     var sessionToDelete by remember { mutableStateOf<SessionSummary?>(null) }
-    // открытый файл, для которого уже нашлась сессия с тем же набором кодов
-    var conflict by remember { mutableStateOf<Conflict?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val accents = MaterialTheme.accents
     val buttonHeight = 82.dp
 
     val fabCd = stringResource(id = R.string.cd_new_session)
@@ -88,52 +75,9 @@ fun HomeScreen(navController: NavController) {
     val deleteTitle = stringResource(id = R.string.delete_session_title)
     val deleteCancel = stringResource(id = R.string.delete_cancel)
     val deleteConfirm = stringResource(id = R.string.delete_confirm)
-    val openSessionCd = stringResource(id = R.string.cd_open_session)
     val settingsCd = stringResource(id = R.string.cd_settings)
     val progressTemplate = stringResource(id = R.string.sessions_progress)
     val emptyText = stringResource(id = R.string.sessions_empty)
-    val fileFailed = stringResource(id = R.string.session_file_failed)
-    val existsTitle = stringResource(id = R.string.session_exists_title)
-    val mergeText = stringResource(id = R.string.session_merge)
-    val addNewText = stringResource(id = R.string.session_add_new)
-    // шаблоны берутся в композиции, числа подставляются уже в корутине: обращаться к
-    // ресурсам через LocalContext вне composable запрещено (LocalContextGetResourceValueCall)
-    val openedTemplate = stringResource(id = R.string.session_opened)
-    val mergedTemplate = stringResource(id = R.string.session_merged)
-
-    // тип у файла сессии свой, система его не знает и отдаёт как octet-stream, поэтому
-    // фильтровать по mime бесполезно - выбор ограничен ничем, разбор решает всё сам
-    val openSession = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            try {
-                val imported = withContext(Dispatchers.IO) {
-                    readSessionFile(readTextFromUri(context, uri)).session
-                }
-                val existing = repo.findWithSameCodes(imported.codes)
-                if (existing != null) {
-                    conflict = Conflict(imported = imported, existing = existing)
-                } else {
-                    val added = imported.copy(id = UUID.randomUUID().toString())
-                    repo.insert(added)
-                    SessionBackup.scheduleSave(context, added)
-                    snackbarHostState.showSnackbar(
-                        openedTemplate.format(
-                            imported.codes.size,
-                            imported.scannedCodes.size
-                        )
-                    )
-                }
-            } catch (e: SessionFileException) {
-                snackbarHostState.showSnackbar(e.message ?: fileFailed)
-            } catch (t: Throwable) {
-                Log.e(TAG, "Can't open a session file", t)
-                snackbarHostState.showSnackbar(fileFailed)
-            }
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -148,22 +92,14 @@ fun HomeScreen(navController: NavController) {
                             contentDescription = settingsCd
                         )
                     }
-                },
-                actions = {
-                    IconButton(onClick = { openSession.launch(arrayOf("*/*")) }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_file_open),
-                            contentDescription = openSessionCd
-                        )
-                    }
                 }
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate(Screen.CreateSession.route) },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                containerColor = accents.newSession.container,
+                contentColor = accents.newSession.content
             ) {
                 Icon(Icons.Default.Add, contentDescription = fabCd)
             }
@@ -208,8 +144,8 @@ fun HomeScreen(navController: NavController) {
                                 navController.navigate(Screen.EditSession.createRoute(session.id))
                             },
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                containerColor = accents.edit.container,
+                                contentColor = accents.edit.content
                             ),
                             modifier = Modifier
                                 .height(buttonHeight),
@@ -249,8 +185,8 @@ fun HomeScreen(navController: NavController) {
                                 sessionToDelete = session
                             },
                             colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                containerColor = accents.delete.container,
+                                contentColor = accents.delete.content
                             ),
                             modifier = Modifier
                                 .height(buttonHeight),
@@ -298,59 +234,5 @@ fun HomeScreen(navController: NavController) {
             }
         )
     }
-
-    conflict?.let { pending ->
-        AlertDialog(
-            onDismissRequest = { conflict = null },
-            title = { Text(existsTitle, style = MaterialTheme.typography.headlineSmall) },
-            text = {
-                Text(
-                    text = stringResource(
-                        id = R.string.session_exists_text,
-                        pending.existing.name
-                    ),
-                    style = MaterialTheme.typography.bodyLarge
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    val target = pending.existing
-                    val marks = pending.imported.scannedCodes
-                    conflict = null
-                    scope.launch {
-                        val addedMarks = repo.mergeScanned(target.id, marks)
-                        repo.getById(target.id)?.let { SessionBackup.scheduleSave(context, it) }
-                        snackbarHostState.showSnackbar(mergedTemplate.format(addedMarks))
-                    }
-                }) {
-                    Text(mergeText)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    val imported = pending.imported
-                    conflict = null
-                    scope.launch {
-                        val added = imported.copy(id = UUID.randomUUID().toString())
-                        repo.insert(added)
-                        SessionBackup.scheduleSave(context, added)
-                        snackbarHostState.showSnackbar(
-                            openedTemplate.format(
-                                imported.codes.size,
-                                imported.scannedCodes.size
-                            )
-                        )
-                    }
-                }) {
-                    Text(addNewText)
-                }
-            }
-        )
-    }
 }
 
-/** Открытый файл и сессия с тем же набором кодов, которая уже есть на устройстве. */
-private data class Conflict(
-    val imported: SessionData,
-    val existing: SessionData
-)

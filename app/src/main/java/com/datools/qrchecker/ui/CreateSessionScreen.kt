@@ -16,8 +16,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.TextButton
+import com.datools.qrchecker.viewmodel.ParsedFile
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -50,8 +54,9 @@ private const val TAG = "QRChecker"
 fun CreateSessionScreen(navController: NavController) {
     val context = LocalContext.current
     var sessionName by rememberSaveable { mutableStateOf("") }
-    var selectedPdfUriString by rememberSaveable { mutableStateOf<String?>(null) }
-    var selectedPdfName by rememberSaveable { mutableStateOf("") }
+    var selectedFileName by rememberSaveable { mutableStateOf("") }
+    // имя из файла сессии подставляется один раз: дальше человек волен его переписать
+    var nameTakenFromFile by rememberSaveable { mutableStateOf(false) }
 
     // getting ViewModel
     val scanViewModel: ScanViewModel = viewModel()
@@ -70,16 +75,31 @@ fun CreateSessionScreen(navController: NavController) {
                 } catch (e: SecurityException) {
                     Log.w(TAG, "Could not persist read access to $uri", e)
                 }
-                selectedPdfName = getFileNameFromUri(uri, context)
-                selectedPdfUriString = uri.toString()
+                selectedFileName = getFileNameFromUri(uri, context)
+                nameTakenFromFile = false
                 scanViewModel.clearError()
+                scanViewModel.clearParsed()
+                // разбор начинается здесь, а не по кнопке: ждать нажатия незачем
+                scanViewModel.parseSelectedFile(context, uri)
             }
         }
     )
 
     val isLoading by scanViewModel.isLoading
+    val progress by scanViewModel.progress
+    val parsed by scanViewModel.parsed
     val createdSessionId by scanViewModel.createdSessionId
+    val conflict by scanViewModel.conflict
     val errorMessage by scanViewModel.errorMessage
+
+    // у файла сессии имя уже есть - подставляем его, чтобы не заставлять придумывать
+    LaunchedEffect(parsed) {
+        val session = (parsed as? ParsedFile.Session)?.session
+        if (session != null && !nameTakenFromFile && session.name.isNotBlank()) {
+            sessionName = session.name
+            nameTakenFromFile = true
+        }
+    }
 
     LaunchedEffect(createdSessionId) {
         createdSessionId?.let { id ->
@@ -90,9 +110,16 @@ fun CreateSessionScreen(navController: NavController) {
 
     val titleText = stringResource(id = R.string.setup_session_title)
     val nameLabel = stringResource(id = R.string.session_name_label)
-    val addPdfLabel = stringResource(id = R.string.add_pdf_label)
+    val addFileLabel = stringResource(id = R.string.add_file_label)
     val continueText = stringResource(id = R.string.continue_button)
     val parsingText = stringResource(id = R.string.parsing_pdf)
+    val progressTemplate = stringResource(id = R.string.parsing_progress)
+    val cancelParsingText = stringResource(id = R.string.parsing_cancel)
+    val pdfSummaryTemplate = stringResource(id = R.string.parsed_pdf_summary)
+    val sessionSummaryTemplate = stringResource(id = R.string.parsed_session_summary)
+    val existsTitle = stringResource(id = R.string.session_exists_title)
+    val mergeText = stringResource(id = R.string.session_merge)
+    val addNewText = stringResource(id = R.string.session_add_new)
     val pdfIconDesc = stringResource(id = R.string.cd_pdf_icon)
 
     Scaffold { innerPadding ->
@@ -130,7 +157,7 @@ fun CreateSessionScreen(navController: NavController) {
             Spacer(Modifier.height(20.dp))
 
             Button(
-                onClick = { documentPicker.launch(arrayOf("application/pdf")) },
+                onClick = { documentPicker.launch(arrayOf("*/*")) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
@@ -147,12 +174,55 @@ fun CreateSessionScreen(navController: NavController) {
                         contentDescription = pdfIconDesc
                     )
                     Text(
-                        text = selectedPdfName.ifEmpty { addPdfLabel },
+                        text = selectedFileName.ifEmpty { addFileLabel },
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
+
+            if (isLoading && progress != null) {
+                val p = progress!!
+                Spacer(Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    LinearProgressIndicator(
+                        progress = { if (p.total > 0) p.done.toFloat() / p.total else 0f },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = progressTemplate.format(p.done + 1, p.total),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    TextButton(onClick = { scanViewModel.cancelParsing() }) {
+                        Text(cancelParsingText)
+                    }
+                }
+            }
+
+            parsed?.let { source ->
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = when (source) {
+                        is ParsedFile.Pdf ->
+                            pdfSummaryTemplate.format(source.codes.size, source.pageCount)
+                        is ParsedFile.Session -> sessionSummaryTemplate.format(
+                            source.session.codes.size,
+                            source.session.scannedCodes.size
+                        )
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                )
             }
 
             errorMessage?.let { message ->
@@ -171,13 +241,8 @@ fun CreateSessionScreen(navController: NavController) {
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
-                onClick = {
-                    selectedPdfUriString?.let { uriStr ->
-                        val pdfUri = uriStr.toUri()
-                        scanViewModel.createSessionFromPdf(context, sessionName, pdfUri)
-                    }
-                },
-                enabled = (sessionName.isNotBlank() && selectedPdfUriString != null && !isLoading),
+                onClick = { scanViewModel.createSession(context, sessionName) },
+                enabled = (sessionName.isNotBlank() && parsed != null && !isLoading),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
@@ -194,5 +259,26 @@ fun CreateSessionScreen(navController: NavController) {
                 }
             }
         }
+    }
+
+    conflict?.let { existing ->
+        AlertDialog(
+            onDismissRequest = { scanViewModel.dismissConflict() },
+            title = { Text(existsTitle) },
+            text = { Text(stringResource(R.string.session_exists_text, existing.name)) },
+            confirmButton = {
+                TextButton(onClick = { scanViewModel.mergeIntoExisting(context) }) {
+                    Text(mergeText)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    scanViewModel.dismissConflict()
+                    scanViewModel.createSession(context, sessionName, force = true)
+                }) {
+                    Text(addNewText)
+                }
+            }
+        )
     }
 }

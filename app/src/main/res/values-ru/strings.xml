@@ -38,7 +38,6 @@
     <!-- CreateSessionScreen -->
     <string name="setup_session_title">Настройка сессии</string>
     <string name="session_name_label">Имя сессии</string>
-    <string name="add_pdf_label">Добавить PDF файл</string>
     <string name="parsing_pdf">Парсинг PDF…</string>
     <string name="continue_button">Продолжить</string>
 
@@ -74,15 +73,12 @@
     <string name="cd_expand_code">Показать код целиком</string>
     <string name="csv_column_on_box">Код на коробке</string>
     <string name="csv_column_full">Полный код</string>
-    <string name="cd_open_session">Открыть файл сессии</string>
     <string name="share_session">Поделиться сессией файлом</string>
-    <string name="session_opened">Сессия открыта: кодов %1$d, из них отсканировано %2$d</string>
     <string name="session_exists_title">Эта партия уже открыта</string>
     <string name="session_exists_text">Сессия с таким же набором кодов уже есть: %1$s. Перенести отметки в неё или добавить отдельную?</string>
     <string name="session_merge">Перенести</string>
     <string name="session_add_new">Добавить отдельную</string>
     <string name="session_merged">Перенесено отметок: %1$d</string>
-    <string name="session_file_failed">Не удалось открыть файл</string>
     <string name="session_share_failed">Не удалось поделиться сессией</string>
     <string name="settings_title">Настройки</string>
     <string name="cd_settings">Настройки</string>
@@ -111,4 +107,9 @@
     <string name="csv_column_scanned_at">Когда отсканирован</string>
     <string name="sessions_progress">%1$d из %2$d</string>
     <string name="sessions_empty">Сессий пока нет.\nСоздайте из PDF с кодами или откройте файл сессии.</string>
+    <string name="add_file_label">Выбрать PDF или файл сессии</string>
+    <string name="parsing_progress">Читаю: страница %1$d из %2$d</string>
+    <string name="parsing_cancel">Отменить</string>
+    <string name="parsed_pdf_summary">Найдено кодов: %1$d, на %2$d страницах</string>
+    <string name="parsed_session_summary">Файл сессии: кодов %1$d, из них уже отсканировано %2$d</string>
 </resources>

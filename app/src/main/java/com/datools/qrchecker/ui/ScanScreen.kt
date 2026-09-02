@@ -46,8 +46,8 @@ import com.datools.qrchecker.TYPE_SCANNED
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.model.SessionData
 import androidx.compose.material3.MaterialTheme
-import com.datools.qrchecker.ui.theme.FeedbackColor
-import com.datools.qrchecker.ui.theme.feedback
+import com.datools.qrchecker.ui.theme.OnColor
+import com.datools.qrchecker.ui.theme.accents
 import com.datools.qrchecker.util.normalizeCode
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -64,7 +64,7 @@ private const val TAG = "QRChecker"
 
 private data class UiFeedback(
     val message: String,
-    val color: FeedbackColor,
+    val color: OnColor,
     val code: String?
 )
 
@@ -78,7 +78,7 @@ fun ScanScreen(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val repo = remember { SessionRepository(context) }
     val scope = rememberCoroutineScope()
-    val feedbackColors = MaterialTheme.feedback
+    val accents = MaterialTheme.accents
     val view = LocalView.current
 
     var session by remember { mutableStateOf<SessionData?>(null) }
@@ -158,7 +158,7 @@ fun ScanScreen(
     val manualEntryConfirm = stringResource(id = R.string.manual_entry_confirm)
     val cancelText = stringResource(id = R.string.delete_cancel)
 
-    fun showFeedback(message: String, color: FeedbackColor, vibrMs: Long, code: String?) {
+    fun showFeedback(message: String, color: OnColor, vibrMs: Long, code: String?) {
         val now = System.currentTimeMillis()
 
         // if something is already being shown - we don't show the new one
@@ -206,10 +206,10 @@ fun ScanScreen(
 
         when {
             code !in current.codes ->
-                showFeedback(notFoundMsg, feedbackColors.danger, 120L, code)
+                showFeedback(notFoundMsg, accents.danger, 120L, code)
 
             code in current.scannedCodes ->
-                showFeedback(alreadyScannedMsg, feedbackColors.warning, 30L, code)
+                showFeedback(alreadyScannedMsg, accents.warning, 30L, code)
 
             else -> {
                 // одно и то же время идёт и в базу, и в состояние экрана: с него потом
@@ -220,7 +220,7 @@ fun ScanScreen(
                     scannedCodes = current.scannedCodes + code,
                     scanTimes = current.scanTimes.orEmpty() + (code to at)
                 )
-                showFeedback(scannedMsg, feedbackColors.success, 60L, code)
+                showFeedback(scannedMsg, accents.success, 60L, code)
                 scope.launch {
                     try {
                         // a single UPDATE of one row; two scans cannot overwrite each other

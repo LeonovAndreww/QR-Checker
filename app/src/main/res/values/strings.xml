@@ -41,7 +41,6 @@
     <!-- CreateSessionScreen -->
     <string name="setup_session_title">Session setup</string>
     <string name="session_name_label">Session name</string>
-    <string name="add_pdf_label">Add PDF file</string>
     <string name="parsing_pdf">Parsing PDF…</string>
     <string name="continue_button">Continue</string>
 
@@ -76,15 +75,12 @@
     <string name="cd_expand_code">Show the full code</string>
     <string name="csv_column_on_box">Code on the box</string>
     <string name="csv_column_full">Full code</string>
-    <string name="cd_open_session">Open a session file</string>
     <string name="share_session">Share the session as a file</string>
-    <string name="session_opened">Session opened: %1$d codes, %2$d of them scanned</string>
     <string name="session_exists_title">This batch is already open</string>
     <string name="session_exists_text">A session with the same set of codes exists: %1$s. Merge the marks into it, or add a separate session?</string>
     <string name="session_merge">Merge</string>
     <string name="session_add_new">Add a separate one</string>
     <string name="session_merged">Merged: %1$d new marks</string>
-    <string name="session_file_failed">The file could not be opened</string>
     <string name="session_share_failed">The session could not be shared</string>
     <string name="settings_title">Settings</string>
     <string name="cd_settings">Settings</string>
@@ -113,4 +109,9 @@
     <string name="csv_column_scanned_at">Scanned at</string>
     <string name="sessions_progress">%1$d of %2$d</string>
     <string name="sessions_empty">No sessions yet.\nStart one from a PDF of codes, or open a session file.</string>
+    <string name="add_file_label">Choose a PDF or a session file</string>
+    <string name="parsing_progress">Reading: page %1$d of %2$d</string>
+    <string name="parsing_cancel">Cancel</string>
+    <string name="parsed_pdf_summary">Codes found: %1$d, over %2$d pages</string>
+    <string name="parsed_session_summary">Session file: %1$d codes, %2$d of them already scanned</string>
 </resources>
