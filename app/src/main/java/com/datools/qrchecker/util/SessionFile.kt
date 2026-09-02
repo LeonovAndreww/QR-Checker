@@ -21,6 +21,7 @@ private const val KEY_SAVED_AT = "savedAt"
 private const val KEY_CODES = "codes"
 private const val KEY_CODE = "code"
 private const val KEY_SCANNED = "scanned"
+private const val KEY_SCANNED_AT = "scannedAt"
 
 /** Файл не является сессией или повреждён. Сообщение показывается пользователю. */
 class SessionFileException(message: String) : Exception(message)
@@ -50,6 +51,9 @@ fun writeSessionFile(
             JsonObject().apply {
                 addProperty(KEY_CODE, code)
                 addProperty(KEY_SCANNED, code in scanned)
+                // отсутствует, а не ноль: «время неизвестно» и «отмечен в начале эпохи» -
+                // разные утверждения, и второе неверно
+                session.scanTimes?.get(code)?.let { addProperty(KEY_SCANNED_AT, it) }
             }
         )
     }
@@ -100,6 +104,7 @@ fun readSessionFile(text: String): SessionFileContent {
 
     val codes = ArrayList<String>(codesJson.size())
     val scanned = ArrayList<String>()
+    val scanTimes = HashMap<String, Long>()
     for (element in codesJson) {
         if (!element.isJsonObject) continue
         val entry = element.asJsonObject
@@ -108,6 +113,8 @@ fun readSessionFile(text: String): SessionFileContent {
         codes += code
         if (entry.get(KEY_SCANNED)?.takeIf { it.isJsonPrimitive }?.asBoolean == true) {
             scanned += code
+            entry.get(KEY_SCANNED_AT)?.takeIf { it.isJsonPrimitive }?.asLong
+                ?.let { scanTimes[code] = it }
         }
     }
 
@@ -116,7 +123,13 @@ fun readSessionFile(text: String): SessionFileContent {
     val savedAt = obj.get(KEY_SAVED_AT)?.takeIf { it.isJsonPrimitive }?.asLong ?: 0L
 
     return SessionFileContent(
-        session = SessionData(id = id, name = name, codes = codes, scannedCodes = scanned),
+        session = SessionData(
+            id = id,
+            name = name,
+            codes = codes,
+            scannedCodes = scanned,
+            scanTimes = scanTimes
+        ),
         savedAt = savedAt
     )
 }

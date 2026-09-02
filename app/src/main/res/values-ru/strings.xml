@@ -108,4 +108,5 @@
     <string name="codes_mode_append">Добавить</string>
     <string name="codes_already_present">Уже в сессии: %1$d</string>
     <string name="save_codes">Сохранить</string>
+    <string name="csv_column_scanned_at">Когда отсканирован</string>
 </resources>

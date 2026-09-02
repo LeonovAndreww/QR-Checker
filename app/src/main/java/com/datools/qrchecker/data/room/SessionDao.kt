@@ -33,8 +33,13 @@ abstract class SessionDao {
     abstract suspend fun deleteAllCodes(sessionId: String)
 
     /** Returns 0 when the code does not belong to the session or was already scanned. */
-    @Query("UPDATE session_codes SET scanned = 1 WHERE sessionId = :sessionId AND code = :code AND scanned = 0")
-    abstract suspend fun markScanned(sessionId: String, code: String): Int
+    @Query(
+        """
+        UPDATE session_codes SET scanned = 1, scannedAt = :at
+        WHERE sessionId = :sessionId AND code = :code AND scanned = 0
+        """
+    )
+    abstract suspend fun markScanned(sessionId: String, code: String, at: Long): Int
 
     /**
      * Отмечает пачку кодов разом. Возвращает, сколько отметок реально добавилось: коды,
@@ -42,11 +47,11 @@ abstract class SessionDao {
      */
     @Query(
         """
-        UPDATE session_codes SET scanned = 1
+        UPDATE session_codes SET scanned = 1, scannedAt = :at
         WHERE sessionId = :sessionId AND scanned = 0 AND code IN (:codes)
         """
     )
-    abstract suspend fun markScannedIn(sessionId: String, codes: List<String>): Int
+    abstract suspend fun markScannedIn(sessionId: String, codes: List<String>, at: Long): Int
 
     @Query("SELECT COUNT(*) FROM session_codes WHERE sessionId = :sessionId")
     abstract suspend fun countCodes(sessionId: String): Int
@@ -57,7 +62,7 @@ abstract class SessionDao {
     @Query("SELECT id FROM sessions")
     abstract suspend fun getSessionIds(): List<String>
 
-    @Query("UPDATE session_codes SET scanned = 0 WHERE sessionId = :sessionId AND code = :code")
+    @Query("UPDATE session_codes SET scanned = 0, scannedAt = NULL WHERE sessionId = :sessionId AND code = :code")
     abstract suspend fun markUnscanned(sessionId: String, code: String): Int
 
     @Query("DELETE FROM session_codes WHERE sessionId = :sessionId AND code = :code")

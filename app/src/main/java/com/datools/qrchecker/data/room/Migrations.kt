@@ -66,3 +66,16 @@ val MIGRATION_1_2: Migration = object : Migration(1, 2) {
         db.execSQL("DROP TABLE `sessions_old`")
     }
 }
+
+/**
+ * Добавляет время отметки.
+ *
+ * У кодов, отмеченных до этого обновления, оно остаётся пустым: настоящего времени для
+ * них не существует, и проставлять туда «сейчас» значило бы придумать данные, на которые
+ * потом будут смотреть как на факт.
+ */
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `session_codes` ADD COLUMN `scannedAt` INTEGER DEFAULT NULL")
+    }
+}
