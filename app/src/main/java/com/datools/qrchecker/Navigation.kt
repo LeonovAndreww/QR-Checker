@@ -1,6 +1,9 @@
 package com.datools.qrchecker
 
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.Lifecycle
+import androidx.navigation.NavController
+import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -110,3 +113,28 @@ fun AppNav() {
 
 const val TYPE_SCANNED = "scanned"
 const val TYPE_NOT_SCANNED = "not_scanned"
+
+/**
+ * Переход, который не срабатывает дважды.
+ *
+ * Два быстрых нажатия успевают отдать две команды до того, как применилась первая, и
+ * приложение уезжает в пустой белый экран. Экран, с которого уходят, в этот момент уже не
+ * в состоянии RESUMED - по нему второй тап и отсеивается. То же и для возврата.
+ */
+fun NavController.navigateOnce(route: String) {
+    if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+        navigate(route)
+    }
+}
+
+fun NavController.navigateOnce(route: String, builder: NavOptionsBuilder.() -> Unit) {
+    if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+        navigate(route, builder)
+    }
+}
+
+fun NavController.popBackStackOnce() {
+    if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+        popBackStack()
+    }
+}

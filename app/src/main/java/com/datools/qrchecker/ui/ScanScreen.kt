@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.datools.qrchecker.navigateOnce
 import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.TYPE_NOT_SCANNED
@@ -60,6 +61,7 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.datools.qrchecker.util.SessionBackup
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
@@ -149,13 +151,14 @@ fun ScanScreen(
     }
 
     BackHandler {
-        navController.navigate(Screen.Home.route) {
+        navController.navigateOnce(Screen.Home.route) {
             popUpTo(Screen.Home.route) { inclusive = true }
         }
     }
 
     val cooldownMs = 1000L
     val displayMs = 1200L
+    var hideFeedbackJob by remember { mutableStateOf<Job?>(null) }
 
     // localized strings
     val alreadyScannedMsg = stringResource(id = R.string.msg_already_scanned)
@@ -177,18 +180,21 @@ fun ScanScreen(
     fun showFeedback(message: String, color: OnColor, vibrMs: Long, code: String?) {
         val now = System.currentTimeMillis()
 
-        // if something is already being shown - we don't show the new one
-        if (feedback != null) return
+        // Гасится повтор одного и того же кода, а не любое сообщение подряд.
+        //
+        // Раньше здесь стояло «висит плашка - новую не показываем», и получалось вот что:
+        // камера продолжает видеть уже отмеченный код и шлёт его снова, человек переводит
+        // её на следующий, тот отмечается, но его плашку глушит ещё висящая предыдущая, а
+        // когда та гаснет - выскакивает оранжевая от очередного повтора первого кода.
+        // Приложение показывало ответ не на то действие, которое человек только что сделал.
+        if (code != null && code == lastShownCode && (now - lastFeedbackAt) < cooldownMs) return
+        if (code == null && (now - lastFeedbackAt) < cooldownMs) return
 
-        // code deduplication + cooldown
-        if (code != null) {
-            if (code == lastShownCode && (now - lastFeedbackAt) < cooldownMs) return
-            lastShownCode = code
-        } else {
-            if (now - lastFeedbackAt < cooldownMs) return
-        }
-
+        lastShownCode = code
         lastFeedbackAt = now
+
+        // новая плашка вытесняет прежнюю, и её таймер отменяется вместе с ней
+        hideFeedbackJob?.cancel()
         feedback = UiFeedback(message, color, code)
 
         try {
@@ -206,9 +212,8 @@ fun ScanScreen(
             Log.w(TAG, "Vibrate failed", t)
         }
 
-        scope.launch {
+        hideFeedbackJob = scope.launch {
             delay(displayMs)
-            // reset only if it is the same feedback
             if (feedback?.code == code) feedback = null
         }
     }
@@ -311,7 +316,7 @@ fun ScanScreen(
             ) {
                 Button(
                     onClick = {
-                        navController.navigate(Screen.CodesList.createRoute(sessionId, TYPE_SCANNED))
+                        navController.navigateOnce(Screen.CodesList.createRoute(sessionId, TYPE_SCANNED))
                     },
                     modifier = Modifier
                         .weight(1f)
@@ -336,7 +341,7 @@ fun ScanScreen(
 
                 Button(
                     onClick = {
-                        navController.navigate(
+                        navController.navigateOnce(
                             Screen.CodesList.createRoute(sessionId, TYPE_NOT_SCANNED)
                         )
                     },

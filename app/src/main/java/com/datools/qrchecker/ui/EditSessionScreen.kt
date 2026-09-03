@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
+import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.R
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.shortCode
@@ -118,7 +119,7 @@ fun EditSessionScreen(
                 }
                 // копия снимается с того, что легло в базу, а не с того, что было на экране
                 repo.getById(current.id)?.let { SessionBackup.scheduleSave(context, it) }
-                navController.popBackStack()
+                navController.popBackStackOnce()
             } catch (t: Throwable) {
                 Log.e(TAG, "Can't save session", t)
                 errorMessage = ScreenError(R.string.error_saving_session, t.message ?: "")
@@ -159,7 +160,7 @@ fun EditSessionScreen(
             if (s != null) {
                 name = s.name
             } else {
-                navController.popBackStack()
+                navController.popBackStackOnce()
             }
         } catch (t: Throwable) {
             Log.e(TAG, "Can't load session $sessionId", t)
@@ -184,7 +185,7 @@ fun EditSessionScreen(
             CenterAlignedTopAppBar(
                 title = { Text(titleText) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { navController.popBackStackOnce() }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = backCd
@@ -318,7 +319,7 @@ fun EditSessionScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
-                    onClick = { navController.popBackStack() },
+                    onClick = { navController.popBackStackOnce() },
                     modifier = Modifier
                         .weight(1f)
                         .height(72.dp),
