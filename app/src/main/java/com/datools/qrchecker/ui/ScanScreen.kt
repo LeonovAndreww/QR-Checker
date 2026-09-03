@@ -2,16 +2,15 @@ package com.datools.qrchecker.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -24,7 +23,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +39,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,6 +58,8 @@ import androidx.compose.material3.MaterialTheme
 import com.datools.qrchecker.ui.theme.OnColor
 import com.datools.qrchecker.ui.theme.accents
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.heightIn
@@ -73,16 +74,26 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import com.datools.qrchecker.util.Outcome
+import com.datools.qrchecker.util.rememberFeedback
 import com.datools.qrchecker.util.SessionBackup
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /** Сколько подсказок показывать: экран телефона всё равно не вместит больше. */
 private const val MANUAL_SUGGESTIONS = 30
 
 private const val BACKUP_DEBOUNCE_MS = 5_000L
+
+/** Сколько держится колечко на месте нажатия и сколько камера держит наведённый фокус. */
+private const val FOCUS_RING_MS = 900L
+private const val FOCUS_HOLD_SECONDS = 4L
+
+/** Сколько места занимает самая широкая группа кнопок в верхней полосе. */
+private val TOP_BAR_SIDE = 104.dp
 
 private const val TAG = "QRChecker"
 
@@ -110,12 +121,14 @@ fun ScanScreen(
     // ----- feedback state (declared before any early return so the composition
     // ----- keeps a stable set of remembered slots) -----
     var feedback by remember { mutableStateOf<UiFeedback?>(null) }
-    var lastFeedbackAt by remember { mutableLongStateOf(0L) }
-    var lastShownCode by remember { mutableStateOf<String?>(null) }
+    // какой код камера видит прямо сейчас и когда она его видела в последний раз
+    var presentCode by remember { mutableStateOf<String?>(null) }
+    var presentSeenAt by remember { mutableLongStateOf(0L) }
 
     // a torn or smudged label is otherwise a dead end
     var manualCode by remember { mutableStateOf<String?>(null) }
-    val vibrator = remember { ContextCompat.getSystemService(context, Vibrator::class.java) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val feel = rememberFeedback(withSound = true)
 
     var hasPermission by remember {
         mutableStateOf(
@@ -169,7 +182,7 @@ fun ScanScreen(
         }
     }
 
-    val cooldownMs = 1000L
+    val awayMs = 1500L
     val displayMs = 1200L
     var hideFeedbackJob by remember { mutableStateOf<Job?>(null) }
 
@@ -191,41 +204,13 @@ fun ScanScreen(
     val manualEntryNoMatches = stringResource(id = R.string.manual_entry_no_matches)
     val alreadyScannedLabel = stringResource(id = R.string.manual_entry_already_scanned)
     val cancelText = stringResource(id = R.string.delete_cancel)
+    val shareFailedText = stringResource(id = R.string.session_share_failed)
 
-    fun showFeedback(message: String, color: OnColor, vibrMs: Long, code: String?) {
-        val now = System.currentTimeMillis()
-
-        // Гасится повтор одного и того же кода, а не любое сообщение подряд.
-        //
-        // Раньше здесь стояло «висит плашка - новую не показываем», и получалось вот что:
-        // камера продолжает видеть уже отмеченный код и шлёт его снова, человек переводит
-        // её на следующий, тот отмечается, но его плашку глушит ещё висящая предыдущая, а
-        // когда та гаснет - выскакивает оранжевая от очередного повтора первого кода.
-        // Приложение показывало ответ не на то действие, которое человек только что сделал.
-        if (code != null && code == lastShownCode && (now - lastFeedbackAt) < cooldownMs) return
-        if (code == null && (now - lastFeedbackAt) < cooldownMs) return
-
-        lastShownCode = code
-        lastFeedbackAt = now
-
+    fun showFeedback(message: String, color: OnColor, outcome: Outcome, code: String?) {
         // новая плашка вытесняет прежнюю, и её таймер отменяется вместе с ней
         hideFeedbackJob?.cancel()
         feedback = UiFeedback(message, color, code)
-
-        try {
-            vibrator?.takeIf { it.hasVibrator() }?.let {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    it.vibrate(
-                        VibrationEffect.createOneShot(vibrMs, VibrationEffect.DEFAULT_AMPLITUDE)
-                    )
-                } else {
-                    @Suppress("DEPRECATION")
-                    it.vibrate(vibrMs)
-                }
-            }
-        } catch (t: Throwable) {
-            Log.w(TAG, "Vibrate failed", t)
-        }
+        feel(outcome)
 
         hideFeedbackJob = scope.launch {
             delay(displayMs)
@@ -235,17 +220,30 @@ fun ScanScreen(
 
     // Runs on the main thread (posted from the analyzer), so reading and updating
     // `session` here cannot interleave with another decoded frame.
-    fun onCodeScanned(rawCode: String) {
+    fun onCodeScanned(rawCode: String, fromCamera: Boolean = true) {
         val current = session ?: return
         val code = normalizeCode(rawCode)
         if (code.isEmpty()) return
 
+        // Пока камера смотрит на ту же коробку, ответ даётся один раз.
+        //
+        // Раньше здесь стоял таймер от последнего показа, и выходило так: код отметился
+        // зелёным, через секунду тот же кадр приезжал снова - и уже отмеченный код
+        // отвечал оранжевым «был отсканирован», и так по кругу с вибрацией, пока камеру
+        // не уведёшь. Считается не время с показа, а время с последнего кадра: коробку
+        // убрали из кадра и вернули - это новое предъявление, и на него надо ответить.
+        val now = System.currentTimeMillis()
+        val stillHere = fromCamera && code == presentCode && (now - presentSeenAt) < awayMs
+        presentCode = if (fromCamera) code else null
+        presentSeenAt = now
+        if (stillHere) return
+
         when {
             code !in current.codes ->
-                showFeedback(notFoundMsg, accents.danger, 120L, code)
+                showFeedback(notFoundMsg, accents.danger, Outcome.FAILURE, code)
 
             code in current.scannedCodes ->
-                showFeedback(alreadyScannedMsg, accents.warning, 30L, code)
+                showFeedback(alreadyScannedMsg, accents.warning, Outcome.REPEAT, code)
 
             else -> {
                 // одно и то же время идёт и в базу, и в состояние экрана: с него потом
@@ -256,7 +254,7 @@ fun ScanScreen(
                     scannedCodes = current.scannedCodes + code,
                     scanTimes = current.scanTimes.orEmpty() + (code to at)
                 )
-                showFeedback(scannedMsg, accents.success, 60L, code)
+                showFeedback(scannedMsg, accents.success, Outcome.SUCCESS, code)
                 scope.launch {
                     try {
                         // a single UPDATE of one row; two scans cannot overwrite each other
@@ -283,7 +281,9 @@ fun ScanScreen(
         loaded.codes.size
     )
 
-    Scaffold { padding ->
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             if (hasPermission) {
                 CameraPreview(
@@ -292,57 +292,79 @@ fun ScanScreen(
                 )
             }
 
-            // Одна полоса поверх камеры: назад, название, действия. Раньше название и
-            // кнопка ручного ввода были отдельными элементами с одинаковым отступом
-            // сверху, и их середины по вертикали не совпадали.
-            Row(
+            // Одна полоса поверх камеры: слева «назад», справа действия, название -
+            // ровно по центру экрана.
+            //
+            // Раньше название стояло в общем ряду и делило место с кнопками: слева от
+            // него была одна стрелка, справа - значок и кнопка, и центр названия уезжал
+            // влево тем сильнее, чем шире кнопка. Здесь кнопки лежат поверх, а название
+            // центрируется по всей ширине и отступает от краёв на ширину самой широкой
+            // стороны - так оно и по центру, и ни на что не налезает.
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .padding(top = padding.calculateTopPadding() + 4.dp)
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 4.dp)
             ) {
-                IconButton(onClick = { navController.popBackStackOnce() }) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = backCd
-                    )
-                }
-
                 Text(
                     loaded.name,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = TOP_BAR_SIDE),
                     style = MaterialTheme.typography.headlineSmall,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                // «Поделиться» живёт здесь, а не в правке сессии: это действие над той
-                // сессией, с которой человек сейчас работает, и искать его в настройках
-                // никто не станет
-                IconButton(onClick = {
-                    try {
-                        context.startActivity(shareSessionFile(context, loaded))
-                    } catch (t: Throwable) {
-                        Log.e(TAG, "Can't share the session", t)
-                    }
-                }) {
-                    Icon(imageVector = Icons.Default.Share, contentDescription = shareSessionCd)
-                }
-
-                Button(
-                    onClick = { manualCode = "" },
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                IconButton(
+                    onClick = { navController.popBackStackOnce() },
+                    modifier = Modifier.align(Alignment.CenterStart)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = manualEntryCd,
-                        modifier = Modifier.size(18.dp)
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = backCd
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(manualEntryButton, style = MaterialTheme.typography.labelLarge)
+                }
+
+                Row(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // «Поделиться» живёт здесь, а не в правке сессии: это действие над
+                    // той сессией, с которой человек сейчас работает, и искать его в
+                    // настройках никто не станет
+                    IconButton(onClick = {
+                        try {
+                            context.startActivity(shareSessionFile(context, loaded))
+                        } catch (t: Throwable) {
+                            // молчать нельзя: нажатие без единого следа читается как
+                            // сломанная кнопка
+                            Log.e(TAG, "Can't share the session", t)
+                            scope.launch { snackbarHostState.showSnackbar(shareFailedText) }
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = shareSessionCd
+                        )
+                    }
+
+                    Button(
+                        onClick = { manualCode = "" },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        // клавиатура, а не карандаш: карандаш - это «поправить то, что
+                        // есть», а здесь код набирают с нуля
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_keyboard),
+                            contentDescription = manualEntryCd,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(manualEntryButton, style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
 
@@ -470,7 +492,7 @@ fun ScanScreen(
                                                     manualCode = null
                                                     // тот же путь, что у кадра с камеры,
                                                     // чтобы отклик был тем же самым
-                                                    onCodeScanned(code)
+                                                    onCodeScanned(code, fromCamera = false)
                                                 }
                                                 .padding(vertical = 8.dp)
                                         ) {
@@ -504,7 +526,7 @@ fun ScanScreen(
                             enabled = typed.isNotBlank(),
                             onClick = {
                                 manualCode = null
-                                onCodeScanned(typed)
+                                onCodeScanned(typed, fromCamera = false)
                             }
                         ) { Text(manualEntryConfirm) }
                     },
@@ -628,6 +650,10 @@ private fun CameraPreview(
 
     var viewSize by remember { mutableStateOf(IntSize.Zero) }
     val currentViewSize by rememberUpdatedState(viewSize)
+    // камера появляется не сразу: пока её нет, наводить нечего
+    var camera by remember { mutableStateOf<Camera?>(null) }
+    // куда ткнули: колечко живёт секунду, чтобы было видно, что нажатие приняли
+    var focusAt by remember { mutableStateOf<Offset?>(null) }
     // последний принятый код: по нему рисуется подсветка, пока висит плашка ответа
     var acceptedBox by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
 
@@ -669,7 +695,7 @@ private fun CameraPreview(
                     .also { it.setAnalyzer(analysisExecutor, analyzer) }
 
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
+                camera = cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
@@ -682,6 +708,7 @@ private fun CameraPreview(
 
         onDispose {
             boundProvider?.unbindAll()
+            camera = null
             analyzer.close()
             analysisExecutor.shutdown()
         }
@@ -692,7 +719,41 @@ private fun CameraPreview(
         if (highlightColor == null) acceptedBox = null
     }
 
-    Box(modifier = Modifier.fillMaxSize().onSizeChanged { viewSize = it }) {
+    LaunchedEffect(focusAt) {
+        if (focusAt != null) {
+            delay(FOCUS_RING_MS)
+            focusAt = null
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onSizeChanged { viewSize = it }
+            // Автофокус ведёт по центру кадра, а код на коробке нередко сбоку и вплотную:
+            // объектив цепляется за фон и не может собрать мелкую сетку Data Matrix.
+            // Нажатие говорит камере, куда смотреть, - ровно так же, как в любой камере
+            // телефона, поэтому этому и учить никого не надо.
+            .pointerInput(Unit) {
+                detectTapGestures { at ->
+                    val control = camera?.cameraControl ?: return@detectTapGestures
+                    val point = previewView.meteringPointFactory.createPoint(at.x, at.y)
+                    try {
+                        control.startFocusAndMetering(
+                            FocusMeteringAction.Builder(point)
+                                // фокус сам возвращается к автоматическому: иначе
+                                // наведённая на одну коробку камера так и осталась бы
+                                // сфокусированной на ней и на следующей
+                                .setAutoCancelDuration(FOCUS_HOLD_SECONDS, TimeUnit.SECONDS)
+                                .build()
+                        )
+                        focusAt = at
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "Can't focus at the tapped point", t)
+                    }
+                }
+            }
+    ) {
         AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
 
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -725,6 +786,15 @@ private fun CameraPreview(
                 highlightColor?.let { color ->
                     drawCorners(box, color, 4.dp.toPx(), box.width * 0.25f)
                 }
+            }
+
+            focusAt?.let { at ->
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.9f),
+                    radius = 22.dp.toPx(),
+                    center = at,
+                    style = Stroke(width = 2.dp.toPx())
+                )
             }
         }
     }
