@@ -44,8 +44,6 @@
     <string name="was_qr_count">Было QR-кодов: %1$d</string>
     <string name="will_be_qr_count">Станет QR-кодов: %1$s</string>
     <string name="error_parsing_pdf">Ошибка парсинга PDF: %1$s</string>
-    <string name="error_no_codes_in_pdf">В этом файле не найдено ни одного кода (проверено страниц: %1$d, рендер %2$s)</string>
-    <string name="error_loading_session">Не удалось загрузить сессию: %1$s</string>
     <string name="error_saving_session">Не удалось сохранить: %1$s</string>
     <string name="save_button">Сохранить</string>
 
@@ -68,7 +66,6 @@
     <!-- generic -->
     <string name="cd_copy_code">Копировать код</string>
     <string name="code_copied">Код скопирован</string>
-    <string name="cd_expand_code">Показать код целиком</string>
     <string name="csv_column_on_box">Код на коробке</string>
     <string name="csv_column_full">Полный код</string>
     <string name="share_session">Поделиться сессией файлом</string>
@@ -76,6 +73,7 @@
     <string name="session_exists_text">Сессия с таким же набором кодов уже есть: %1$s. Перенести отметки в неё или добавить отдельную?</string>
     <string name="session_merge">Перенести</string>
     <string name="session_add_new">Добавить отдельную</string>
+    <string name="session_merged_title">Сессия обновлена</string>
     <string name="session_merged">Перенесено отметок: %1$d</string>
     <string name="session_share_failed">Не удалось поделиться сессией</string>
     <string name="settings_title">Настройки</string>
@@ -105,10 +103,7 @@
     <string name="csv_column_scanned_at">Когда отсканирован</string>
     <string name="sessions_progress">%1$d из %2$d</string>
     <string name="sessions_empty">Сессий пока нет.\nСоздайте из PDF с кодами или откройте файл сессии.</string>
-    <string name="add_file_label">Выбрать PDF или файл сессии</string>
-    <string name="parsing_progress">Читаю: страница %1$d из %2$d</string>
     <string name="parsing_cancel">Отменить</string>
-    <string name="parsed_pdf_summary">Найдено кодов: %1$d, на %2$d страницах</string>
     <string name="parsed_session_summary">Файл сессии: кодов %1$d, из них уже отсканировано %2$d</string>
     <string name="manual_entry_already_scanned">уже отсканирован</string>
     <string name="manual_entry_no_matches">В этой сессии таких кодов нет</string>
