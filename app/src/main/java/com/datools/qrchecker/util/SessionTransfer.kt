@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import com.datools.qrchecker.R
 import com.datools.qrchecker.model.SessionData
 import java.io.File
 
@@ -35,7 +36,7 @@ fun shareSessionFile(context: Context, session: SessionData): Intent {
 /** Читает выбранный документ целиком. Файл сессии - десятки килобайт, дробить нечего. */
 fun readTextFromUri(context: Context, uri: Uri): String =
     context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
-        ?: throw SessionFileException("Не удалось открыть файл")
+        ?: throw SessionFileException(R.string.session_file_unreadable)
 
 internal fun sessionFileName(name: String): String =
     name.replace(Regex("[^\\p{L}\\p{N}._-]+"), "_").trim('_').ifEmpty { "session" }

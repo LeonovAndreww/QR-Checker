@@ -130,4 +130,13 @@
     <string name="backup_pick_folder_first">Pick a folder first — there is nowhere to copy to</string>
     <string name="delete_code_confirm">Delete this code?</string>
     <string name="cd_pdf_icon">PDF</string>
+    <string name="session_file_not_json">The file is not readable as JSON</string>
+    <string name="session_file_not_object">The file does not look like a session</string>
+    <string name="session_file_foreign">This is not a QR Checker session file</string>
+    <string name="session_file_no_version">The file does not state a format version</string>
+    <string name="session_file_future">The file was saved by a newer version of the app — update it</string>
+    <string name="session_file_no_id">The file has no session identifier</string>
+    <string name="session_file_no_codes_field">The file has no list of codes</string>
+    <string name="session_file_empty">The file holds no codes at all</string>
+    <string name="session_file_unreadable">The file could not be opened</string>
 </resources>

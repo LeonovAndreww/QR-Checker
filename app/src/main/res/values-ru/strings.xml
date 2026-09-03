@@ -128,4 +128,13 @@
     <string name="backup_pick_folder_first">Сначала выберите папку — копировать некуда</string>
     <string name="delete_code_confirm">Удалить этот код?</string>
     <string name="cd_pdf_icon">PDF</string>
+    <string name="session_file_not_json">Файл не читается как JSON</string>
+    <string name="session_file_not_object">Файл не похож на сессию</string>
+    <string name="session_file_foreign">Это не файл сессии QR Checker</string>
+    <string name="session_file_no_version">В файле не указана версия формата</string>
+    <string name="session_file_future">Файл сохранён новой версией приложения, обновите его</string>
+    <string name="session_file_no_id">В файле нет идентификатора сессии</string>
+    <string name="session_file_no_codes_field">В файле нет списка кодов</string>
+    <string name="session_file_empty">В файле нет ни одного кода</string>
+    <string name="session_file_unreadable">Не удалось открыть файл</string>
 </resources>

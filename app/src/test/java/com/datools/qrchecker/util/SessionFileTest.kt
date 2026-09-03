@@ -1,8 +1,8 @@
 package com.datools.qrchecker.util
 
+import com.datools.qrchecker.R
 import com.datools.qrchecker.model.SessionData
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
@@ -15,12 +15,12 @@ class SessionFileTest {
         scannedCodes = listOf("A2")
     )
 
-    private fun failsWith(part: String, text: String) {
+    private fun failsWith(expected: Int, text: String) {
         try {
             readSessionFile(text)
             fail("ожидалась ошибка на: $text")
         } catch (e: SessionFileException) {
-            assertTrue("сообщение было: ${e.message}", e.message.orEmpty().contains(part))
+            assertEquals(expected, e.messageRes)
         }
     }
 
@@ -53,15 +53,15 @@ class SessionFileTest {
 
     @Test
     fun `чужой файл отвергается с внятным текстом`() {
-        failsWith("не читается", "не json вовсе {")
-        failsWith("не похож", "[1, 2, 3]")
-        failsWith("не файл сессии", """{"format":"something.else","version":1}""")
+        failsWith(R.string.session_file_not_json, "не json вовсе {")
+        failsWith(R.string.session_file_not_object, "[1, 2, 3]")
+        failsWith(R.string.session_file_foreign, """{"format":"something.else","version":1}""")
     }
 
     @Test
     fun `файл из будущей версии не молчит`() {
         failsWith(
-            "новой версией",
+            R.string.session_file_future,
             """{"format":"qrchecker.session","version":99,"id":"s","codes":[{"code":"A"}]}"""
         )
     }
@@ -69,7 +69,7 @@ class SessionFileTest {
     @Test
     fun `пустой список кодов - ошибка, а не пустая сессия`() {
         failsWith(
-            "ни одного кода",
+            R.string.session_file_empty,
             """{"format":"qrchecker.session","version":1,"id":"s","codes":[]}"""
         )
     }
