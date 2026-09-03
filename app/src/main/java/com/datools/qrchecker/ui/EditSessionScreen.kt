@@ -55,7 +55,7 @@ import com.datools.qrchecker.util.shortCode
 import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.util.getFileNameFromUri
-import com.datools.qrchecker.util.parsePdfForQRCodes
+import com.datools.qrchecker.util.readCodesFromFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -84,7 +84,7 @@ fun EditSessionScreen(
     var name by remember { mutableStateOf("") }
 
     // file picker states
-    var selectedPdfName by remember { mutableStateOf("") }
+    var selectedNames by remember { mutableStateOf(listOf<String>()) }
 
     // parsed codes from newly selected PDF (null = nothing selected, empty list = parsed but no codes)
     var parsedCodes by remember { mutableStateOf<List<String>?>(null) }
@@ -127,20 +127,22 @@ fun EditSessionScreen(
     }
 
     val documentPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        selectedPdfName = getFileNameFromUri(uri, context)
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        val files = uris.map { it to getFileNameFromUri(it, context) }
+        selectedNames = files.map { it.second }
         scope.launch {
             isLoading = true
             errorMessage = null
             try {
-                parsedCodes = withContext(Dispatchers.IO) {
-                    parsePdfForQRCodes(context, uri, 3)
-                }.codes
+                // тот же разбор, что и при создании сессии: документы, картинки и списки
+                // вперемешку. Раньше здесь принимался только PDF, и одно и то же действие
+                // в двух местах приложения работало по-разному
+                parsedCodes = readCodesFromFiles(context, files).codes
             } catch (t: Throwable) {
+                Log.e(TAG, "Can't read the selected files", t)
                 parsedCodes = emptyList()
-                Log.e(TAG, "Can't parse the selected PDF", t)
                 errorMessage = ScreenError(R.string.error_parsing_pdf, t.message ?: "")
             } finally {
                 isLoading = false
@@ -148,26 +150,7 @@ fun EditSessionScreen(
         }
     }
 
-    // load session
-    LaunchedEffect(sessionId) {
-        isLoading = true
-        try {
-            val s = repo.getById(sessionId)
-            original = s
-            if (s != null) {
-                name = s.name
-            } else {
-                navController.popBackStackOnce()
-            }
-        } catch (t: Throwable) {
-            Log.e(TAG, "Can't load session $sessionId", t)
-            errorMessage = ScreenError(R.string.error_loading_session, t.message ?: "")
-        } finally {
-            isLoading = false
-        }
-    }
-
-    // strings for UI (safe to call stringResource here)
+    val selectedFilesTemplate = stringResource(id = R.string.selected_files)
     val titleText = stringResource(id = R.string.setup_session_title)
     val backCd = stringResource(id = R.string.cd_back)
     val nameLabel = stringResource(id = R.string.session_name_label)
@@ -212,7 +195,7 @@ fun EditSessionScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Button(
-                onClick = { documentPicker.launch(arrayOf("application/pdf")) },
+                onClick = { documentPicker.launch(arrayOf("*/*")) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(72.dp),
@@ -229,7 +212,11 @@ fun EditSessionScreen(
                     )
 
                     Text(
-                        text = selectedPdfName.ifEmpty { selectPdfLabel },
+                        text = when (selectedNames.size) {
+                            0 -> selectPdfLabel
+                            1 -> selectedNames.first()
+                            else -> selectedFilesTemplate.format(selectedNames.size)
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         textAlign = TextAlign.End,
@@ -250,8 +237,8 @@ fun EditSessionScreen(
                 val origCount = original?.codes?.size ?: 0
                 val selectedCountText = when {
                     parsedCodes != null -> parsedCodes!!.size.toString()
-                    selectedPdfName.isNotEmpty() && isLoading -> parsingText
-                    selectedPdfName.isNotEmpty() -> "..."
+                    selectedNames.isNotEmpty() && isLoading -> parsingText
+                    selectedNames.isNotEmpty() -> "..."
                     else -> "—"
                 }
 
