@@ -31,7 +31,7 @@ private const val KEY_SCANNED_AT = "scannedAt"
  * Несёт идентификатор строки, а не готовый текст: сообщение показывается пользователю, и
  * зашитое здесь по-русски вылезало бы русским и в английской локали.
  */
-class SessionFileException(@StringRes val messageRes: Int) : Exception()
+class SessionFileException(@get:StringRes val messageRes: Int) : Exception()
 
 /** Прочитанная сессия вместе с временем, когда её сохранили. */
 data class SessionFileContent(

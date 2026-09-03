@@ -101,6 +101,7 @@ fun CreateSessionScreen(navController: NavController) {
     val parsed by scanViewModel.parsed
     val createdSessionId by scanViewModel.createdSessionId
     val conflict by scanViewModel.conflict
+    val mergedMarks by scanViewModel.mergedMarks
     val errorMessage by scanViewModel.errorMessage
 
     // у файла сессии имя уже есть - подставляем его, чтобы не заставлять придумывать
@@ -112,11 +113,13 @@ fun CreateSessionScreen(navController: NavController) {
         }
     }
 
-    LaunchedEffect(createdSessionId) {
-        createdSessionId?.let { id ->
-            navController.navigateOnce(Screen.Scan.createRoute(id))
-            scanViewModel.clearCreatedSessionId()
-        }
+    // Переход ждёт, пока прочитают, сколько отметок перенеслось: иначе экран уезжает
+    // на сканирование, и единственный ответ на «объединить» человек не видит вовсе.
+    LaunchedEffect(createdSessionId, mergedMarks) {
+        val id = createdSessionId ?: return@LaunchedEffect
+        if (mergedMarks != null) return@LaunchedEffect
+        navController.navigateOnce(Screen.Scan.createRoute(id))
+        scanViewModel.clearCreatedSessionId()
     }
 
     val titleText = stringResource(id = R.string.setup_session_title)
@@ -133,6 +136,7 @@ fun CreateSessionScreen(navController: NavController) {
     val cancelParsingText = stringResource(id = R.string.parsing_cancel)
     val sessionSummaryTemplate = stringResource(id = R.string.parsed_session_summary)
     val existsTitle = stringResource(id = R.string.session_exists_title)
+    val mergedTitle = stringResource(id = R.string.session_merged_title)
     val mergeText = stringResource(id = R.string.session_merge)
     val addNewText = stringResource(id = R.string.session_add_new)
 
@@ -324,6 +328,19 @@ fun CreateSessionScreen(navController: NavController) {
                 }
             }
         }
+    }
+
+    mergedMarks?.let { count ->
+        AlertDialog(
+            onDismissRequest = { scanViewModel.clearMergedMarks() },
+            title = { Text(mergedTitle) },
+            text = { Text(stringResource(R.string.session_merged, count)) },
+            confirmButton = {
+                TextButton(onClick = { scanViewModel.clearMergedMarks() }) {
+                    Text(continueText)
+                }
+            }
+        )
     }
 
     conflict?.let { existing ->
