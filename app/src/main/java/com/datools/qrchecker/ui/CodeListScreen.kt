@@ -23,6 +23,14 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import android.util.Log
 import com.datools.qrchecker.TYPE_SCANNED
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import com.datools.qrchecker.util.DeleteConfirmation
+import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.buildCsv
 import com.datools.qrchecker.util.formatScanTimeForScreen
@@ -63,6 +71,10 @@ fun CodesListScreen(
     // превращают список в стену текста, от которой всё это и уводит
     var expandedCode by rememberSaveable { mutableStateOf<String?>(null) }
     var codeToDelete by remember { mutableStateOf<String?>(null) }
+    var skipDeleteConfirm by remember {
+        mutableStateOf(DeleteConfirmation.isSkipped(context, sessionId))
+    }
+    var dontAskChecked by remember { mutableStateOf(false) }
     var codeToDeleteIsScanned by remember { mutableStateOf(false) }
 
     // LaunchedEffect is already a coroutine tied to this composable, and repo.getById is a
@@ -101,6 +113,9 @@ fun CodesListScreen(
     val csvColumnOnBox = stringResource(id = R.string.csv_column_on_box)
     val csvColumnFull = stringResource(id = R.string.csv_column_full)
     val csvColumnScannedAt = stringResource(id = R.string.csv_column_scanned_at)
+    val dontAskText = stringResource(id = R.string.delete_dont_ask)
+    val swipeCopyCd = stringResource(id = R.string.cd_swipe_copy)
+    val swipeDeleteCd = stringResource(id = R.string.cd_swipe_delete)
     val exportFailed = stringResource(id = R.string.export_failed)
     val exportHeader = stringResource(
         id = if (type == TYPE_SCANNED) R.string.export_header_scanned
@@ -121,6 +136,38 @@ fun CodesListScreen(
     val visibleCodes = remember(exportableCodes, query) {
         if (query.isBlank()) exportableCodes
         else exportableCodes.filter { it.contains(query.trim(), ignoreCase = true) }
+    }
+
+    // одна операция на оба пути: из диалога и из свайпа, когда подтверждение отключено
+    fun performDelete(code: String, isScanned: Boolean) {
+        scope.launch {
+            try {
+                // в списке отсканированных код возвращается в неотсканированные;
+                // в списке неотсканированных он уходит из сессии совсем
+                if (isScanned) {
+                    repo.unmarkScanned(sessionId, code)
+                } else {
+                    repo.deleteCode(sessionId, code)
+                }
+
+                val updated = repo.getById(sessionId)
+                if (updated != null) {
+                    session = updated
+                    SessionBackup.scheduleSave(context, updated)
+                    snackbarHostState.showSnackbar(deleteSuccess)
+                } else {
+                    snackbarHostState.showSnackbar(deleteFailed)
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "Can't delete code from session $sessionId", t)
+                snackbarHostState.showSnackbar("$deleteError: ${t.message}")
+            }
+        }
+    }
+
+    fun copyCode(code: String) {
+        clipboard.setText(AnnotatedString(code))
+        scope.launch { snackbarHostState.showSnackbar(codeCopiedText) }
     }
 
     Scaffold(
@@ -230,6 +277,40 @@ fun CodesListScreen(
                         ) {
                             items(items = visibleCodes, key = { it }) { code ->
                                 val expanded = code == expandedCode
+                                val isScanned = type == TYPE_SCANNED
+
+                                // Плашка не улетает ни в одну сторону: копирование ничего
+                                // не меняет в списке, а удаление списком и управляет - он
+                                // перерисуется сам, когда база ответит. Поэтому обработчик
+                                // делает дело и отвечает false, оставляя плашку на месте.
+                                val swipeState = rememberSwipeToDismissBoxState(
+                                    confirmValueChange = { value ->
+                                        when (value) {
+                                            SwipeToDismissBoxValue.StartToEnd -> copyCode(code)
+                                            SwipeToDismissBoxValue.EndToStart ->
+                                                if (skipDeleteConfirm) {
+                                                    performDelete(code, isScanned)
+                                                } else {
+                                                    codeToDelete = code
+                                                    codeToDeleteIsScanned = isScanned
+                                                }
+
+                                            SwipeToDismissBoxValue.Settled -> Unit
+                                        }
+                                        false
+                                    }
+                                )
+
+                                SwipeToDismissBox(
+                                    state = swipeState,
+                                    backgroundContent = {
+                                        SwipeBackground(
+                                            direction = swipeState.dismissDirection,
+                                            copyDescription = swipeCopyCd,
+                                            deleteDescription = swipeDeleteCd
+                                        )
+                                    }
+                                ) {
                                 Card(
                                     onClick = {
                                         expandedCode = if (expanded) null else code
@@ -304,6 +385,7 @@ fun CodesListScreen(
                                         }
                                     }
                                 }
+                                }
                             }
                         }
                     }
@@ -318,57 +400,93 @@ fun CodesListScreen(
                         Text(deleteCodeTitle, style = MaterialTheme.typography.headlineSmall)
                     },
                     text = {
-                        Text(
-                            stringResource(
-                                id = R.string.delete_code_confirm_with_value,
-                                previewCode
-                            ),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    },
-                    confirmButton = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Button(onClick = { codeToDelete = null }) {
-                                Text(deleteCancel)
-                            }
-                            Button(onClick = {
-                                val code = codeToDelete!!
-                                val isScanned = codeToDeleteIsScanned
-
-                                scope.launch {
-                                    try {
-                                        // in the scanned list the code goes back to unscanned;
-                                        // in the unscanned list it leaves the session for good
-                                        if (isScanned) {
-                                            repo.unmarkScanned(sessionId, code)
-                                        } else {
-                                            repo.deleteCode(sessionId, code)
-                                        }
-
-                                        val updated = repo.getById(sessionId)
-                                        codeToDelete = null
-                                        if (updated != null) {
-                                            session = updated
-                                            snackbarHostState.showSnackbar(deleteSuccess)
-                                        } else {
-                                            snackbarHostState.showSnackbar(deleteFailed)
-                                        }
-                                    } catch (t: Throwable) {
-                                        Log.e(TAG, "Can't delete code from session $sessionId", t)
-                                        codeToDelete = null
-                                        snackbarHostState.showSnackbar("$deleteError: ${t.message}")
-                                    }
-                                }
-                            }) {
-                                Text(deleteConfirm)
+                        Column {
+                            Text(
+                                stringResource(
+                                    id = R.string.delete_code_confirm_with_value,
+                                    previewCode
+                                ),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { dontAskChecked = !dontAskChecked }
+                            ) {
+                                Checkbox(
+                                    checked = dontAskChecked,
+                                    onCheckedChange = { dontAskChecked = it }
+                                )
+                                Text(dontAskText, style = MaterialTheme.typography.bodyMedium)
                             }
                         }
                     },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            val code = codeToDelete!!
+                            val isScanned = codeToDeleteIsScanned
+                            if (dontAskChecked) {
+                                DeleteConfirmation.skip(context, sessionId)
+                                skipDeleteConfirm = true
+                            }
+                            codeToDelete = null
+                            performDelete(code, isScanned)
+                        }) {
+                            Text(deleteConfirm)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { codeToDelete = null }) {
+                            Text(deleteCancel)
+                        }
+                    }
                 )
             }
+        }
+    }
+}
+
+/** Подложка под плашкой: слева копирование, справа удаление. */
+@Composable
+private fun SwipeBackground(
+    direction: SwipeToDismissBoxValue,
+    copyDescription: String,
+    deleteDescription: String
+) {
+    val copying = direction == SwipeToDismissBoxValue.StartToEnd
+    val color = if (copying) {
+        MaterialTheme.colorScheme.secondaryContainer
+    } else {
+        MaterialTheme.colorScheme.errorContainer
+    }
+    val content = if (copying) {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    } else {
+        MaterialTheme.colorScheme.onErrorContainer
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(color, MaterialTheme.shapes.medium)
+            .padding(horizontal = 20.dp),
+        contentAlignment = if (copying) Alignment.CenterStart else Alignment.CenterEnd
+    ) {
+        if (direction == SwipeToDismissBoxValue.Settled) return@Box
+        if (copying) {
+            Icon(
+                painter = painterResource(id = R.drawable.ic_content_copy),
+                contentDescription = copyDescription,
+                tint = content
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = deleteDescription,
+                tint = content
+            )
         }
     }
 }

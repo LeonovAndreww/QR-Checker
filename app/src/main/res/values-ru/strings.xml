@@ -122,4 +122,7 @@
     <string name="parsing_page">страница %1$d из %2$d</string>
     <string name="parsed_codes_summary">Найдено кодов: %1$d</string>
     <string name="parsed_source_line">%1$s — %2$d</string>
+    <string name="delete_dont_ask">Больше не спрашивать в этой сессии</string>
+    <string name="cd_swipe_copy">Копировать</string>
+    <string name="cd_swipe_delete">Удалить</string>
 </resources>
