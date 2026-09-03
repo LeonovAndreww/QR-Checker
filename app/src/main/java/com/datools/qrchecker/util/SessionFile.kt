@@ -1,5 +1,7 @@
 package com.datools.qrchecker.util
 
+import androidx.annotation.StringRes
+import com.datools.qrchecker.R
 import com.datools.qrchecker.model.SessionData
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -23,8 +25,13 @@ private const val KEY_CODE = "code"
 private const val KEY_SCANNED = "scanned"
 private const val KEY_SCANNED_AT = "scannedAt"
 
-/** Файл не является сессией или повреждён. Сообщение показывается пользователю. */
-class SessionFileException(message: String) : Exception(message)
+/**
+ * Файл не является сессией или повреждён.
+ *
+ * Несёт идентификатор строки, а не готовый текст: сообщение показывается пользователю, и
+ * зашитое здесь по-русски вылезало бы русским и в английской локали.
+ */
+class SessionFileException(@StringRes val messageRes: Int) : Exception()
 
 /** Прочитанная сессия вместе с временем, когда её сохранили. */
 data class SessionFileContent(
@@ -79,28 +86,28 @@ fun readSessionFile(text: String): SessionFileContent {
     val root = try {
         JsonParser.parseString(text)
     } catch (e: JsonSyntaxException) {
-        throw SessionFileException("Файл не читается как JSON")
+        throw SessionFileException(R.string.session_file_not_json)
     }
 
-    if (!root.isJsonObject) throw SessionFileException("Файл не похож на сессию")
+    if (!root.isJsonObject) throw SessionFileException(R.string.session_file_not_object)
     val obj = root.asJsonObject
 
     val format = obj.get(KEY_FORMAT)?.takeIf { it.isJsonPrimitive }?.asString
-    if (format != FORMAT) throw SessionFileException("Это не файл сессии QR Checker")
+    if (format != FORMAT) throw SessionFileException(R.string.session_file_foreign)
 
     val version = obj.get(KEY_VERSION)?.takeIf { it.isJsonPrimitive }?.asInt
-        ?: throw SessionFileException("В файле не указана версия формата")
+        ?: throw SessionFileException(R.string.session_file_no_version)
     if (version > VERSION) {
-        throw SessionFileException("Файл сохранён новой версией приложения, обновите его")
+        throw SessionFileException(R.string.session_file_future)
     }
 
     val id = obj.get(KEY_ID)?.takeIf { it.isJsonPrimitive }?.asString
-    if (id.isNullOrBlank()) throw SessionFileException("В файле нет идентификатора сессии")
+    if (id.isNullOrBlank()) throw SessionFileException(R.string.session_file_no_id)
 
     val name = obj.get(KEY_NAME)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
 
     val codesJson = obj.get(KEY_CODES)?.takeIf { it.isJsonArray }?.asJsonArray
-        ?: throw SessionFileException("В файле нет списка кодов")
+        ?: throw SessionFileException(R.string.session_file_no_codes_field)
 
     val codes = ArrayList<String>(codesJson.size())
     val scanned = ArrayList<String>()
@@ -118,7 +125,7 @@ fun readSessionFile(text: String): SessionFileContent {
         }
     }
 
-    if (codes.isEmpty()) throw SessionFileException("В файле нет ни одного кода")
+    if (codes.isEmpty()) throw SessionFileException(R.string.session_file_empty)
 
     val savedAt = obj.get(KEY_SAVED_AT)?.takeIf { it.isJsonPrimitive }?.asLong ?: 0L
 

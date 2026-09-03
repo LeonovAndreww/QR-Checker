@@ -134,7 +134,7 @@ class ScanViewModel : ViewModel() {
             } catch (c: CancellationException) {
                 throw c
             } catch (e: SessionFileException) {
-                _errorMessage.value = e.message
+                _errorMessage.value = appContext.getString(e.messageRes)
             } catch (t: Throwable) {
                 Log.e(TAG, "Can't read the selected files", t)
                 _errorMessage.value =
