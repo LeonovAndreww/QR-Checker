@@ -8,5 +8,7 @@ data class SessionSummary(
     val id: String,
     val name: String,
     val total: Int,
-    val scanned: Int
+    val scanned: Int,
+    val createdAt: Long,
+    val openedAt: Long
 )

@@ -51,6 +51,7 @@ import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.DeleteConfirmation
+import com.datools.qrchecker.util.formatScanTimeForScreen
 import com.datools.qrchecker.ui.theme.accents
 import com.datools.qrchecker.model.SessionSummary
 import kotlinx.coroutines.launch
@@ -172,11 +173,25 @@ fun HomeScreen(navController: NavController) {
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = progressTemplate.format(
-                                        session.scanned,
-                                        session.total
-                                    ),
-                                    style = MaterialTheme.typography.bodyMedium
+                                    text = buildString {
+                                        append(
+                                            progressTemplate.format(
+                                                session.scanned,
+                                                session.total
+                                            )
+                                        )
+                                        // у сессий, заведённых до появления этих полей,
+                                        // времени нет, и выдумывать его нечего - строка
+                                        // просто короче
+                                        val at = maxOf(session.openedAt, session.createdAt)
+                                        if (at > 0) {
+                                            append("  ·  ")
+                                            append(formatScanTimeForScreen(at))
+                                        }
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
