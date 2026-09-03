@@ -30,6 +30,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import android.graphics.Rect
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -55,6 +64,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.HorizontalDivider
 import com.datools.qrchecker.util.shortCode
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Share
+import com.datools.qrchecker.util.shareSessionFile
+import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.util.normalizeCode
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -169,6 +182,8 @@ fun ScanScreen(
     val noCameraPermissionText = stringResource(id = R.string.no_camera_permission)
     val manualEntryCd = stringResource(id = R.string.cd_manual_entry)
     val manualEntryButton = stringResource(id = R.string.manual_entry_button)
+    val backCd = stringResource(id = R.string.cd_back)
+    val shareSessionCd = stringResource(id = R.string.share_session)
     val manualEntryTitle = stringResource(id = R.string.manual_entry_title)
     val manualEntryLabel = stringResource(id = R.string.manual_entry_label)
     val manualEntryConfirm = stringResource(id = R.string.manual_entry_confirm)
@@ -271,34 +286,64 @@ fun ScanScreen(
     Scaffold { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             if (hasPermission) {
-                CameraPreview(onCodeScanned = { code -> onCodeScanned(code) })
+                CameraPreview(
+                    highlightColor = feedback?.color?.container,
+                    onCodeScanned = { code -> onCodeScanned(code) }
+                )
             }
 
-            // title (session name)
-            Text(
-                loaded.name,
+            // Одна полоса поверх камеры: назад, название, действия. Раньше название и
+            // кнопка ручного ввода были отдельными элементами с одинаковым отступом
+            // сверху, и их середины по вертикали не совпадали.
+            Row(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = padding.calculateTopPadding() + 4.dp),
-                style = MaterialTheme.typography.headlineMedium
-            )
-
-            // Подписанная кнопка, а не голый карандаш: по значку невозможно догадаться,
-            // что за ним ручной ввод кода, и его принимали за правку сессии
-            Button(
-                onClick = { manualCode = "" },
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = padding.calculateTopPadding() + 4.dp, end = 4.dp)
+                    .fillMaxWidth()
+                    .padding(top = padding.calculateTopPadding() + 4.dp)
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = manualEntryCd,
-                    modifier = Modifier.size(18.dp)
+                IconButton(onClick = { navController.popBackStackOnce() }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = backCd
+                    )
+                }
+
+                Text(
+                    loaded.name,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(manualEntryButton, style = MaterialTheme.typography.labelLarge)
+
+                // «Поделиться» живёт здесь, а не в правке сессии: это действие над той
+                // сессией, с которой человек сейчас работает, и искать его в настройках
+                // никто не станет
+                IconButton(onClick = {
+                    try {
+                        context.startActivity(shareSessionFile(context, loaded))
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "Can't share the session", t)
+                    }
+                }) {
+                    Icon(imageVector = Icons.Default.Share, contentDescription = shareSessionCd)
+                }
+
+                Button(
+                    onClick = { manualCode = "" },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = manualEntryCd,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(manualEntryButton, style = MaterialTheme.typography.labelLarge)
+                }
             }
 
             // bottom row: two buttons + progress in center
@@ -504,6 +549,57 @@ fun ScanScreen(
 }
 
 /**
+ * Какой код найден и где он лежал в кадре.
+ *
+ * Прямоугольник нужен для двух вещей сразу: отсеять коды, не попавшие в рамку, и
+ * подсветить тот, который приняли. Координаты - уже повёрнутого кадра, того самого,
+ * который человек видит на экране.
+ */
+data class DetectedCode(
+    val value: String,
+    val box: Rect,
+    val imageWidth: Int,
+    val imageHeight: Int
+)
+
+/** Доля короткой стороны экрана, которую занимает сторона рамки видоискателя. */
+private const val VIEWFINDER_FRACTION = 0.72f
+
+/**
+ * Пересчёт координат кадра в координаты экрана.
+ *
+ * PreviewView растягивает кадр по большей стороне и обрезает лишнее (FILL_CENTER), так
+ * что доли кадра и доли экрана друг другу не равны. Без этого рамка на экране и область,
+ * по которой идёт отбор, разъехались бы, и приложение принимало бы не то, что показывает.
+ */
+private class PreviewMapping(imageWidth: Int, imageHeight: Int, viewSize: IntSize) {
+    private val scale = maxOf(
+        viewSize.width.toFloat() / imageWidth,
+        viewSize.height.toFloat() / imageHeight
+    )
+    private val dx = (viewSize.width - imageWidth * scale) / 2f
+    private val dy = (viewSize.height - imageHeight * scale) / 2f
+
+    fun toView(x: Float, y: Float) = Offset(x * scale + dx, y * scale + dy)
+
+    fun toView(box: Rect) = ComposeRect(
+        toView(box.left.toFloat(), box.top.toFloat()),
+        toView(box.right.toFloat(), box.bottom.toFloat())
+    )
+}
+
+private fun ComposeRect(topLeft: Offset, bottomRight: Offset) =
+    androidx.compose.ui.geometry.Rect(topLeft, bottomRight)
+
+/** Рамка видоискателя в координатах экрана: квадрат по центру. */
+private fun viewfinderRect(viewSize: IntSize): androidx.compose.ui.geometry.Rect {
+    val side = minOf(viewSize.width, viewSize.height) * VIEWFINDER_FRACTION
+    val left = (viewSize.width - side) / 2f
+    val top = (viewSize.height - side) / 2f
+    return androidx.compose.ui.geometry.Rect(left, top, left + side, top + side)
+}
+
+/**
  * Camera preview bound to the current lifecycle.
  *
  * Analysis runs on its own executor: decoding a frame takes tens of milliseconds and
@@ -512,7 +608,10 @@ fun ScanScreen(
  * running after navigating away.
  */
 @Composable
-private fun CameraPreview(onCodeScanned: (String) -> Unit) {
+private fun CameraPreview(
+    highlightColor: Color?,
+    onCodeScanned: (String) -> Unit
+) {
     val context = LocalContext.current
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
@@ -527,11 +626,30 @@ private fun CameraPreview(onCodeScanned: (String) -> Unit) {
     val currentOnCodeScanned by rememberUpdatedState(onCodeScanned)
     val mainExecutor = remember(context) { ContextCompat.getMainExecutor(context) }
 
+    var viewSize by remember { mutableStateOf(IntSize.Zero) }
+    val currentViewSize by rememberUpdatedState(viewSize)
+    // последний принятый код: по нему рисуется подсветка, пока висит плашка ответа
+    var acceptedBox by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+
     DisposableEffect(lifecycleOwner) {
         // owned by this effect: restarting it must not reuse an executor already shut down
         val analysisExecutor = Executors.newSingleThreadExecutor()
-        val analyzer = MlKitQrCodeAnalyzer { text ->
-            mainExecutor.execute { currentOnCodeScanned(text) }
+        val analyzer = MlKitQrCodeAnalyzer { detected ->
+            mainExecutor.execute {
+                val size = currentViewSize
+                if (size == IntSize.Zero) return@execute
+
+                val mapping = PreviewMapping(detected.imageWidth, detected.imageHeight, size)
+                val frame = viewfinderRect(size)
+                val onScreen = mapping.toView(detected.box)
+
+                // принимается только то, что человек навёл: центр кода внутри рамки.
+                // Иначе соседняя коробка в кадре отмечалась бы молча и незаметно
+                if (!frame.contains(onScreen.center)) return@execute
+
+                acceptedBox = onScreen
+                currentOnCodeScanned(detected.value)
+            }
         }
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         var boundProvider: ProcessCameraProvider? = null
@@ -569,7 +687,73 @@ private fun CameraPreview(onCodeScanned: (String) -> Unit) {
         }
     }
 
-    AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+    // подсветка гаснет вместе с ответом, иначе она повисает на пустом месте
+    LaunchedEffect(highlightColor) {
+        if (highlightColor == null) acceptedBox = null
+    }
+
+    Box(modifier = Modifier.fillMaxSize().onSizeChanged { viewSize = it }) {
+        AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            if (size.width <= 0f || size.height <= 0f) return@Canvas
+            val frame = viewfinderRect(IntSize(size.width.toInt(), size.height.toInt()))
+
+            // затемнение вокруг рамки: показывает, где приложение смотрит, и заодно
+            // подсказывает, куда наводить
+            val scrim = Color.Black.copy(alpha = 0.45f)
+            drawRect(scrim, size = Size(size.width, frame.top))
+            drawRect(
+                scrim,
+                topLeft = Offset(0f, frame.bottom),
+                size = Size(size.width, size.height - frame.bottom)
+            )
+            drawRect(
+                scrim,
+                topLeft = Offset(0f, frame.top),
+                size = Size(frame.left, frame.height)
+            )
+            drawRect(
+                scrim,
+                topLeft = Offset(frame.right, frame.top),
+                size = Size(size.width - frame.right, frame.height)
+            )
+
+            drawCorners(frame, Color.White.copy(alpha = 0.9f), 3.dp.toPx(), frame.width * 0.12f)
+
+            acceptedBox?.let { box ->
+                highlightColor?.let { color ->
+                    drawCorners(box, color, 4.dp.toPx(), box.width * 0.25f)
+                }
+            }
+        }
+    }
+}
+
+/** Уголки прямоугольника: так рисуют видоискатель, чтобы рамка не закрывала сам код. */
+private fun DrawScope.drawCorners(
+    rect: androidx.compose.ui.geometry.Rect,
+    color: Color,
+    strokeWidth: Float,
+    armLength: Float
+) {
+    val arm = armLength.coerceAtMost(minOf(rect.width, rect.height) / 2f)
+    val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+
+    fun line(from: Offset, to: Offset) =
+        drawLine(color, from, to, strokeWidth = stroke.width, cap = stroke.cap)
+
+    line(Offset(rect.left, rect.top), Offset(rect.left + arm, rect.top))
+    line(Offset(rect.left, rect.top), Offset(rect.left, rect.top + arm))
+
+    line(Offset(rect.right, rect.top), Offset(rect.right - arm, rect.top))
+    line(Offset(rect.right, rect.top), Offset(rect.right, rect.top + arm))
+
+    line(Offset(rect.left, rect.bottom), Offset(rect.left + arm, rect.bottom))
+    line(Offset(rect.left, rect.bottom), Offset(rect.left, rect.bottom - arm))
+
+    line(Offset(rect.right, rect.bottom), Offset(rect.right - arm, rect.bottom))
+    line(Offset(rect.right, rect.bottom), Offset(rect.right, rect.bottom - arm))
 }
 
 /**
@@ -579,7 +763,7 @@ private fun CameraPreview(onCodeScanned: (String) -> Unit) {
  * orientation without copying and rebuilding the luminance plane by hand.
  */
 class MlKitQrCodeAnalyzer(
-    private val onQrCodeDetected: (String) -> Unit
+    private val onQrCodeDetected: (DetectedCode) -> Unit
 ) : ImageAnalysis.Analyzer, AutoCloseable {
 
     private val scanner = BarcodeScanning.getClient(
@@ -598,10 +782,30 @@ class MlKitQrCodeAnalyzer(
             return
         }
 
-        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+        val rotation = imageProxy.imageInfo.rotationDegrees
+        // ML Kit отдаёт координаты уже повёрнутого кадра - того, что видно на экране,
+        // поэтому при повороте на четверть стороны меняются местами
+        val upright = rotation == 90 || rotation == 270
+        val width = if (upright) mediaImage.height else mediaImage.width
+        val height = if (upright) mediaImage.width else mediaImage.height
+
+        val image = InputImage.fromMediaImage(mediaImage, rotation)
         scanner.process(image)
             .addOnSuccessListener { barcodes ->
-                barcodes.firstNotNullOfOrNull { it.rawValue }?.let(onQrCodeDetected)
+                // из нескольких кодов в кадре берётся ближайший к центру: человек
+                // целится серединой экрана, а не краем
+                barcodes
+                    .mapNotNull { barcode ->
+                        val value = barcode.rawValue ?: return@mapNotNull null
+                        val box = barcode.boundingBox ?: return@mapNotNull null
+                        DetectedCode(value, box, width, height)
+                    }
+                    .minByOrNull { detected ->
+                        val dx = detected.box.exactCenterX() - width / 2f
+                        val dy = detected.box.exactCenterY() - height / 2f
+                        dx * dx + dy * dy
+                    }
+                    ?.let(onQrCodeDetected)
             }
             .addOnFailureListener { Log.w(TAG, "Frame analysis failed", it) }
             // the frame must stay open until ML Kit is done with it

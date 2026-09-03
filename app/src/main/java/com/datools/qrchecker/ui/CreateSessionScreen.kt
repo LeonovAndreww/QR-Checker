@@ -5,7 +5,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -136,7 +135,6 @@ fun CreateSessionScreen(navController: NavController) {
     val existsTitle = stringResource(id = R.string.session_exists_title)
     val mergeText = stringResource(id = R.string.session_merge)
     val addNewText = stringResource(id = R.string.session_add_new)
-    val pdfIconDesc = stringResource(id = R.string.cd_pdf_icon)
 
     Scaffold(
         topBar = {
@@ -160,6 +158,8 @@ fun CreateSessionScreen(navController: NavController) {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(Modifier.height(16.dp))
+
             TextField(
                 value = sessionName,
                 onValueChange = { input ->
@@ -190,9 +190,9 @@ fun CreateSessionScreen(navController: NavController) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.pdf_icon),
-                        contentDescription = pdfIconDesc
+                    Icon(
+                        painter = painterResource(R.drawable.ic_file_open),
+                        contentDescription = null
                     )
                     Text(
                         text = when (selectedNames.size) {

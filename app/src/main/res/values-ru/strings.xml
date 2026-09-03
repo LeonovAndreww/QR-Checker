@@ -8,7 +8,6 @@
     <string name="cd_new_session">Новая сессия</string>
     <string name="cd_back">Назад</string>
     <string name="cd_delete_code">Удалить код</string>
-    <string name="cd_pdf_icon">PDF Icon</string>
 
     <!-- Home dialog -->
     <string name="delete_session_title">Удалить сессию?</string>
@@ -23,7 +22,6 @@
     <string name="no_scanned_codes">Нет отсканированных кодов</string>
     <string name="no_not_scanned_codes">Нет неотсканированных кодов</string>
     <string name="delete_code_title">Удалить код?</string>
-    <string name="delete_code_confirm_with_value">Вы уверены, что хотите удалить этот код?\n\n%1$s</string>
     <string name="delete_code_success">Код удалён</string>
     <string name="delete_code_failed">Не удалось удалить код</string>
     <string name="delete_code_error">Ошибка при удалении</string>
@@ -114,7 +112,7 @@
     <string name="parsed_session_summary">Файл сессии: кодов %1$d, из них уже отсканировано %2$d</string>
     <string name="manual_entry_already_scanned">уже отсканирован</string>
     <string name="manual_entry_no_matches">В этой сессии таких кодов нет</string>
-    <string name="manual_entry_hint">Введите любую часть кода — хватит хвоста, напечатанного на коробке</string>
+    <string name="manual_entry_hint">Введите любую часть кода</string>
     <string name="error_no_codes_in_files">В выбранных файлах не нашлось ни одного кода</string>
     <string name="add_files_label">Выбрать файлы с кодами</string>
     <string name="selected_files">Выбрано файлов: %1$d</string>
@@ -128,4 +126,6 @@
     <string name="manual_entry_button">Вручную</string>
     <string name="export_nothing_to_share">Выгружать нечего: список пуст</string>
     <string name="backup_pick_folder_first">Сначала выберите папку — копировать некуда</string>
+    <string name="delete_code_confirm">Удалить этот код?</string>
+    <string name="cd_pdf_icon">PDF</string>
 </resources>

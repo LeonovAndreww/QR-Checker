@@ -39,6 +39,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -70,6 +72,13 @@ fun HomeScreen(navController: NavController) {
     val snackbarHostState = remember { SnackbarHostState() }
     val accents = MaterialTheme.accents
     val buttonHeight = 82.dp
+    val groupCorner = 12.dp
+    val groupStartShape = RoundedCornerShape(
+        topStart = groupCorner, bottomStart = groupCorner, topEnd = 0.dp, bottomEnd = 0.dp
+    )
+    val groupEndShape = RoundedCornerShape(
+        topStart = 0.dp, bottomStart = 0.dp, topEnd = groupCorner, bottomEnd = groupCorner
+    )
 
     val fabCd = stringResource(id = R.string.cd_new_session)
     val titleText = stringResource(id = R.string.sessions_title)
@@ -133,14 +142,18 @@ fun HomeScreen(navController: NavController) {
             }
 
             LazyColumn(
-                contentPadding = PaddingValues(bottom = 80.dp)
+                // сверху зазор: без него первая сессия прилипала к панели
+                contentPadding = PaddingValues(top = 12.dp, bottom = 80.dp)
             ) {
                 items(sessions) { session ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        // Кнопки сессии - одна группа: скругления только снаружи, зазоров
+                        // внутри нет. Три отдельно стоящих прямоугольника читались как три
+                        // разных элемента, хотя относятся к одной строке
+                        horizontalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
                         FilledIconButton(
                             onClick = {
@@ -150,9 +163,8 @@ fun HomeScreen(navController: NavController) {
                                 containerColor = accents.edit.container,
                                 contentColor = accents.edit.content
                             ),
-                            modifier = Modifier
-                                .height(buttonHeight),
-                            shape = MaterialTheme.shapes.small
+                            modifier = Modifier.height(buttonHeight),
+                            shape = groupStartShape
                         ) {
                             Icon(Icons.Default.Edit, contentDescription = editCd)
                         }
@@ -161,7 +173,7 @@ fun HomeScreen(navController: NavController) {
                             modifier = Modifier
                                 .height(buttonHeight)
                                 .weight(1f),
-                            shape = MaterialTheme.shapes.small
+                            shape = RectangleShape
                         ) {
                             // счёт уже считался запросом для списка, но на экран не
                             // выводился: приложение открывалось и не отвечало на
@@ -205,9 +217,8 @@ fun HomeScreen(navController: NavController) {
                                 containerColor = accents.delete.container,
                                 contentColor = accents.delete.content
                             ),
-                            modifier = Modifier
-                                .height(buttonHeight),
-                            shape = MaterialTheme.shapes.small
+                            modifier = Modifier.height(buttonHeight),
+                            shape = groupEndShape
                         ) {
                             Icon(Icons.Default.Delete, contentDescription = deleteCd)
                         }

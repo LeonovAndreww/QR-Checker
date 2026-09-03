@@ -394,13 +394,13 @@ fun CodesListScreen(
                                         }
 
                                         if (expanded) {
-                                            session?.scanTimes?.get(code)?.let { at ->
-                                                Text(
-                                                    text = formatScanTimeForScreen(at),
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
+                                            // дата встаёт в одну строку с кнопкой и
+                                            // прижимается вправо: строкой выше она
+                                            // нагромождалась на сам код и растила плашку
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
                                             TextButton(
                                                 onClick = {
                                                     clipboard.setText(AnnotatedString(code))
@@ -420,6 +420,15 @@ fun CodesListScreen(
                                                 )
                                                 Spacer(modifier = Modifier.width(8.dp))
                                                 Text(copyCodeText)
+                                            }
+                                            Spacer(modifier = Modifier.weight(1f))
+                                            session?.scanTimes?.get(code)?.let { at ->
+                                                Text(
+                                                    text = formatScanTimeForScreen(at),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                             }
                                         }
                                     }
@@ -444,11 +453,16 @@ fun CodesListScreen(
                     text = {
                         Column {
                             Text(
-                                stringResource(
-                                    id = R.string.delete_code_confirm_with_value,
-                                    previewCode
-                                ),
+                                stringResource(id = R.string.delete_code_confirm),
                                 style = MaterialTheme.typography.bodyLarge
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            // код отдельной строкой: в одну с вопросом он не влезает и
+                            // обрезается на пару символов
+                            Text(
+                                text = previewCode,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Row(
