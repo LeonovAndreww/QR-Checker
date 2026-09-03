@@ -9,6 +9,23 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!--
+      Доступ в сеть приложению не нужен: коды распознаются на устройстве встроенной
+      моделью, которая лежит внутри пакета, а всё остальное - файлы и база - тоже местное.
+
+      Эти два разрешения приходили от com.google.android.datatransport, транспорта
+      телеметрии Google: ML Kit тянет его за собой, и он отправляет статистику вызовов.
+      Приложение с этого ничего не получает, а в форме Data Safety такую отправку пришлось
+      бы объявлять сбором данных - при том, что данных приложение не собирает.
+
+      Когда появится совместная работа над сессией, разрешение вернётся сюда осознанно и
+      под свою задачу.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove" />
+
     <application
         android:name=".QrCheckerApp"
         android:allowBackup="true"
