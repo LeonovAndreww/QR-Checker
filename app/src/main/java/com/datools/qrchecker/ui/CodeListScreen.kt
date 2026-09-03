@@ -15,12 +15,12 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalClipboardManager
+import android.content.ClipData
+import android.os.Build
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -29,10 +29,9 @@ import com.datools.qrchecker.TYPE_SCANNED
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import com.datools.qrchecker.util.DeleteConfirmation
+import com.datools.qrchecker.util.Outcome
+import com.datools.qrchecker.util.rememberFeedback
 import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.buildCsv
@@ -61,8 +60,8 @@ fun CodesListScreen(
     type: String // TYPE_SCANNED or TYPE_NOT_SCANNED
 ) {
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
-    val haptics = LocalHapticFeedback.current
+    val clipboard = LocalClipboard.current
+    val feel = rememberFeedback()
     val repo = remember { SessionRepository(context) }
     var session by remember { mutableStateOf<SessionData?>(null) }
     val scope = rememberCoroutineScope()
@@ -154,8 +153,12 @@ fun CodesListScreen(
     }
 
     fun copyCode(code: String) {
-        clipboard.setText(AnnotatedString(code))
-        say(codeCopiedText)
+        scope.launch {
+            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(copyCodeText, code)))
+            // с Android 13 система сама показывает, что скопировано, и своя плашка
+            // встаёт второй такой же поверх системной
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) say(codeCopiedText)
+        }
     }
 
     fun performDelete(code: String, isScanned: Boolean) {
@@ -306,49 +309,37 @@ fun CodesListScreen(
                                 val expanded = code == expandedCode
                                 val isScanned = type == TYPE_SCANNED
 
-                                // Плашка не улетает ни в одну сторону: копирование ничего
-                                // не меняет в списке, а удаление списком и управляет - он
-                                // перерисуется сам, когда база ответит. Поэтому обработчик
-                                // делает дело и отвечает false, оставляя плашку на месте.
-                                val swipeState = rememberSwipeToDismissBoxState()
-
-                                // Действие выполняется здесь, а не в confirmValueChange.
-                                // Тот колбэк объявлен устаревшим и отвечает за то, играть
-                                // ли анимацию ухода, а не за само действие: он срабатывал
-                                // ещё до того, как палец отпущен, и не по одному разу.
-                                // Плашка возвращается на место сама - список ничего не
-                                // теряет, а удаление им и управляет.
-                                LaunchedEffect(swipeState.currentValue) {
-                                    when (swipeState.currentValue) {
-                                        SwipeToDismissBoxValue.StartToEnd -> {
-                                            haptics.performHapticFeedback(
-                                                HapticFeedbackType.LongPress
-                                            )
+                                SwipeActionRow(
+                                    onThresholdCrossed = { feel(Outcome.THRESHOLD) },
+                                    start = SwipeAction(
+                                        background =
+                                            MaterialTheme.colorScheme.secondaryContainer,
+                                        onTrigger = {
+                                            feel(Outcome.ACTION)
                                             copyCode(code)
-                                            swipeState.reset()
-                                        }
-
-                                        SwipeToDismissBoxValue.EndToStart -> {
-                                            haptics.performHapticFeedback(
-                                                HapticFeedbackType.LongPress
+                                        },
+                                        icon = {
+                                            Icon(
+                                                painter = painterResource(
+                                                    id = R.drawable.ic_content_copy
+                                                ),
+                                                contentDescription = swipeCopyCd,
+                                                tint = MaterialTheme.colorScheme
+                                                    .onSecondaryContainer
                                             )
-                                            requestDelete(code, isScanned)
-                                            swipeState.reset()
                                         }
-
-                                        SwipeToDismissBoxValue.Settled -> Unit
-                                    }
-                                }
-
-                                SwipeToDismissBox(
-                                    state = swipeState,
-                                    backgroundContent = {
-                                        SwipeBackground(
-                                            direction = swipeState.dismissDirection,
-                                            copyDescription = swipeCopyCd,
-                                            deleteDescription = swipeDeleteCd
-                                        )
-                                    }
+                                    ),
+                                    end = SwipeAction(
+                                        background = MaterialTheme.colorScheme.errorContainer,
+                                        onTrigger = { requestDelete(code, isScanned) },
+                                        icon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = swipeDeleteCd,
+                                                tint = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                    )
                                 ) {
                                 Card(
                                     onClick = {
@@ -401,16 +392,7 @@ fun CodesListScreen(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                            TextButton(
-                                                onClick = {
-                                                    clipboard.setText(AnnotatedString(code))
-                                                    scope.launch {
-                                                        snackbarHostState.showSnackbar(
-                                                            codeCopiedText
-                                                        )
-                                                    }
-                                                }
-                                            ) {
+                                            TextButton(onClick = { copyCode(code) }) {
                                                 Icon(
                                                     painter = painterResource(
                                                         id = R.drawable.ic_content_copy
@@ -506,52 +488,6 @@ fun CodesListScreen(
                     }
                 )
             }
-        }
-    }
-}
-
-/** Подложка под плашкой: слева копирование, справа удаление. */
-@Composable
-private fun SwipeBackground(
-    direction: SwipeToDismissBoxValue,
-    copyDescription: String,
-    deleteDescription: String
-) {
-    // Пока жеста нет, подложки нет вовсе: иначе её цвет проглядывает из-под плашки,
-    // когда та меняет высоту - например, схлопывается после раскрытия.
-    if (direction == SwipeToDismissBoxValue.Settled) return
-
-    val copying = direction == SwipeToDismissBoxValue.StartToEnd
-    val color = if (copying) {
-        MaterialTheme.colorScheme.secondaryContainer
-    } else {
-        MaterialTheme.colorScheme.errorContainer
-    }
-    val content = if (copying) {
-        MaterialTheme.colorScheme.onSecondaryContainer
-    } else {
-        MaterialTheme.colorScheme.onErrorContainer
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(color, MaterialTheme.shapes.medium)
-            .padding(horizontal = 20.dp),
-        contentAlignment = if (copying) Alignment.CenterStart else Alignment.CenterEnd
-    ) {
-        if (copying) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_content_copy),
-                contentDescription = copyDescription,
-                tint = content
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = deleteDescription,
-                tint = content
-            )
         }
     }
 }
