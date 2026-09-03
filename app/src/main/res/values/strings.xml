@@ -114,4 +114,14 @@
     <string name="parsing_cancel">Cancel</string>
     <string name="parsed_pdf_summary">Codes found: %1$d, over %2$d pages</string>
     <string name="parsed_session_summary">Session file: %1$d codes, %2$d of them already scanned</string>
+    <string name="manual_entry_already_scanned">already scanned</string>
+    <string name="manual_entry_no_matches">No code in this session matches</string>
+    <string name="manual_entry_hint">Type any part of the code — the tail printed on the box is enough</string>
+    <string name="error_no_codes_in_files">No codes were found in the chosen files</string>
+    <string name="add_files_label">Choose files with codes</string>
+    <string name="selected_files">Files chosen: %1$d</string>
+    <string name="parsing_file">File %1$d of %2$d: %3$s</string>
+    <string name="parsing_page">page %1$d of %2$d</string>
+    <string name="parsed_codes_summary">Codes found: %1$d</string>
+    <string name="parsed_source_line">%1$s — %2$d</string>
 </resources>

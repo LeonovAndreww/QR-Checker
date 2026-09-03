@@ -26,8 +26,8 @@ class CsvExportTest {
     @Test
     fun `файл начинается с BOM и подсказки про разделитель`() {
         val out = csv(listOf("A1"))
-        assertTrue(out.startsWith("﻿"))
-        assertEquals("﻿sep=;", rows(listOf("A1"))[0])
+        assertTrue(out.startsWith("\uFEFF"))
+        assertEquals("\uFEFFsep=;", rows(listOf("A1"))[0])
     }
 
     @Test
@@ -40,7 +40,9 @@ class CsvExportTest {
     fun `каждый код - строка из короткого и полного значения`() {
         val marked = "0104680577333570215,'OfIXCFmCGl${GROUP_SEPARATOR}9180C3${GROUP_SEPARATOR}9212ab"
         val row = rows(listOf(marked)).last()
-        assertEquals("0104680577333570215,'OfIXCFmCGl;$marked;", row)
+        // оба значения содержат запятую и потому берутся в кавычки: иначе такую строку
+        // нельзя прочитать обратно
+        assertEquals("\"0104680577333570215,'OfIXCFmCGl\";\"$marked\";", row)
     }
 
     @Test

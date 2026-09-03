@@ -12,6 +12,8 @@ import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.util.SessionFileException
+import com.datools.qrchecker.util.parseCodeList
+import com.datools.qrchecker.util.parseImageForCodes
 import com.datools.qrchecker.util.parsePdfForQRCodes
 import com.datools.qrchecker.util.readSessionFile
 import com.datools.qrchecker.util.readTextFromUri
@@ -24,20 +26,43 @@ import java.util.UUID
 
 private const val TAG = "QRChecker"
 
-/** Первые байты любого PDF. По ним файл и опознаётся - расширение и тип от системы врут. */
+/**
+ * Вид файла определяется по первым байтам, а не по имени и не по типу от системы: своё
+ * расширение .qrcheck система не знает и отдаёт файл как octet-stream, а документ из
+ * мессенджера приезжает и вовсе без имени.
+ */
+private enum class FileKind { PDF, IMAGE, TEXT }
+
 private val PDF_MAGIC = "%PDF-".toByteArray()
 
-/** Что удалось вычитать из выбранного файла. */
+private val IMAGE_MAGICS = listOf(
+    byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47),               // PNG
+    byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()),   // JPEG
+    byteArrayOf(0x47, 0x49, 0x46, 0x38),                        // GIF
+    byteArrayOf(0x42, 0x4D),                                    // BMP
+    byteArrayOf(0x52, 0x49, 0x46, 0x46)                         // RIFF, он же WebP
+)
+
+/** Что удалось вычитать из выбранных файлов. */
 sealed interface ParsedFile {
-    /** Документ с кодами: имя сессии человек придумывает сам. */
-    data class Pdf(val codes: List<String>, val pageCount: Int) : ParsedFile
+    /** Коды из одного или нескольких источников: имя сессии человек придумывает сам. */
+    data class Codes(val codes: List<String>, val sources: List<SourceSummary>) : ParsedFile
 
     /** Готовая сессия: имя, коды и отметки уже внутри, придумывать нечего. */
     data class Session(val session: SessionData) : ParsedFile
 }
 
-/** Сколько страниц разобрано из скольких. */
-data class ParseProgress(val done: Int, val total: Int)
+/** Сколько кодов дал каждый выбранный файл - чтобы было видно, какой приехал пустым. */
+data class SourceSummary(val name: String, val codes: Int)
+
+/** Какой файл разбирается и, если это документ, какая страница. */
+data class ParseProgress(
+    val fileIndex: Int,
+    val fileCount: Int,
+    val fileName: String,
+    val page: Int = 0,
+    val pageCount: Int = 0
+)
 
 class ScanViewModel : ViewModel() {
 
@@ -74,10 +99,15 @@ class ScanViewModel : ViewModel() {
      * Тип определяется по содержимому. Своё расширение .qrcheck система не знает и отдаёт
      * файл как octet-stream, а PDF из мессенджера может приехать вообще без имени.
      */
-    fun parseSelectedFile(context: Context, uri: Uri, scale: Int = 3) {
+    fun parseSelectedFiles(
+        context: Context,
+        files: List<Pair<Uri, String>>,
+        scale: Int = 3
+    ) {
+        if (files.isEmpty()) return
         val appContext = context.applicationContext
 
-        // выбрали новый файл, пока разбирался прежний - прежний больше не нужен
+        // выбрали новую пачку, пока разбиралась прежняя - прежняя больше не нужна
         parseJob?.cancel()
         _isLoading.value = true
         _errorMessage.value = null
@@ -86,31 +116,53 @@ class ScanViewModel : ViewModel() {
 
         parseJob = viewModelScope.launch {
             try {
-                if (looksLikePdf(appContext, uri)) {
-                    val result = parsePdfForQRCodes(appContext, uri, scale) { done, total ->
-                        _progress.value = ParseProgress(done, total)
+                // файл сессии несёт имя, отметки и время, и смешивать его с чужими кодами
+                // нечего: выбран один такой файл - открываем сессию целиком
+                if (files.size == 1) {
+                    val session = readSessionOrNull(appContext, files.first().first)
+                    if (session != null) {
+                        _parsed.value = ParsedFile.Session(session)
+                        return@launch
                     }
-                    if (result.codes.isEmpty()) {
-                        _errorMessage.value = appContext.getString(
-                            R.string.error_no_codes_in_pdf,
-                            result.pageCount,
-                            result.renderedSize
-                        )
-                    } else {
-                        _parsed.value = ParsedFile.Pdf(result.codes, result.pageCount)
+                }
+
+                val codes = LinkedHashSet<String>()
+                val sources = ArrayList<SourceSummary>(files.size)
+
+                files.forEachIndexed { index, (uri, name) ->
+                    _progress.value = ParseProgress(index, files.size, name)
+                    val before = codes.size
+
+                    when (kindOf(appContext, uri)) {
+                        FileKind.PDF -> {
+                            val result = parsePdfForQRCodes(appContext, uri, scale) { done, total ->
+                                _progress.value =
+                                    ParseProgress(index, files.size, name, done, total)
+                            }
+                            codes += result.codes
+                        }
+
+                        FileKind.IMAGE -> codes += parseImageForCodes(appContext, uri)
+
+                        FileKind.TEXT -> codes += withContext(Dispatchers.IO) {
+                            parseCodeList(readTextFromUri(appContext, uri))
+                        }
                     }
+
+                    sources += SourceSummary(name, codes.size - before)
+                }
+
+                if (codes.isEmpty()) {
+                    _errorMessage.value = appContext.getString(R.string.error_no_codes_in_files)
                 } else {
-                    val session = withContext(Dispatchers.IO) {
-                        readSessionFile(readTextFromUri(appContext, uri)).session
-                    }
-                    _parsed.value = ParsedFile.Session(session)
+                    _parsed.value = ParsedFile.Codes(codes.toList(), sources)
                 }
             } catch (c: CancellationException) {
                 throw c
             } catch (e: SessionFileException) {
                 _errorMessage.value = e.message
             } catch (t: Throwable) {
-                Log.e(TAG, "Can't read the selected file", t)
+                Log.e(TAG, "Can't read the selected files", t)
                 _errorMessage.value =
                     appContext.getString(R.string.error_parsing_pdf, t.message ?: "")
             } finally {
@@ -147,7 +199,7 @@ class ScanViewModel : ViewModel() {
                 if (!force) {
                     // тот же файл, открытый второй раз, - это не вторая партия, а та же
                     val codes = when (source) {
-                        is ParsedFile.Pdf -> source.codes
+                        is ParsedFile.Codes -> source.codes
                         is ParsedFile.Session -> source.session.codes
                     }
                     val existing = repoForCheck.findWithSameCodes(codes)
@@ -158,7 +210,7 @@ class ScanViewModel : ViewModel() {
                 }
 
                 val session = when (source) {
-                    is ParsedFile.Pdf -> SessionData(
+                    is ParsedFile.Codes -> SessionData(
                         id = UUID.randomUUID().toString(),
                         name = name,
                         codes = source.codes,
@@ -235,12 +287,31 @@ class ScanViewModel : ViewModel() {
         _createdSessionId.value = null
     }
 
-    private suspend fun looksLikePdf(context: Context, uri: Uri): Boolean =
-        withContext(Dispatchers.IO) {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                val head = ByteArray(PDF_MAGIC.size)
-                val read = input.read(head)
-                read == PDF_MAGIC.size && head.contentEquals(PDF_MAGIC)
-            } ?: false
+    private suspend fun kindOf(context: Context, uri: Uri): FileKind = withContext(Dispatchers.IO) {
+        val head = context.contentResolver.openInputStream(uri)?.use { input ->
+            val buffer = ByteArray(8)
+            val read = input.read(buffer)
+            if (read <= 0) ByteArray(0) else buffer.copyOf(read)
+        } ?: ByteArray(0)
+
+        when {
+            head.startsWith(PDF_MAGIC) -> FileKind.PDF
+            IMAGE_MAGICS.any { head.startsWith(it) } -> FileKind.IMAGE
+            else -> FileKind.TEXT
         }
+    }
+
+    /** Пробует прочитать файл как сессию. null - значит это что-то другое. */
+    private suspend fun readSessionOrNull(context: Context, uri: Uri): SessionData? =
+        withContext(Dispatchers.IO) {
+            try {
+                if (kindOf(context, uri) != FileKind.TEXT) return@withContext null
+                readSessionFile(readTextFromUri(context, uri)).session
+            } catch (t: Throwable) {
+                null
+            }
+        }
+
+    private fun ByteArray.startsWith(prefix: ByteArray): Boolean =
+        size >= prefix.size && prefix.indices.all { this[it] == prefix[it] }
 }

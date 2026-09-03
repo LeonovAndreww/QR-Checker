@@ -48,6 +48,12 @@ import com.datools.qrchecker.model.SessionData
 import androidx.compose.material3.MaterialTheme
 import com.datools.qrchecker.ui.theme.OnColor
 import com.datools.qrchecker.ui.theme.accents
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.HorizontalDivider
+import com.datools.qrchecker.util.shortCode
 import com.datools.qrchecker.util.normalizeCode
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -57,6 +63,9 @@ import com.datools.qrchecker.util.SessionBackup
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
+
+/** Сколько подсказок показывать: экран телефона всё равно не вместит больше. */
+private const val MANUAL_SUGGESTIONS = 30
 
 private const val BACKUP_DEBOUNCE_MS = 5_000L
 
@@ -156,6 +165,9 @@ fun ScanScreen(
     val manualEntryTitle = stringResource(id = R.string.manual_entry_title)
     val manualEntryLabel = stringResource(id = R.string.manual_entry_label)
     val manualEntryConfirm = stringResource(id = R.string.manual_entry_confirm)
+    val manualEntryHint = stringResource(id = R.string.manual_entry_hint)
+    val manualEntryNoMatches = stringResource(id = R.string.manual_entry_no_matches)
+    val alreadyScannedLabel = stringResource(id = R.string.manual_entry_already_scanned)
     val cancelText = stringResource(id = R.string.delete_cancel)
 
     fun showFeedback(message: String, color: OnColor, vibrMs: Long, code: String?) {
@@ -343,23 +355,92 @@ fun ScanScreen(
             }
 
             manualCode?.let { typed ->
+                // Набрать 31 знак кода маркировки руками невозможно, поэтому ввод здесь -
+                // это поиск по кодам сессии, а не набор. Неотмеченные идут первыми: их и
+                // ищут. Отмеченные остаются в списке, потому что коробка могла приехать
+                // дважды, и человеку нужно это увидеть, а не гадать, куда делся код.
+                val query = typed.trim()
+                val suggestions = remember(loaded, query) {
+                    val scanned = loaded.scannedCodes.toHashSet()
+                    loaded.codes
+                        .asSequence()
+                        .filter { query.isEmpty() || it.contains(query, ignoreCase = true) }
+                        .sortedBy { it in scanned }
+                        .take(MANUAL_SUGGESTIONS)
+                        .map { it to (it in scanned) }
+                        .toList()
+                }
+
                 AlertDialog(
                     onDismissRequest = { manualCode = null },
                     title = { Text(manualEntryTitle) },
                     text = {
-                        OutlinedTextField(
-                            value = typed,
-                            onValueChange = { manualCode = it.filterNot { ch -> ch == '\n' } },
-                            label = { Text(manualEntryLabel) },
-                            singleLine = true
-                        )
+                        Column {
+                            OutlinedTextField(
+                                value = typed,
+                                onValueChange = { manualCode = it.filterNot { ch -> ch == '\n' } },
+                                label = { Text(manualEntryLabel) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = manualEntryHint,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            if (suggestions.isEmpty()) {
+                                Text(
+                                    text = manualEntryNoMatches,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
+                                    items(suggestions, key = { it.first }) { (code, isScanned) ->
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    manualCode = null
+                                                    // тот же путь, что у кадра с камеры,
+                                                    // чтобы отклик был тем же самым
+                                                    onCodeScanned(code)
+                                                }
+                                                .padding(vertical = 8.dp)
+                                        ) {
+                                            Text(
+                                                text = shortCode(code),
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                color = if (isScanned) {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurface
+                                                }
+                                            )
+                                            if (isScanned) {
+                                                Text(
+                                                    text = alreadyScannedLabel,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        HorizontalDivider()
+                                    }
+                                }
+                            }
+                        }
                     },
                     confirmButton = {
                         TextButton(
                             enabled = typed.isNotBlank(),
                             onClick = {
                                 manualCode = null
-                                // same path as a decoded frame, so the feedback matches
                                 onCodeScanned(typed)
                             }
                         ) { Text(manualEntryConfirm) }
