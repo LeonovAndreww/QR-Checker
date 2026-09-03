@@ -85,7 +85,7 @@
     <string name="settings_title">Settings</string>
     <string name="cd_settings">Settings</string>
     <string name="backup_title">Copy of the sessions</string>
-    <string name="backup_why">Uninstalling the app wipes its own storage, and no setting changes that. Files in a folder you pick belong to you, so they survive it — and a new phone too.</string>
+    <string name="backup_why">Uninstalling wipes the app\'s own storage. A folder you pick is yours, and survives it.</string>
     <string name="backup_folder_none">No folder picked</string>
     <string name="backup_choose_folder">Pick a folder</string>
     <string name="backup_change_folder">Change</string>
@@ -127,4 +127,7 @@
     <string name="delete_dont_ask">Do not ask again in this session</string>
     <string name="cd_swipe_copy">Copy</string>
     <string name="cd_swipe_delete">Delete</string>
+    <string name="manual_entry_button">By hand</string>
+    <string name="export_nothing_to_share">Nothing to export: the list is empty</string>
+    <string name="backup_pick_folder_first">Pick a folder first — there is nowhere to copy to</string>
 </resources>

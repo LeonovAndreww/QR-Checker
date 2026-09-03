@@ -114,6 +114,7 @@ fun CodesListScreen(
     val csvColumnFull = stringResource(id = R.string.csv_column_full)
     val csvColumnScannedAt = stringResource(id = R.string.csv_column_scanned_at)
     val dontAskText = stringResource(id = R.string.delete_dont_ask)
+    val nothingToExport = stringResource(id = R.string.export_nothing_to_share)
     val swipeCopyCd = stringResource(id = R.string.cd_swipe_copy)
     val swipeDeleteCd = stringResource(id = R.string.cd_swipe_delete)
     val exportFailed = stringResource(id = R.string.export_failed)
@@ -188,8 +189,15 @@ fun CodesListScreen(
                 },
                 actions = {
                     IconButton(
-                        enabled = exportableCodes.isNotEmpty(),
+                        // кнопка живая и при пустом списке: неактивная выглядит ровно как
+                        // сломанная, и понять, почему ничего не происходит, неоткуда
                         onClick = {
+                            if (exportableCodes.isEmpty()) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(nothingToExport)
+                                }
+                                return@IconButton
+                            }
                             val current = session ?: return@IconButton
                             scope.launch {
                                 try {

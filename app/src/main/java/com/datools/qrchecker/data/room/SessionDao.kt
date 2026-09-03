@@ -20,6 +20,9 @@ abstract class SessionDao {
     @Query("DELETE FROM sessions WHERE id = :id")
     abstract suspend fun deleteSession(id: String)
 
+    @Query("UPDATE sessions SET openedAt = :at WHERE id = :id")
+    abstract suspend fun touchOpened(id: String, at: Long)
+
     @Query("UPDATE sessions SET name = :name WHERE id = :id")
     abstract suspend fun renameSession(id: String, name: String)
 
@@ -73,11 +76,13 @@ abstract class SessionDao {
         SELECT s.id AS id,
                s.name AS name,
                COUNT(c.code) AS total,
-               COALESCE(SUM(c.scanned), 0) AS scanned
+               COALESCE(SUM(c.scanned), 0) AS scanned,
+               s.createdAt AS createdAt,
+               s.openedAt AS openedAt
         FROM sessions s
         LEFT JOIN session_codes c ON c.sessionId = s.id
-        GROUP BY s.id, s.name, s.rowid
-        ORDER BY s.rowid DESC
+        GROUP BY s.id, s.name, s.createdAt, s.openedAt, s.rowid
+        ORDER BY s.openedAt DESC, s.rowid DESC
         """
     )
     abstract fun getSummariesFlow(): Flow<List<SessionSummary>>

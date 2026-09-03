@@ -79,3 +79,17 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         db.execSQL("ALTER TABLE `session_codes` ADD COLUMN `scannedAt` INTEGER DEFAULT NULL")
     }
 }
+
+/**
+ * Добавляет время создания сессии и время последнего открытия.
+ *
+ * У сессий, заведённых до этого обновления, оба остаются нулями: настоящих значений для
+ * них не существует, а подставить «сейчас» значило бы объявить все старые сессии
+ * созданными в момент обновления.
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `sessions` ADD COLUMN `createdAt` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `sessions` ADD COLUMN `openedAt` INTEGER NOT NULL DEFAULT 0")
+    }
+}

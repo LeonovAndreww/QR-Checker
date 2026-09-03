@@ -22,6 +22,12 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TextButton
 import com.datools.qrchecker.viewmodel.ParsedFile
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -50,6 +56,7 @@ import com.datools.qrchecker.viewmodel.ScanViewModel
 
 private const val TAG = "QRChecker"
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateSessionScreen(navController: NavController) {
     val context = LocalContext.current
@@ -112,6 +119,7 @@ fun CreateSessionScreen(navController: NavController) {
     }
 
     val titleText = stringResource(id = R.string.setup_session_title)
+    val backCd = stringResource(id = R.string.cd_back)
     val nameLabel = stringResource(id = R.string.session_name_label)
     val addFileLabel = stringResource(id = R.string.add_files_label)
     val selectedFilesTemplate = stringResource(id = R.string.selected_files)
@@ -128,7 +136,21 @@ fun CreateSessionScreen(navController: NavController) {
     val addNewText = stringResource(id = R.string.session_add_new)
     val pdfIconDesc = stringResource(id = R.string.cd_pdf_icon)
 
-    Scaffold { innerPadding ->
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(titleText) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = backCd
+                        )
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -136,15 +158,6 @@ fun CreateSessionScreen(navController: NavController) {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = titleText,
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.displaySmall,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(Modifier.height(20.dp))
-
             TextField(
                 value = sessionName,
                 onValueChange = { input ->

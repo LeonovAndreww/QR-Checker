@@ -25,6 +25,11 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -166,6 +171,7 @@ fun EditSessionScreen(
 
     // strings for UI (safe to call stringResource here)
     val titleText = stringResource(id = R.string.setup_session_title)
+    val backCd = stringResource(id = R.string.cd_back)
     val nameLabel = stringResource(id = R.string.session_name_label)
     val selectPdfLabel = stringResource(id = R.string.select_pdf_label)
     val pdfIconDesc = stringResource(id = R.string.cd_pdf_icon)
@@ -173,7 +179,21 @@ fun EditSessionScreen(
     val saveText = stringResource(id = R.string.save_button)
     val parsingText = stringResource(id = R.string.parsing_pdf)
 
-    Scaffold { innerPadding ->
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(titleText) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = backCd
+                        )
+                    }
+                }
+            )
+        }
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
@@ -182,15 +202,6 @@ fun EditSessionScreen(
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = titleText,
-                style = MaterialTheme.typography.displaySmall,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             TextField(
                 value = name,
                 onValueChange = { v -> name = v.filterNot { it == '\n' } },

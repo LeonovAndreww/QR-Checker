@@ -6,6 +6,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.datools.qrchecker.data.room.AppDatabase
 import com.datools.qrchecker.data.room.MIGRATION_1_2
 import com.datools.qrchecker.data.room.MIGRATION_2_3
+import com.datools.qrchecker.data.room.MIGRATION_3_4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -120,6 +121,41 @@ class MigrationTest {
             assertEquals("A1", c.getString(0))
             assertEquals(1, c.getInt(1))
             assertTrue(c.isNull(2))
+        }
+    }
+
+    @Test
+    fun migrate3To4_addsSessionTimesAndLeavesOldOnesWithoutThem() {
+        helper.createDatabase(TEST_DB, 3).use { db ->
+            db.execSQL("INSERT INTO sessions (id, name) VALUES ('s1', 'Session')")
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 4, true, MIGRATION_3_4)
+
+        db.query("SELECT createdAt, openedAt FROM sessions WHERE id = 's1'").use { c ->
+            c.moveToFirst()
+            // время сессии, заведённой до этого обновления, не выдумывается
+            assertEquals(0L, c.getLong(0))
+            assertEquals(0L, c.getLong(1))
+        }
+    }
+
+    @Test
+    fun migrate1To4_runsTheWholeChain() {
+        helper.createDatabase(TEST_DB, 1).use { db ->
+            db.execSQL(
+                "INSERT INTO sessions (id, name, codes, scannedCodes) VALUES " +
+                        "('s1', 'Session', '[\"A1\",\"A2\"]', '[\"A1\"]')"
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(
+            TEST_DB, 4, true, MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4
+        )
+
+        db.query("SELECT COUNT(*) FROM session_codes WHERE sessionId = 's1'").use { c ->
+            c.moveToFirst()
+            assertEquals(2, c.getInt(0))
         }
     }
 }

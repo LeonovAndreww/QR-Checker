@@ -62,6 +62,7 @@ fun SettingsScreen(navController: NavController) {
     val title = stringResource(id = R.string.settings_title)
     val backupTitle = stringResource(id = R.string.backup_title)
     val backupWhy = stringResource(id = R.string.backup_why)
+    val pickFolderFirst = stringResource(id = R.string.backup_pick_folder_first)
     val folderNone = stringResource(id = R.string.backup_folder_none)
     val chooseFolder = stringResource(id = R.string.backup_choose_folder)
     val changeFolder = stringResource(id = R.string.backup_change_folder)
@@ -148,9 +149,15 @@ fun SettingsScreen(navController: NavController) {
                         Text(autoLabel, style = MaterialTheme.typography.bodyLarge)
                         Switch(
                             checked = enabled,
-                            // без папки переключателю нечего включать
-                            enabled = folderName != null,
                             onCheckedChange = {
+                                // тумблер не заперт: запертый неотличим от сломанного.
+                                // Без папки он объясняет, чего не хватает
+                                if (folderName == null) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(pickFolderFirst)
+                                    }
+                                    return@Switch
+                                }
                                 enabled = it
                                 SessionBackup.setEnabled(context, it)
                             }

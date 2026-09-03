@@ -83,7 +83,7 @@
     <string name="settings_title">Настройки</string>
     <string name="cd_settings">Настройки</string>
     <string name="backup_title">Копия сессий</string>
-    <string name="backup_why">Удаление приложения стирает его собственное хранилище, и никакая настройка этого не меняет. Файлы в выбранной вами папке принадлежат вам — они переживут и удаление, и смену телефона.</string>
+    <string name="backup_why">Удаление приложения стирает его хранилище. Выбранная вами папка — ваша, она это переживёт.</string>
     <string name="backup_folder_none">Папка не выбрана</string>
     <string name="backup_choose_folder">Выбрать папку</string>
     <string name="backup_change_folder">Изменить</string>
@@ -125,4 +125,7 @@
     <string name="delete_dont_ask">Больше не спрашивать в этой сессии</string>
     <string name="cd_swipe_copy">Копировать</string>
     <string name="cd_swipe_delete">Удалить</string>
+    <string name="manual_entry_button">Вручную</string>
+    <string name="export_nothing_to_share">Выгружать нечего: список пуст</string>
+    <string name="backup_pick_folder_first">Сначала выберите папку — копировать некуда</string>
 </resources>

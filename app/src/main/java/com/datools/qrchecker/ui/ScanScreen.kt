@@ -123,6 +123,9 @@ fun ScanScreen(
 
     LaunchedEffect(sessionId) {
         session = repo.getById(sessionId)
+        // по времени открытия упорядочен список на главной: то, чем заняты сейчас,
+        // должно быть сверху, а не то, что завели раньше всех
+        repo.touchOpened(sessionId)
     }
 
     // Копия пишется через паузу после последней отметки, а не на каждую: партия бывает
@@ -162,6 +165,7 @@ fun ScanScreen(
     val notScannedButtonText = stringResource(id = R.string.btn_not_scanned)
     val noCameraPermissionText = stringResource(id = R.string.no_camera_permission)
     val manualEntryCd = stringResource(id = R.string.cd_manual_entry)
+    val manualEntryButton = stringResource(id = R.string.manual_entry_button)
     val manualEntryTitle = stringResource(id = R.string.manual_entry_title)
     val manualEntryLabel = stringResource(id = R.string.manual_entry_label)
     val manualEntryConfirm = stringResource(id = R.string.manual_entry_confirm)
@@ -274,13 +278,22 @@ fun ScanScreen(
                 style = MaterialTheme.typography.headlineMedium
             )
 
-            IconButton(
+            // Подписанная кнопка, а не голый карандаш: по значку невозможно догадаться,
+            // что за ним ручной ввод кода, и его принимали за правку сессии
+            Button(
                 onClick = { manualCode = "" },
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = padding.calculateTopPadding() + 4.dp, end = 4.dp)
             ) {
-                Icon(imageVector = Icons.Default.Edit, contentDescription = manualEntryCd)
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = manualEntryCd,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(manualEntryButton, style = MaterialTheme.typography.labelLarge)
             }
 
             // bottom row: two buttons + progress in center

@@ -18,8 +18,15 @@ private const val TAG = "QRChecker"
 class SessionRepository(private val context: Context) {
     private val dao = AppDatabase.getInstance(context).sessionDao()
 
-    suspend fun insert(session: SessionData) {
-        dao.upsertSession(SessionEntity(id = session.id, name = session.name))
+    suspend fun insert(session: SessionData, now: Long = System.currentTimeMillis()) {
+        dao.upsertSession(
+            SessionEntity(
+                id = session.id,
+                name = session.name,
+                createdAt = now,
+                openedAt = now
+            )
+        )
         dao.replaceCodes(session.id, session.toCodeEntities())
     }
 
@@ -36,6 +43,10 @@ class SessionRepository(private val context: Context) {
             }.toMap()
         )
     }
+
+    /** Отмечает, что сессию открыли: по этому времени список и упорядочен. */
+    suspend fun touchOpened(sessionId: String, at: Long = System.currentTimeMillis()) =
+        dao.touchOpened(sessionId, at)
 
     fun getSummariesFlow(): Flow<List<SessionSummary>> = dao.getSummariesFlow()
 
