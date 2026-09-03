@@ -11,7 +11,6 @@
     <string name="cd_new_session">New session</string>
     <string name="cd_back">Back</string>
     <string name="cd_delete_code">Delete code</string>
-    <string name="cd_pdf_icon">PDF icon</string>
 
     <!-- Home dialog -->
     <string name="delete_session_title">Delete session?</string>
@@ -26,7 +25,6 @@
     <string name="no_scanned_codes">No scanned codes</string>
     <string name="no_not_scanned_codes">No unscanned codes</string>
     <string name="delete_code_title">Delete code?</string>
-    <string name="delete_code_confirm_with_value">Are you sure you want to delete this code?\n\n%1$s</string>
     <string name="delete_code_success">Code deleted</string>
     <string name="delete_code_failed">Failed to delete code</string>
     <string name="delete_code_error">Error while deleting</string>
@@ -116,7 +114,7 @@
     <string name="parsed_session_summary">Session file: %1$d codes, %2$d of them already scanned</string>
     <string name="manual_entry_already_scanned">already scanned</string>
     <string name="manual_entry_no_matches">No code in this session matches</string>
-    <string name="manual_entry_hint">Type any part of the code — the tail printed on the box is enough</string>
+    <string name="manual_entry_hint">Type any part of the code</string>
     <string name="error_no_codes_in_files">No codes were found in the chosen files</string>
     <string name="add_files_label">Choose files with codes</string>
     <string name="selected_files">Files chosen: %1$d</string>
@@ -130,4 +128,6 @@
     <string name="manual_entry_button">By hand</string>
     <string name="export_nothing_to_share">Nothing to export: the list is empty</string>
     <string name="backup_pick_folder_first">Pick a folder first — there is nowhere to copy to</string>
+    <string name="delete_code_confirm">Delete this code?</string>
+    <string name="cd_pdf_icon">PDF</string>
 </resources>
