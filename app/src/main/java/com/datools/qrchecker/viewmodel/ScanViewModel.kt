@@ -45,8 +45,18 @@ private val IMAGE_MAGICS = listOf(
 
 /** Что удалось вычитать из выбранных файлов. */
 sealed interface ParsedFile {
-    /** Коды из одного или нескольких источников: имя сессии человек придумывает сам. */
-    data class Codes(val codes: List<String>, val sources: List<SourceSummary>) : ParsedFile
+    /**
+     * Коды из одного или нескольких источников: имя сессии человек придумывает сам.
+     *
+     * Отметки здесь не всегда пустые: среди выбранных файлов мог оказаться файл сессии, и
+     * терять его отметки только потому, что рядом лежит ещё документ, нельзя.
+     */
+    data class Codes(
+        val codes: List<String>,
+        val sources: List<SourceSummary>,
+        val scanned: List<String> = emptyList(),
+        val scanTimes: Map<String, Long> = emptyMap()
+    ) : ParsedFile
 
     /** Готовая сессия: имя, коды и отметки уже внутри, придумывать нечего. */
     data class Session(val session: SessionData) : ParsedFile
@@ -128,6 +138,8 @@ class ScanViewModel : ViewModel() {
 
                 val codes = LinkedHashSet<String>()
                 val sources = ArrayList<SourceSummary>(files.size)
+                val scanned = LinkedHashSet<String>()
+                val scanTimes = HashMap<String, Long>()
 
                 files.forEachIndexed { index, (uri, name) ->
                     _progress.value = ParseProgress(index, files.size, name)
@@ -144,8 +156,19 @@ class ScanViewModel : ViewModel() {
 
                         FileKind.IMAGE -> codes += parseImageForCodes(appContext, uri)
 
-                        FileKind.TEXT -> codes += withContext(Dispatchers.IO) {
-                            parseCodeList(readTextFromUri(appContext, uri))
+                        FileKind.TEXT -> {
+                            // файл сессии среди прочих отдаёт и коды, и отметки: раньше он
+                            // уходил в разбор списка, и отметки пропадали молча
+                            val session = readSessionOrNull(appContext, uri)
+                            if (session != null) {
+                                codes += session.codes
+                                scanned += session.scannedCodes
+                                session.scanTimes?.let { scanTimes.putAll(it) }
+                            } else {
+                                codes += withContext(Dispatchers.IO) {
+                                    parseCodeList(readTextFromUri(appContext, uri))
+                                }
+                            }
                         }
                     }
 
@@ -155,7 +178,12 @@ class ScanViewModel : ViewModel() {
                 if (codes.isEmpty()) {
                     _errorMessage.value = appContext.getString(R.string.error_no_codes_in_files)
                 } else {
-                    _parsed.value = ParsedFile.Codes(codes.toList(), sources)
+                    _parsed.value = ParsedFile.Codes(
+                        codes = codes.toList(),
+                        sources = sources,
+                        scanned = scanned.filter { it in codes },
+                        scanTimes = scanTimes.filterKeys { it in codes }
+                    )
                 }
             } catch (c: CancellationException) {
                 throw c
@@ -214,7 +242,8 @@ class ScanViewModel : ViewModel() {
                         id = UUID.randomUUID().toString(),
                         name = name,
                         codes = source.codes,
-                        scannedCodes = emptyList()
+                        scannedCodes = source.scanned,
+                        scanTimes = source.scanTimes
                     )
                     // у открытой сессии свой идентификатор: новый, чтобы файл, открытый
                     // дважды, не затирал уже лежащую на устройстве сессию

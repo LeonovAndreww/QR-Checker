@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.R
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.SessionBackup
@@ -90,7 +91,7 @@ fun SettingsScreen(navController: NavController) {
             TopAppBar(
                 title = { Text(title) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { navController.popBackStackOnce() }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(id = R.string.cd_back)

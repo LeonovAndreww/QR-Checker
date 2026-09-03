@@ -47,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.datools.qrchecker.navigateOnce
 import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.data.SessionRepository
@@ -88,7 +89,7 @@ fun HomeScreen(navController: NavController) {
             CenterAlignedTopAppBar(
                 title = { Text(titleText) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigate(Screen.Settings.route) }) {
+                    IconButton(onClick = { navController.navigateOnce(Screen.Settings.route) }) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_settings),
                             contentDescription = settingsCd
@@ -99,7 +100,7 @@ fun HomeScreen(navController: NavController) {
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { navController.navigate(Screen.CreateSession.route) },
+                onClick = { navController.navigateOnce(Screen.CreateSession.route) },
                 containerColor = accents.newSession.container,
                 contentColor = accents.newSession.content
             ) {
@@ -143,7 +144,7 @@ fun HomeScreen(navController: NavController) {
                     ) {
                         FilledIconButton(
                             onClick = {
-                                navController.navigate(Screen.EditSession.createRoute(session.id))
+                                navController.navigateOnce(Screen.EditSession.createRoute(session.id))
                             },
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = accents.edit.container,
@@ -156,7 +157,7 @@ fun HomeScreen(navController: NavController) {
                             Icon(Icons.Default.Edit, contentDescription = editCd)
                         }
                         Button(
-                            onClick = { navController.navigate(Screen.Scan.createRoute(session.id)) },
+                            onClick = { navController.navigateOnce(Screen.Scan.createRoute(session.id)) },
                             modifier = Modifier
                                 .height(buttonHeight)
                                 .weight(1f),

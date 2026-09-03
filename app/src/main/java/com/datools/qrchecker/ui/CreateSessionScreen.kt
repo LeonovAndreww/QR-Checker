@@ -47,6 +47,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.datools.qrchecker.navigateOnce
+import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.util.getFileNameFromUri
@@ -113,7 +115,7 @@ fun CreateSessionScreen(navController: NavController) {
 
     LaunchedEffect(createdSessionId) {
         createdSessionId?.let { id ->
-            navController.navigate(Screen.Scan.createRoute(id))
+            navController.navigateOnce(Screen.Scan.createRoute(id))
             scanViewModel.clearCreatedSessionId()
         }
     }
@@ -141,7 +143,7 @@ fun CreateSessionScreen(navController: NavController) {
             CenterAlignedTopAppBar(
                 title = { Text(titleText) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { navController.popBackStackOnce() }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = backCd

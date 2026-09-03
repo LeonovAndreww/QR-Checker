@@ -15,6 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -45,6 +48,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.R
 
 private const val TAG = "QRChecker"
@@ -58,6 +62,7 @@ fun CodesListScreen(
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
+    val haptics = LocalHapticFeedback.current
     val repo = remember { SessionRepository(context) }
     var session by remember { mutableStateOf<SessionData?>(null) }
     val scope = rememberCoroutineScope()
@@ -139,7 +144,20 @@ fun CodesListScreen(
         else exportableCodes.filter { it.contains(query.trim(), ignoreCase = true) }
     }
 
-    // одна операция на оба пути: из диалога и из свайпа, когда подтверждение отключено
+    // Сообщения вытесняют друг друга, а не встают в очередь: десяток действий подряд
+    // иначе оборачивался десятком всплывающих плашек одна за другой.
+    fun say(message: String) {
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    fun copyCode(code: String) {
+        clipboard.setText(AnnotatedString(code))
+        say(codeCopiedText)
+    }
+
     fun performDelete(code: String, isScanned: Boolean) {
         scope.launch {
             try {
@@ -155,20 +173,25 @@ fun CodesListScreen(
                 if (updated != null) {
                     session = updated
                     SessionBackup.scheduleSave(context, updated)
-                    snackbarHostState.showSnackbar(deleteSuccess)
+                    say(deleteSuccess)
                 } else {
-                    snackbarHostState.showSnackbar(deleteFailed)
+                    say(deleteFailed)
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "Can't delete code from session $sessionId", t)
-                snackbarHostState.showSnackbar("$deleteError: ${t.message}")
+                say("$deleteError: ${t.message}")
             }
         }
     }
 
-    fun copyCode(code: String) {
-        clipboard.setText(AnnotatedString(code))
-        scope.launch { snackbarHostState.showSnackbar(codeCopiedText) }
+    // один путь для кнопки и для свайпа: подтверждение спрашивается или нет одинаково
+    fun requestDelete(code: String, isScanned: Boolean) {
+        if (skipDeleteConfirm) {
+            performDelete(code, isScanned)
+        } else {
+            codeToDelete = code
+            codeToDeleteIsScanned = isScanned
+        }
     }
 
     Scaffold(
@@ -180,7 +203,7 @@ fun CodesListScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { navController.popBackStackOnce() }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(id = R.string.cd_back)
@@ -193,9 +216,7 @@ fun CodesListScreen(
                         // сломанная, и понять, почему ничего не происходит, неоткуда
                         onClick = {
                             if (exportableCodes.isEmpty()) {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(nothingToExport)
-                                }
+                                say(nothingToExport)
                                 return@IconButton
                             }
                             val current = session ?: return@IconButton
@@ -216,9 +237,7 @@ fun CodesListScreen(
                                     context.startActivity(intent)
                                 } catch (t: Throwable) {
                                     Log.e(TAG, "Can't export the code list", t)
-                                    snackbarHostState.showSnackbar(
-                                        "$exportFailed: ${t.message}"
-                                    )
+                                    say("$exportFailed: ${t.message}")
                                 }
                             }
                         }
@@ -291,23 +310,35 @@ fun CodesListScreen(
                                 // не меняет в списке, а удаление списком и управляет - он
                                 // перерисуется сам, когда база ответит. Поэтому обработчик
                                 // делает дело и отвечает false, оставляя плашку на месте.
-                                val swipeState = rememberSwipeToDismissBoxState(
-                                    confirmValueChange = { value ->
-                                        when (value) {
-                                            SwipeToDismissBoxValue.StartToEnd -> copyCode(code)
-                                            SwipeToDismissBoxValue.EndToStart ->
-                                                if (skipDeleteConfirm) {
-                                                    performDelete(code, isScanned)
-                                                } else {
-                                                    codeToDelete = code
-                                                    codeToDeleteIsScanned = isScanned
-                                                }
+                                val swipeState = rememberSwipeToDismissBoxState()
 
-                                            SwipeToDismissBoxValue.Settled -> Unit
+                                // Действие выполняется здесь, а не в confirmValueChange.
+                                // Тот колбэк объявлен устаревшим и отвечает за то, играть
+                                // ли анимацию ухода, а не за само действие: он срабатывал
+                                // ещё до того, как палец отпущен, и не по одному разу.
+                                // Плашка возвращается на место сама - список ничего не
+                                // теряет, а удаление им и управляет.
+                                LaunchedEffect(swipeState.currentValue) {
+                                    when (swipeState.currentValue) {
+                                        SwipeToDismissBoxValue.StartToEnd -> {
+                                            haptics.performHapticFeedback(
+                                                HapticFeedbackType.LongPress
+                                            )
+                                            copyCode(code)
+                                            swipeState.reset()
                                         }
-                                        false
+
+                                        SwipeToDismissBoxValue.EndToStart -> {
+                                            haptics.performHapticFeedback(
+                                                HapticFeedbackType.LongPress
+                                            )
+                                            requestDelete(code, isScanned)
+                                            swipeState.reset()
+                                        }
+
+                                        SwipeToDismissBoxValue.Settled -> Unit
                                     }
-                                )
+                                }
 
                                 SwipeToDismissBox(
                                     state = swipeState,
@@ -403,7 +434,10 @@ fun CodesListScreen(
             if (codeToDelete != null) {
                 val previewCode = codeToDelete?.let { shortCode(it) } ?: ""
                 AlertDialog(
-                    onDismissRequest = { codeToDelete = null },
+                    onDismissRequest = {
+                        codeToDelete = null
+                        dontAskChecked = false
+                    },
                     title = {
                         Text(deleteCodeTitle, style = MaterialTheme.typography.headlineSmall)
                     },
@@ -440,13 +474,19 @@ fun CodesListScreen(
                                 skipDeleteConfirm = true
                             }
                             codeToDelete = null
+                            dontAskChecked = false
                             performDelete(code, isScanned)
                         }) {
                             Text(deleteConfirm)
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { codeToDelete = null }) {
+                        TextButton(onClick = {
+                            // отменили - значит и галочку не применяем, и не оставляем
+                            // её нажатой на следующий раз
+                            codeToDelete = null
+                            dontAskChecked = false
+                        }) {
                             Text(deleteCancel)
                         }
                     }
@@ -463,6 +503,10 @@ private fun SwipeBackground(
     copyDescription: String,
     deleteDescription: String
 ) {
+    // Пока жеста нет, подложки нет вовсе: иначе её цвет проглядывает из-под плашки,
+    // когда та меняет высоту - например, схлопывается после раскрытия.
+    if (direction == SwipeToDismissBoxValue.Settled) return
+
     val copying = direction == SwipeToDismissBoxValue.StartToEnd
     val color = if (copying) {
         MaterialTheme.colorScheme.secondaryContainer
@@ -482,7 +526,6 @@ private fun SwipeBackground(
             .padding(horizontal = 20.dp),
         contentAlignment = if (copying) Alignment.CenterStart else Alignment.CenterEnd
     ) {
-        if (direction == SwipeToDismissBoxValue.Settled) return@Box
         if (copying) {
             Icon(
                 painter = painterResource(id = R.drawable.ic_content_copy),
