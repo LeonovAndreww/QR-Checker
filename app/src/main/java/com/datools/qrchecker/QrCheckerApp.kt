@@ -1,6 +1,8 @@
 package com.datools.qrchecker
 
 import android.app.Application
+import android.content.Context
+import com.datools.qrchecker.util.applyLanguage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,4 +18,12 @@ import kotlinx.coroutines.SupervisorJob
  */
 class QrCheckerApp : Application() {
     val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * Язык подменяется здесь, а не только на экране: строки читает и ViewModel по
+     * applicationContext, и разъехавшись они дают ту самую мешанину языков.
+     */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(applyLanguage(base))
+    }
 }

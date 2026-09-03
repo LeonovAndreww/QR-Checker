@@ -14,6 +14,8 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.datools.qrchecker.util.AppSettings
+import com.datools.qrchecker.util.ThemeChoice
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
@@ -84,7 +86,14 @@ val MaterialTheme.accents: AppAccents
 
 @Composable
 fun QRCheckerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    // «Как в системе» - значение по умолчанию: телефон уже знает, ночь сейчас или день,
+    // и переспрашивать об этом человека незачем
+    choice: ThemeChoice = AppSettings.theme(LocalContext.current),
+    dark: Boolean = when (choice) {
+        ThemeChoice.SYSTEM -> isSystemInDarkTheme()
+        ThemeChoice.LIGHT -> false
+        ThemeChoice.DARK -> true
+    },
     // Динамические цвета: на Android 12+ схема берётся из обоев телефона. Переключается
     // здесь одной строкой, если захочется вернуть прежнее поведение.
     dynamicColor: Boolean = true,
@@ -93,15 +102,15 @@ fun QRCheckerTheme(
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
 
-        darkTheme -> DarkColorScheme
+        dark -> DarkColorScheme
         else -> LightColorScheme
     }
 
     CompositionLocalProvider(
-        LocalAppAccents provides if (darkTheme) DarkAccents else LightAccents
+        LocalAppAccents provides if (dark) DarkAccents else LightAccents
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

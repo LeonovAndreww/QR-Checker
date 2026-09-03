@@ -139,4 +139,19 @@
     <string name="session_file_no_codes_field">The file has no list of codes</string>
     <string name="session_file_empty">The file holds no codes at all</string>
     <string name="session_file_unreadable">The file could not be opened</string>
+
+    <!-- appearance and feedback -->
+    <string name="appearance_title">Appearance</string>
+    <string name="theme_label">Theme</string>
+    <string name="theme_system">Follow the phone</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="language_label">Language</string>
+    <string name="language_system">Follow the phone</string>
+    <string name="language_russian">Русский</string>
+    <string name="language_english">English</string>
+    <string name="feedback_title">Response to a scan</string>
+    <string name="feedback_why">How the app answers a code when the screen is out of sight.</string>
+    <string name="feedback_haptics">Vibration</string>
+    <string name="feedback_sound">Sound</string>
 </resources>
