@@ -56,14 +56,26 @@ abstract class SessionDao {
     )
     abstract suspend fun markScannedIn(sessionId: String, codes: List<String>, at: Long): Int
 
-    @Query("SELECT COUNT(*) FROM session_codes WHERE sessionId = :sessionId")
-    abstract suspend fun countCodes(sessionId: String): Int
-
     @Query("SELECT code FROM session_codes WHERE sessionId = :sessionId")
     abstract suspend fun getCodeValues(sessionId: String): List<String>
 
     @Query("SELECT id FROM sessions")
     abstract suspend fun getSessionIds(): List<String>
+
+    /**
+     * Сессии ровно с таким числом кодов.
+     *
+     * Отбор идёт одним запросом, а не «сколько кодов» на каждую сессию по очереди: при
+     * полусотне заведённых партий это была сотня обращений к базе на каждое открытие
+     * файла.
+     */
+    @Query(
+        """
+        SELECT sessionId FROM session_codes
+        GROUP BY sessionId HAVING COUNT(*) = :size
+        """
+    )
+    abstract suspend fun sessionIdsWithCodeCount(size: Int): List<String>
 
     @Query("UPDATE session_codes SET scanned = 0, scannedAt = NULL WHERE sessionId = :sessionId AND code = :code")
     abstract suspend fun markUnscanned(sessionId: String, code: String): Int
@@ -91,5 +103,32 @@ abstract class SessionDao {
     open suspend fun replaceCodes(sessionId: String, codes: List<SessionCodeEntity>) {
         deleteAllCodes(sessionId)
         insertCodes(codes)
+    }
+
+    /**
+     * Сессия и её коды пишутся вместе или не пишутся вовсе.
+     *
+     * По отдельности между ними есть промежуток, в который сессия уже заведена, а кодов
+     * в ней ещё нет: приложение, снятое в этот момент, открывалось бы потом на пустой
+     * партии.
+     */
+    @Transaction
+    open suspend fun insertSessionWithCodes(
+        session: SessionEntity,
+        codes: List<SessionCodeEntity>
+    ) {
+        upsertSession(session)
+        replaceCodes(session.id, codes)
+    }
+
+    /** То же для замены документа: имя и новый список кодов - одна правка. */
+    @Transaction
+    open suspend fun renameAndReplaceCodes(
+        sessionId: String,
+        name: String,
+        codes: List<SessionCodeEntity>
+    ) {
+        renameSession(sessionId, name)
+        replaceCodes(sessionId, codes)
     }
 }

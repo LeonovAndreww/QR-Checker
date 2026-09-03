@@ -19,15 +19,15 @@ class SessionRepository(private val context: Context) {
     private val dao = AppDatabase.getInstance(context).sessionDao()
 
     suspend fun insert(session: SessionData, now: Long = System.currentTimeMillis()) {
-        dao.upsertSession(
+        dao.insertSessionWithCodes(
             SessionEntity(
                 id = session.id,
                 name = session.name,
                 createdAt = now,
                 openedAt = now
-            )
+            ),
+            session.toCodeEntities()
         )
-        dao.replaceCodes(session.id, session.toCodeEntities())
     }
 
     suspend fun getById(id: String): SessionData? {
@@ -81,9 +81,9 @@ class SessionRepository(private val context: Context) {
         val previousTimes = previous.mapNotNull { row -> row.scannedAt?.let { row.code to it } }
             .toMap()
 
-        dao.renameSession(sessionId, name)
-        dao.replaceCodes(
+        dao.renameAndReplaceCodes(
             sessionId,
+            name,
             codes.mapIndexed { position, code ->
                 SessionCodeEntity(
                     sessionId = sessionId,
@@ -105,8 +105,7 @@ class SessionRepository(private val context: Context) {
      */
     suspend fun findWithSameCodes(codes: Collection<String>): SessionData? {
         val wanted = codes.toHashSet()
-        for (id in dao.getSessionIds()) {
-            if (dao.countCodes(id) != wanted.size) continue
+        for (id in dao.sessionIdsWithCodeCount(wanted.size)) {
             if (dao.getCodeValues(id).toHashSet() == wanted) return getById(id)
         }
         return null
