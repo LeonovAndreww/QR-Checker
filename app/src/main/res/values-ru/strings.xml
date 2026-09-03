@@ -112,4 +112,14 @@
     <string name="parsing_cancel">Отменить</string>
     <string name="parsed_pdf_summary">Найдено кодов: %1$d, на %2$d страницах</string>
     <string name="parsed_session_summary">Файл сессии: кодов %1$d, из них уже отсканировано %2$d</string>
+    <string name="manual_entry_already_scanned">уже отсканирован</string>
+    <string name="manual_entry_no_matches">В этой сессии таких кодов нет</string>
+    <string name="manual_entry_hint">Введите любую часть кода — хватит хвоста, напечатанного на коробке</string>
+    <string name="error_no_codes_in_files">В выбранных файлах не нашлось ни одного кода</string>
+    <string name="add_files_label">Выбрать файлы с кодами</string>
+    <string name="selected_files">Выбрано файлов: %1$d</string>
+    <string name="parsing_file">Файл %1$d из %2$d: %3$s</string>
+    <string name="parsing_page">страница %1$d из %2$d</string>
+    <string name="parsed_codes_summary">Найдено кодов: %1$d</string>
+    <string name="parsed_source_line">%1$s — %2$d</string>
 </resources>

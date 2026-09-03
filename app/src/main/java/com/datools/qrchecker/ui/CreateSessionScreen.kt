@@ -54,7 +54,7 @@ private const val TAG = "QRChecker"
 fun CreateSessionScreen(navController: NavController) {
     val context = LocalContext.current
     var sessionName by rememberSaveable { mutableStateOf("") }
-    var selectedFileName by rememberSaveable { mutableStateOf("") }
+    var selectedNames by rememberSaveable { mutableStateOf(listOf<String>()) }
     // имя из файла сессии подставляется один раз: дальше человек волен его переписать
     var nameTakenFromFile by rememberSaveable { mutableStateOf(false) }
 
@@ -62,25 +62,28 @@ fun CreateSessionScreen(navController: NavController) {
     val scanViewModel: ScanViewModel = viewModel()
 
     val documentPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri: Uri? ->
-            if (uri != null) {
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
+        onResult = { uris: List<Uri> ->
+            if (uris.isNotEmpty()) {
+                val files = uris.map { uri ->
                 // the uri is kept across process death via rememberSaveable, so the read
                 // grant has to outlive this activity instance as well
-                try {
-                    context.contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                } catch (e: SecurityException) {
-                    Log.w(TAG, "Could not persist read access to $uri", e)
+                    try {
+                        context.contentResolver.takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } catch (e: SecurityException) {
+                        Log.w(TAG, "Could not persist read access to $uri", e)
+                    }
+                    uri to getFileNameFromUri(uri, context)
                 }
-                selectedFileName = getFileNameFromUri(uri, context)
+                selectedNames = files.map { it.second }
                 nameTakenFromFile = false
                 scanViewModel.clearError()
                 scanViewModel.clearParsed()
                 // разбор начинается здесь, а не по кнопке: ждать нажатия незачем
-                scanViewModel.parseSelectedFile(context, uri)
+                scanViewModel.parseSelectedFiles(context, files)
             }
         }
     )
@@ -110,12 +113,15 @@ fun CreateSessionScreen(navController: NavController) {
 
     val titleText = stringResource(id = R.string.setup_session_title)
     val nameLabel = stringResource(id = R.string.session_name_label)
-    val addFileLabel = stringResource(id = R.string.add_file_label)
+    val addFileLabel = stringResource(id = R.string.add_files_label)
+    val selectedFilesTemplate = stringResource(id = R.string.selected_files)
+    val fileProgressTemplate = stringResource(id = R.string.parsing_file)
+    val pageProgressTemplate = stringResource(id = R.string.parsing_page)
+    val codesSummaryTemplate = stringResource(id = R.string.parsed_codes_summary)
+    val sourceLineTemplate = stringResource(id = R.string.parsed_source_line)
     val continueText = stringResource(id = R.string.continue_button)
     val parsingText = stringResource(id = R.string.parsing_pdf)
-    val progressTemplate = stringResource(id = R.string.parsing_progress)
     val cancelParsingText = stringResource(id = R.string.parsing_cancel)
-    val pdfSummaryTemplate = stringResource(id = R.string.parsed_pdf_summary)
     val sessionSummaryTemplate = stringResource(id = R.string.parsed_session_summary)
     val existsTitle = stringResource(id = R.string.session_exists_title)
     val mergeText = stringResource(id = R.string.session_merge)
@@ -174,7 +180,11 @@ fun CreateSessionScreen(navController: NavController) {
                         contentDescription = pdfIconDesc
                     )
                     Text(
-                        text = selectedFileName.ifEmpty { addFileLabel },
+                        text = when (selectedNames.size) {
+                            0 -> addFileLabel
+                            1 -> selectedNames.first()
+                            else -> selectedFilesTemplate.format(selectedNames.size)
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -191,15 +201,32 @@ fun CreateSessionScreen(navController: NavController) {
                         .padding(horizontal = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    LinearProgressIndicator(
-                        progress = { if (p.total > 0) p.done.toFloat() / p.total else 0f },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (p.pageCount > 0) {
+                        LinearProgressIndicator(
+                            progress = { p.page.toFloat() / p.pageCount },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        text = progressTemplate.format(p.done + 1, p.total),
-                        style = MaterialTheme.typography.bodyMedium
+                        text = fileProgressTemplate.format(
+                            p.fileIndex + 1,
+                            p.fileCount,
+                            p.fileName
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    if (p.pageCount > 0) {
+                        Text(
+                            text = pageProgressTemplate.format(p.page + 1, p.pageCount),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     TextButton(onClick = { scanViewModel.cancelParsing() }) {
                         Text(cancelParsingText)
                     }
@@ -208,21 +235,44 @@ fun CreateSessionScreen(navController: NavController) {
 
             parsed?.let { source ->
                 Spacer(Modifier.height(12.dp))
-                Text(
-                    text = when (source) {
-                        is ParsedFile.Pdf ->
-                            pdfSummaryTemplate.format(source.codes.size, source.pageCount)
-                        is ParsedFile.Session -> sessionSummaryTemplate.format(
-                            source.session.codes.size,
-                            source.session.scannedCodes.size
-                        )
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                )
+                        .padding(horizontal = 20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    when (source) {
+                        is ParsedFile.Codes -> {
+                            Text(
+                                text = codesSummaryTemplate.format(source.codes.size),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            // видно, какой из выбранных файлов приехал пустым: иначе
+                            // «нашлось 200» ничего не говорит о том, что один из трёх
+                            // документов не прочитался вовсе
+                            if (source.sources.size > 1) {
+                                for (item in source.sources) {
+                                    Text(
+                                        text = sourceLineTemplate.format(item.name, item.codes),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+
+                        is ParsedFile.Session -> Text(
+                            text = sessionSummaryTemplate.format(
+                                source.session.codes.size,
+                                source.session.scannedCodes.size
+                            ),
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
 
             errorMessage?.let { message ->
