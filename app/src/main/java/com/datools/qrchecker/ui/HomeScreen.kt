@@ -50,6 +50,7 @@ import androidx.navigation.NavController
 import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.util.DeleteConfirmation
 import com.datools.qrchecker.ui.theme.accents
 import com.datools.qrchecker.model.SessionSummary
 import kotlinx.coroutines.launch
@@ -221,6 +222,9 @@ fun HomeScreen(navController: NavController) {
                 TextButton(onClick = {
                     scope.launch {
                         repo.delete(session.id)
+                        // настройка «не спрашивать» принадлежала этой сессии и вместе с
+                        // ней и уходит, иначе новая сессия унаследует чужой выбор
+                        DeleteConfirmation.forget(context, session.id)
                         sessionToDelete = null
                     }
                 }) {

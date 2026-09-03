@@ -124,4 +124,7 @@
     <string name="parsing_page">page %1$d of %2$d</string>
     <string name="parsed_codes_summary">Codes found: %1$d</string>
     <string name="parsed_source_line">%1$s — %2$d</string>
+    <string name="delete_dont_ask">Do not ask again in this session</string>
+    <string name="cd_swipe_copy">Copy</string>
+    <string name="cd_swipe_delete">Delete</string>
 </resources>
