@@ -154,4 +154,23 @@
     <string name="feedback_haptics">Vibration</string>
     <string name="feedback_sound">Sound</string>
 
+    <!-- how long ago a code was scanned -->
+    <string name="ago_just_now">just now</string>
+    <plurals name="ago_seconds">
+        <item quantity="one">%1$d second ago</item>
+        <item quantity="other">%1$d seconds ago</item>
+    </plurals>
+    <plurals name="ago_minutes">
+        <item quantity="one">%1$d minute ago</item>
+        <item quantity="other">%1$d minutes ago</item>
+    </plurals>
+    <plurals name="ago_hours">
+        <item quantity="one">%1$d hour ago</item>
+        <item quantity="other">%1$d hours ago</item>
+    </plurals>
+    <string name="ago_today_at">today at %1$s</string>
+    <string name="ago_yesterday_at">yesterday at %1$s</string>
+    <string name="ago_on_date_at">%1$s at %2$s</string>
+    <string name="msg_already_scanned_ago">Already scanned %1$s</string>
+
 </resources>
