@@ -181,4 +181,6 @@
     <string name="format_text">From a list</string>
     <string name="format_filter_hint">The files hold more than one kind of code. Tap to leave a kind out.</string>
     <string name="format_filter_count">%1$s · %2$d</string>
+    <string name="cd_torch_on">Turn the light on</string>
+    <string name="cd_torch_off">Turn the light off</string>
 </resources>
