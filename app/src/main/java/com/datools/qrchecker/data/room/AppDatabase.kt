@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [SessionEntity::class, SessionCodeEntity::class],
-    version = 4,
+    version = 1,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -27,7 +27,12 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "sessions.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    // Миграций нет и не было кому их проходить: приложение не
+                    // публиковалось, а сессия здесь живёт часы. База со старой схемой
+                    // пересоздаётся вместо того, чтобы тянуть за собой код переноса,
+                    // который никто никогда не выполнит.
+                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                     .build().also { INSTANCE = it }
             }
         }
