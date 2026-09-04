@@ -54,13 +54,13 @@
 
     <!-- ScanScreen -->
     <string name="session_not_found">Session not found</string>
-    <string name="msg_already_scanned">This code was already scanned</string>
-    <string name="msg_scanned">Scanned successfully</string>
-    <string name="msg_not_in_list">Code not found in the list</string>
+    <string name="msg_already_scanned">Already scanned</string>
+    <string name="msg_scanned">Scanned</string>
+    <string name="msg_not_in_list">Not in this session</string>
     <string name="btn_scanned">Scanned</string>
     <string name="btn_not_scanned">Not scanned</string>
     <string name="progress_format">Progress:\n%1$d / %2$d</string>
-    <string name="no_camera_permission">Camera permission is not granted</string>
+    <string name="no_camera_permission">No access to the camera</string>
     <string name="cd_manual_entry">Enter code manually</string>
     <string name="manual_entry_title">Enter code</string>
     <string name="manual_entry_label">Code</string>
@@ -71,23 +71,23 @@
     <string name="csv_column_on_box">Code on the box</string>
     <string name="csv_column_full">Full code</string>
     <string name="share_session">Share the session as a file</string>
-    <string name="session_exists_title">This batch is already open</string>
-    <string name="session_exists_text">A session with the same set of codes exists: %1$s. Merge the marks into it, or add a separate session?</string>
+    <string name="session_exists_title">Session already exists</string>
+    <string name="session_exists_text">"%1$s" holds the same codes. Merge the marks into it, or create a second session?</string>
     <string name="session_merge">Merge</string>
-    <string name="session_add_new">Add a separate one</string>
-    <string name="session_merged_title">Session updated</string>
-    <string name="session_merged">Merged: %1$d new marks</string>
+    <string name="session_add_new">Create second</string>
+    <string name="session_merged_title">Merged</string>
+    <string name="session_merged">%1$d new marks added</string>
     <string name="session_share_failed">The session could not be shared</string>
     <string name="settings_title">Settings</string>
     <string name="cd_settings">Settings</string>
-    <string name="backup_title">Copy of the sessions</string>
-    <string name="backup_why">Uninstalling wipes the app\'s own storage. A folder you pick is yours, and survives it.</string>
+    <string name="backup_title">Backup</string>
+    <string name="backup_why">Sessions are copied to a folder of your choice. They survive uninstalling the app.</string>
     <string name="backup_folder_none">No folder picked</string>
     <string name="backup_choose_folder">Pick a folder</string>
     <string name="backup_change_folder">Change</string>
     <string name="backup_forget_folder">Forget</string>
-    <string name="backup_auto">Copy automatically</string>
-    <string name="backup_restore">Restore from the folder</string>
+    <string name="backup_auto">Automatic backup</string>
+    <string name="backup_restore">Restore</string>
     <string name="backup_folder_failed">Could not keep access to that folder</string>
     <string name="backup_restored">Restored: %1$d sessions</string>
     <string name="backup_restore_failed">Could not restore from the folder</string>
@@ -104,7 +104,7 @@
     <string name="save_codes">Save</string>
     <string name="csv_column_scanned_at">Scanned at</string>
     <string name="sessions_progress">%1$d of %2$d</string>
-    <string name="sessions_empty">No sessions yet.\nStart one from a PDF of codes, or open a session file.</string>
+    <string name="sessions_empty">No sessions yet.\nCreate one from a file of codes.</string>
     <string name="parsing_cancel">Cancel</string>
     <string name="parsed_session_summary">Session file: %1$d codes, %2$d of them already scanned</string>
     <string name="manual_entry_already_scanned">already scanned</string>
@@ -121,22 +121,22 @@
     <string name="cd_swipe_copy">Copy</string>
     <string name="cd_swipe_delete">Delete</string>
     <string name="manual_entry_button">By hand</string>
-    <string name="export_nothing_to_share">Nothing to export: the list is empty</string>
-    <string name="backup_pick_folder_first">Pick a folder first — there is nowhere to copy to</string>
+    <string name="export_nothing_to_share">The list is empty</string>
+    <string name="backup_pick_folder_first">Pick a folder first</string>
     <string name="delete_code_confirm">Delete this code?</string>
     <string name="cd_pdf_icon">File</string>
     <string name="session_file_not_json">The file is not readable as JSON</string>
     <string name="session_file_not_object">The file does not look like a session</string>
     <string name="session_file_foreign">This is not a QR Checker session file</string>
     <string name="session_file_no_version">The file does not state a format version</string>
-    <string name="session_file_future">The file was saved by a newer version of the app — update it</string>
+    <string name="session_file_future">The file needs a newer version of the app</string>
     <string name="session_file_no_id">The file has no session identifier</string>
     <string name="session_file_no_codes_field">The file has no list of codes</string>
     <string name="session_file_empty">The file holds no codes at all</string>
     <string name="session_file_unreadable">The file could not be opened</string>
 
     <!-- appearance and feedback -->
-    <string name="appearance_title">Look</string>
+    <string name="appearance_title">Appearance</string>
     <string name="theme_label">Theme</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
@@ -150,7 +150,7 @@
     <string name="clock_24">24 h</string>
     <string name="clock_12">12 h</string>
     <string name="feedback_title">Feedback</string>
-    <string name="feedback_why">What the phone does when a code is scanned. Handy when there is no time to look at the screen.</string>
+    <string name="feedback_why">How the phone answers a scanned code.</string>
     <string name="feedback_haptics">Vibration</string>
     <string name="feedback_sound">Sound</string>
 
@@ -183,4 +183,6 @@
     <string name="format_filter_count">%1$s · %2$d</string>
     <string name="cd_torch_on">Turn the light on</string>
     <string name="cd_torch_off">Turn the light off</string>
+    <string name="cd_sort_newest">Sort oldest first</string>
+    <string name="cd_sort_oldest">Sort newest first</string>
 </resources>

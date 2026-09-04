@@ -210,10 +210,14 @@ class ScanViewModel : ViewModel() {
                     }
                 }
 
+                // имя занято - берётся то же с номером, как файл в проводнике: две
+                // строки с одинаковым названием в списке не различить
+                val free = repoForCheck.freeName(name)
+
                 val session = when (source) {
                     is ParsedFile.Codes -> SessionData(
                         id = UUID.randomUUID().toString(),
-                        name = name,
+                        name = free,
                         codes = source.codes,
                         scannedCodes = source.scanned,
                         scanTimes = source.scanTimes
@@ -222,7 +226,7 @@ class ScanViewModel : ViewModel() {
                     // дважды, не затирал уже лежащую на устройстве сессию
                     is ParsedFile.Session -> source.session.copy(
                         id = UUID.randomUUID().toString(),
-                        name = name
+                        name = free
                     )
                 }
 

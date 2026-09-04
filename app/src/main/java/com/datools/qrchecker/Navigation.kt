@@ -5,6 +5,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.NavType
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -43,13 +46,25 @@ private val sessionIdArgument = listOf(
     navArgument(ARG_SESSION_ID) { type = NavType.StringType }
 )
 
+/** Насколько долго один экран сменяет другой. */
+private const val SCREEN_FADE_MS = 160
+
 @Composable
 fun AppNav() {
     val navController = rememberNavController()
 
+    // Экраны сменяются растворением, а не выездом сбоку.
+    //
+    // При выезде между уходящим и приходящим экраном на мгновение видно фон окна, и
+    // переход с белого списка на чёрную камеру читался как вспышка. Растворение ничего
+    // не открывает: под верхним экраном всё это время лежит нижний.
     NavHost(
         navController = navController,
-        startDestination = Screen.Home.route
+        startDestination = Screen.Home.route,
+        enterTransition = { fadeIn(tween(SCREEN_FADE_MS)) },
+        exitTransition = { fadeOut(tween(SCREEN_FADE_MS)) },
+        popEnterTransition = { fadeIn(tween(SCREEN_FADE_MS)) },
+        popExitTransition = { fadeOut(tween(SCREEN_FADE_MS)) }
     ) {
         // Main screen
         composable(Screen.Home.route) {
