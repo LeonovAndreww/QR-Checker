@@ -29,10 +29,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import android.content.ClipData
+import android.os.Build
+import androidx.compose.animation.animateContentSize
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Card
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -48,6 +53,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
@@ -57,9 +64,10 @@ import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.shortCode
 import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.model.SessionData
+import com.datools.qrchecker.util.Outcome
 import com.datools.qrchecker.util.formatTimeAgo
+import com.datools.qrchecker.util.rememberFeedback
 import com.datools.qrchecker.util.getFileNameFromUri
-import com.datools.qrchecker.util.shortCode
 import com.datools.qrchecker.util.readCodesFromFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -101,6 +109,12 @@ fun EditSessionScreen(
     // корзина: что убрали из сессии и когда
     var binned by remember { mutableStateOf<List<Pair<String, Long>>>(emptyList()) }
     var showEmptyBinConfirm by remember { mutableStateOf(false) }
+    // раскрыт всегда не больше одного кода: две длинных строки рядом снова превращают
+    // корзину в стену текста
+    var expandedBinCode by remember { mutableStateOf<String?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val clipboard = LocalClipboard.current
+    val feel = rememberFeedback()
 
     // confirmation dialog when replacing codes
     var showReplaceConfirm by remember { mutableStateOf(false) }
@@ -116,6 +130,10 @@ fun EditSessionScreen(
     val binEmptyText = stringResource(id = R.string.bin_empty)
     val binEmptyTitle = stringResource(id = R.string.bin_empty_title)
     val binEmptyConfirm = stringResource(id = R.string.bin_empty_confirm)
+    val binDeletedText = stringResource(id = R.string.bin_deleted)
+    val binDeleteCd = stringResource(id = R.string.cd_swipe_delete)
+    val copyCodeText = stringResource(id = R.string.cd_copy_code)
+    val codeCopiedText = stringResource(id = R.string.code_copied)
 
     suspend fun reloadBin() {
         binned = try {
@@ -221,7 +239,8 @@ fun EditSessionScreen(
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -350,44 +369,121 @@ fun EditSessionScreen(
                         // Список ограничен по высоте и прокручивается сам: в корзине
                         // может лежать и сотня кодов, а экран правки - не место, где
                         // их разглядывают.
-                        LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
+                        LazyColumn(
+                            modifier = Modifier.heightIn(max = 260.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             items(binned, key = { it.first }) { (code, at) ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = shortCode(code),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        if (at > 0) {
-                                            Text(
-                                                text = formatTimeAgo(context, at),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                val expanded = code == expandedBinCode
+
+                                // Те же жесты, что и в списках кодов: вправо -
+                                // скопировать, влево - удалить. В корзине «удалить»
+                                // значит уже насовсем, и другого значения у него здесь
+                                // быть не может.
+                                SwipeActionRow(
+                                    onThresholdCrossed = { feel(Outcome.THRESHOLD) },
+                                    start = SwipeAction(
+                                        background = MaterialTheme.colorScheme.secondaryContainer,
+                                        onTrigger = {
+                                            feel(Outcome.ACTION)
+                                            scope.launch {
+                                                clipboard.setClipEntry(
+                                                    ClipEntry(
+                                                        ClipData.newPlainText(copyCodeText, code)
+                                                    )
+                                                )
+                                                if (Build.VERSION.SDK_INT <
+                                                    Build.VERSION_CODES.TIRAMISU
+                                                ) {
+                                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                                    snackbarHostState.showSnackbar(codeCopiedText)
+                                                }
+                                            }
+                                        },
+                                        icon = {
+                                            Icon(
+                                                painter = painterResource(
+                                                    id = R.drawable.ic_content_copy
+                                                ),
+                                                contentDescription = copyCodeText,
+                                                tint = MaterialTheme.colorScheme
+                                                    .onSecondaryContainer
                                             )
                                         }
-                                    }
-                                    IconButton(onClick = {
-                                        scope.launch {
-                                            try {
-                                                repo.restoreCode(sessionId, code)
-                                                original = repo.getById(sessionId)
-                                                reloadBin()
-                                            } catch (t: Throwable) {
-                                                Log.e(TAG, "Can't restore $code", t)
+                                    ),
+                                    end = SwipeAction(
+                                        background = MaterialTheme.colorScheme.errorContainer,
+                                        onTrigger = {
+                                            scope.launch {
+                                                try {
+                                                    repo.purgeCode(sessionId, code)
+                                                    reloadBin()
+                                                    snackbarHostState.currentSnackbarData
+                                                        ?.dismiss()
+                                                    snackbarHostState.showSnackbar(binDeletedText)
+                                                } catch (t: Throwable) {
+                                                    Log.e(TAG, "Can't purge $code", t)
+                                                }
+                                            }
+                                        },
+                                        icon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = binDeleteCd,
+                                                tint = MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                    )
+                                ) {
+                                    Card(
+                                        onClick = {
+                                            expandedBinCode = if (expanded) null else code
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .animateContentSize()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = if (expanded) code else shortCode(code),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    maxLines = if (expanded) Int.MAX_VALUE else 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                if (at > 0) {
+                                                    Text(
+                                                        text = formatTimeAgo(context, at),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme
+                                                            .onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                            IconButton(onClick = {
+                                                scope.launch {
+                                                    try {
+                                                        repo.restoreCode(sessionId, code)
+                                                        original = repo.getById(sessionId)
+                                                        reloadBin()
+                                                    } catch (t: Throwable) {
+                                                        Log.e(TAG, "Can't restore $code", t)
+                                                    }
+                                                }
+                                            }) {
+                                                Icon(
+                                                    painter = painterResource(
+                                                        id = R.drawable.ic_restore
+                                                    ),
+                                                    contentDescription = binRestoreCd
+                                                )
                                             }
                                         }
-                                    }) {
-                                        Icon(
-                                            painter = painterResource(
-                                                id = R.drawable.ic_restore
-                                            ),
-                                            contentDescription = binRestoreCd
-                                        )
                                     }
                                 }
                             }

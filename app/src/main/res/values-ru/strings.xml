@@ -21,7 +21,6 @@
     <string name="loading_session">Загрузка сессии…</string>
     <string name="no_scanned_codes">Нет отсканированных кодов</string>
     <string name="no_not_scanned_codes">Нет неотсканированных кодов</string>
-    <string name="delete_code_title">Удалить код?</string>
     <string name="delete_code_binned">Убран в корзину</string>
     <string name="delete_code_unmarked">Отметка снята</string>
     <string name="delete_code_failed">Не удалось удалить код</string>
@@ -122,7 +121,6 @@
     <string name="manual_entry_button">Вручную</string>
     <string name="export_nothing_to_share">Список пуст</string>
     <string name="backup_pick_folder_first">Сначала выберите папку</string>
-    <string name="delete_code_confirm">Удалить этот код?</string>
     <string name="cd_pdf_icon">Файл</string>
     <string name="session_file_not_json">Файл не читается как JSON</string>
     <string name="session_file_not_object">Файл не похож на сессию</string>
@@ -198,4 +196,12 @@
     <string name="bin_empty_title">Очистить корзину?</string>
     <string name="bin_empty_confirm">%1$d кодов исчезнут насовсем.</string>
     <string name="error_loading_session">Не удалось открыть сессию: %1$s</string>
+    <string name="bin_deleted">Удалён насовсем</string>
+    <!-- код убирают из списка -->
+    <string name="bin_code_title">Убрать в корзину?</string>
+    <string name="bin_code_confirm">Код уйдёт из сессии и будет ждать в корзине:</string>
+    <string name="bin_code_action">Убрать</string>
+    <string name="unmark_code_title">Снять отметку?</string>
+    <string name="unmark_code_confirm">Код вернётся в список неотсканированных:</string>
+    <string name="unmark_code_action">Снять</string>
 </resources>

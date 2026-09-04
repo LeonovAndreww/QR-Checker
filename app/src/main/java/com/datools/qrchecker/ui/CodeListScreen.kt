@@ -118,9 +118,13 @@ fun CodesListScreen(
     val loadingText = stringResource(id = R.string.loading_session)
     val noScannedText = stringResource(id = R.string.no_scanned_codes)
     val noNotScannedText = stringResource(id = R.string.no_not_scanned_codes)
-    val deleteCodeTitle = stringResource(id = R.string.delete_code_title)
+    val binTitle = stringResource(id = R.string.bin_code_title)
+    val binConfirm = stringResource(id = R.string.bin_code_confirm)
+    val unmarkTitle = stringResource(id = R.string.unmark_code_title)
+    val unmarkConfirm = stringResource(id = R.string.unmark_code_confirm)
     val deleteCancel = stringResource(id = R.string.delete_cancel)
-    val deleteConfirm = stringResource(id = R.string.delete_confirm)
+    val binAction = stringResource(id = R.string.bin_code_action)
+    val unmarkAction = stringResource(id = R.string.unmark_code_action)
     val binSuccess = stringResource(id = R.string.delete_code_binned)
     val unmarkSuccess = stringResource(id = R.string.delete_code_unmarked)
     val deleteFailed = stringResource(id = R.string.delete_code_failed)
@@ -487,12 +491,19 @@ fun CodesListScreen(
                         dontAskChecked = false
                     },
                     title = {
-                        Text(deleteCodeTitle, style = MaterialTheme.typography.headlineSmall)
+                        // Здесь код не удаляют, а убирают: из списка отмеченных
+                        // снимается отметка, из списка неотмеченных код уезжает в
+                        // корзину. Слово «удалить» осталось за самой корзиной, где оно
+                        // и означает то, что означает.
+                        Text(
+                            text = if (codeToDeleteIsScanned) unmarkTitle else binTitle,
+                            style = MaterialTheme.typography.headlineSmall
+                        )
                     },
                     text = {
                         Column {
                             Text(
-                                stringResource(id = R.string.delete_code_confirm),
+                                text = if (codeToDeleteIsScanned) unmarkConfirm else binConfirm,
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Spacer(modifier = Modifier.height(6.dp))
@@ -530,7 +541,7 @@ fun CodesListScreen(
                             dontAskChecked = false
                             performDelete(code, isScanned)
                         }) {
-                            Text(deleteConfirm)
+                            Text(if (codeToDeleteIsScanned) unmarkAction else binAction)
                         }
                     },
                     dismissButton = {

@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.Flow
 
 private const val TAG = "QRChecker"
 
+/** Сколько код лежит в корзине, прежде чем исчезнуть сам: неделя. */
+private const val BIN_LIFETIME_MS = 7L * 24 * 60 * 60 * 1000
+
 class SessionRepository(context: Context) {
     private val dao = AppDatabase.getInstance(context).sessionDao()
 
@@ -84,6 +87,21 @@ class SessionRepository(context: Context) {
 
     /** Очищает корзину. Вот это уже насовсем. */
     suspend fun emptyBin(sessionId: String): Int = dao.purgeBin(sessionId)
+
+    /** Удаляет из корзины один код - тоже насовсем. */
+    suspend fun purgeCode(sessionId: String, code: String) {
+        dao.purgeCode(sessionId, code)
+    }
+
+    /**
+     * Выбрасывает из корзины всё, что пролежало в ней дольше недели.
+     *
+     * Срок не настраивается: партию сверяют за смену, и код, о котором не вспомнили за
+     * неделю, не вспомнят уже никогда. Отдельная настройка на это была бы вопросом, на
+     * который никому не хочется отвечать.
+     */
+    suspend fun purgeOldBin(now: Long = System.currentTimeMillis()): Int =
+        dao.purgeBinnedBefore(now - BIN_LIFETIME_MS)
 
     suspend fun rename(sessionId: String, name: String) = dao.renameSession(sessionId, name)
 
