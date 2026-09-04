@@ -145,7 +145,7 @@
     <string name="language_system">System</string>
     <string name="language_russian">Русский</string>
     <string name="language_english">English</string>
-    <string name="clock_label">Clock</string>
+    <string name="clock_label">Time</string>
     <string name="clock_system">System</string>
     <string name="clock_24">24 h</string>
     <string name="clock_12">12 h</string>
@@ -179,6 +179,6 @@
     <string name="format_linear">Barcode</string>
     <string name="format_other">Other</string>
     <string name="format_text">From a list</string>
-    <string name="format_filter_hint">The files hold more than one kind of code. Only the most common one is taken — tap to add the others.</string>
+    <string name="format_filter_hint">The files hold more than one kind of code. Tap to leave a kind out.</string>
     <string name="format_filter_count">%1$s · %2$d</string>
 </resources>

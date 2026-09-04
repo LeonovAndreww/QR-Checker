@@ -216,8 +216,9 @@ fun SettingsScreen(navController: NavController) {
                         onCheckedChange = {
                             AppSettings.setHaptics(context, it)
                             // включил - тут же почувствовал; иначе о том, что тумблер
-                            // подействовал, можно узнать только на складе
-                            if (it) feel(Outcome.SUCCESS)
+                            // подействовал, можно узнать только на складе. Только
+                            // вибрация: пищать в ответ на вибрацию - это ответ соседа
+                            if (it) feel.vibrateOnly(Outcome.SUCCESS)
                         }
                     )
 
@@ -227,7 +228,7 @@ fun SettingsScreen(navController: NavController) {
                         checked = sound,
                         onCheckedChange = {
                             AppSettings.setSound(context, it)
-                            if (it) feel(Outcome.SUCCESS)
+                            if (it) feel.playOnly(Outcome.SUCCESS)
                         }
                     )
                 }
@@ -364,10 +365,13 @@ private fun <T> ChoiceRow(
 /**
  * Выбор темы образцами.
  *
- * Каждый вариант нарисован в той теме, которую включает: светлый - светлым, тёмный -
- * тёмным, «системная» - разрезанной по диагонали, потому что она и есть та или другая в
- * зависимости от телефона. Подпись под образцом остаётся - образец говорит «как будет
- * выглядеть», а не «как называется».
+ * Каждый вариант нарисован в той теме, которую включает, и подписан изнутри: на светлом
+ * образце «Светлая» стоит тёмными буквами, на тёмном - светлыми. Подпись снаружи была
+ * лишней строкой, объясняющей то, что образец и так показывает.
+ *
+ * «Системная» разрезана по диагонали и подписана дважды - одной и той же надписью в двух
+ * цветах, совмещённой. Показывать вместо этого текущую тему телефона нельзя: на светлом
+ * телефоне «Системная» и «Светлая» стали бы двумя одинаковыми плитками.
  */
 @Composable
 private fun ThemePicker(
@@ -381,66 +385,56 @@ private fun ThemePicker(
     ) {
         for ((value, label) in options) {
             val chosen = value == selected
-            Column(
+            ThemeSwatch(
+                choice = value,
+                label = label,
+                selected = chosen,
                 modifier = Modifier
                     .weight(1f)
-                    .clip(MaterialTheme.shapes.medium)
+                    .height(76.dp)
                     .clickable { if (!chosen) onSelect(value) }
-                    .padding(bottom = 2.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                ThemeSwatch(
-                    choice = value,
-                    selected = chosen,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(64.dp)
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = label,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (chosen) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                )
-            }
+            )
         }
     }
 }
 
-/** Кусочек экрана в заданной теме: фон, полоса заголовка и две строки текста. */
+/** Кусочек экрана в заданной теме, подписанный изнутри. */
 @Composable
 private fun ThemeSwatch(
     choice: ThemeChoice,
+    label: String,
     selected: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val shape = MaterialTheme.shapes.medium
     val ring =
         if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
     val ringWidth = if (selected) 2.dp else 1.dp
 
     Box(
+        // обводка снаружи, обрезка после неё: в обратном порядке рамка рисуется внутри
+        // уже обрезанной области, и по скруглённым углам от неё остаются огрызки
         modifier = modifier
-            .clip(MaterialTheme.shapes.small)
-            .border(ringWidth, ring, MaterialTheme.shapes.small)
+            .border(ringWidth, ring, shape)
+            .clip(shape)
     ) {
         when (choice) {
-            ThemeChoice.LIGHT -> SwatchFace(dark = false, modifier = Modifier.fillMaxSize())
-            ThemeChoice.DARK -> SwatchFace(dark = true, modifier = Modifier.fillMaxSize())
-            // «системная» - обе сразу, разрезанные по диагонали
+            ThemeChoice.LIGHT ->
+                SwatchFace(dark = false, label = label, modifier = Modifier.fillMaxSize())
+
+            ThemeChoice.DARK ->
+                SwatchFace(dark = true, label = label, modifier = Modifier.fillMaxSize())
+
+            // обе половины лежат друг на друге, подпись в них на одном месте - так она
+            // читается как одна надпись, меняющая цвет на диагонали
             ThemeChoice.SYSTEM -> Box(modifier = Modifier.fillMaxSize()) {
-                SwatchFace(dark = false, modifier = Modifier.fillMaxSize())
+                SwatchFace(dark = false, label = label, modifier = Modifier.fillMaxSize())
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(DiagonalHalf)
                 ) {
-                    SwatchFace(dark = true, modifier = Modifier.fillMaxSize())
+                    SwatchFace(dark = true, label = label, modifier = Modifier.fillMaxSize())
                 }
             }
         }
@@ -450,44 +444,29 @@ private fun ThemeSwatch(
 private val SwatchLightBack = Color(0xFFFBFBFB)
 private val SwatchLightInk = Color(0xFF1B1B1B)
 private val SwatchDarkBack = Color(0xFF16181A)
-private val SwatchDarkInk = Color(0xFFE6E6E6)
+private val SwatchDarkInk = Color(0xFFE8E8E8)
 
 @Composable
-private fun SwatchFace(dark: Boolean, modifier: Modifier = Modifier) {
+private fun SwatchFace(dark: Boolean, label: String, modifier: Modifier = Modifier) {
     val back = if (dark) SwatchDarkBack else SwatchLightBack
     val ink = if (dark) SwatchDarkInk else SwatchLightInk
 
-    Column(
-        modifier = modifier
-            .background(back)
-            .padding(horizontal = 9.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
+    Box(
+        modifier = modifier.background(back),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.62f)
-                .height(6.dp)
-                .clip(RoundedCornerShape(3.dp))
-                .background(ink)
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(ink.copy(alpha = 0.38f))
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(ink.copy(alpha = 0.38f))
+        Text(
+            text = label,
+            color = ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(horizontal = 6.dp)
         )
     }
 }
 
-/** Нижний левый треугольник: им закрывают светлую половину образца «как в системе». */
+/** Нижний левый треугольник: им закрывают светлую половину образца «Системная». */
 private val DiagonalHalf = GenericShape { size, _ ->
     moveTo(0f, size.height)
     lineTo(size.width, 0f)
