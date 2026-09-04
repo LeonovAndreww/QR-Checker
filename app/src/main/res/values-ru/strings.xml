@@ -189,4 +189,5 @@
     <string name="cd_torch_off">Выключить подсветку</string>
     <string name="cd_sort_newest">Сначала старые</string>
     <string name="cd_sort_oldest">Сначала новые</string>
+    <string name="error_loading_session">Не удалось открыть сессию: %1$s</string>
 </resources>

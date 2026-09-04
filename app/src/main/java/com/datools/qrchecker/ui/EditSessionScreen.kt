@@ -101,6 +101,29 @@ fun EditSessionScreen(
     val modeAppendText = stringResource(id = R.string.codes_mode_append)
     val saveCodesText = stringResource(id = R.string.save_codes)
 
+    // Сессия читается при входе на экран.
+    //
+    // Загрузка пропала при выносе разбора файлов в FileCodes.kt, и экран правки с тех
+    // пор открывался с пустым полем имени, а «Сохранить» молча ничего не делал: сохранять
+    // было нечего, original так и оставался пустым.
+    LaunchedEffect(sessionId) {
+        isLoading = true
+        try {
+            val loaded = repo.getById(sessionId)
+            original = loaded
+            if (loaded != null) {
+                name = loaded.name
+            } else {
+                navController.popBackStackOnce()
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "Can't load session $sessionId", t)
+            errorMessage = ScreenError(R.string.error_loading_session, t.message ?: "")
+        } finally {
+            isLoading = false
+        }
+    }
+
     /** [newCodes] is null when only the name changed, so the code rows are left alone. */
     fun saveAndClose(newCodes: List<String>?) {
         val current = original ?: return

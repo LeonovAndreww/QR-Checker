@@ -185,4 +185,5 @@
     <string name="cd_torch_off">Turn the light off</string>
     <string name="cd_sort_newest">Sort oldest first</string>
     <string name="cd_sort_oldest">Sort newest first</string>
+    <string name="error_loading_session">Could not open the session: %1$s</string>
 </resources>
