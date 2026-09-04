@@ -92,6 +92,16 @@ fun CreateSessionScreen(navController: NavController) {
                 }
                 selectedNames = files.map { it.second }
                 nameTakenFromFile = false
+                // Имя подставляется само - по первому файлу, без расширения.
+                //
+                // Придумывать название партии, которая и так называется по накладной,
+                // человеку незачем; своё он всё равно впишет поверх, а пустое поле
+                // просто держит кнопку «Далее» выключенной. Уже введённое не трогаем.
+                if (sessionName.isBlank()) {
+                    sessionName = files.firstOrNull()?.second.orEmpty()
+                        .substringBeforeLast('.')
+                        .trim()
+                }
                 scanViewModel.clearError()
                 scanViewModel.clearParsed()
                 // разбор начинается здесь, а не по кнопке: ждать нажатия незачем
@@ -159,6 +169,7 @@ fun CreateSessionScreen(navController: NavController) {
     val formatCountTemplate = stringResource(id = R.string.format_filter_count)
     val existsTitle = stringResource(id = R.string.session_exists_title)
     val mergedTitle = stringResource(id = R.string.session_merged_title)
+    val cancelText = stringResource(id = R.string.delete_cancel)
     val mergeText = stringResource(id = R.string.session_merge)
     val addNewText = stringResource(id = R.string.session_add_new)
 
@@ -418,11 +429,24 @@ fun CreateSessionScreen(navController: NavController) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    scanViewModel.dismissConflict()
-                    scanViewModel.createSession(context, sessionName, force = true, keepFormats = keptFormats)
-                }) {
-                    Text(addNewText)
+                // Три исхода, а не два: продолжить в старой сессии, завести вторую или
+                // передумать. Отказаться раньше было можно только нажатием мимо окна,
+                // о котором никто не догадывается.
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = { scanViewModel.dismissConflict() }) {
+                        Text(cancelText)
+                    }
+                    TextButton(onClick = {
+                        scanViewModel.dismissConflict()
+                        scanViewModel.createSession(
+                            context,
+                            sessionName,
+                            force = true,
+                            keepFormats = keptFormats
+                        )
+                    }) {
+                        Text(addNewText)
+                    }
                 }
             }
         )

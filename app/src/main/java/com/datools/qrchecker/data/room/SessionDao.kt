@@ -62,6 +62,9 @@ abstract class SessionDao {
     @Query("SELECT id FROM sessions")
     abstract suspend fun getSessionIds(): List<String>
 
+    @Query("SELECT name FROM sessions")
+    abstract suspend fun getSessionNames(): List<String>
+
     /**
      * Сессии ровно с таким числом кодов.
      *

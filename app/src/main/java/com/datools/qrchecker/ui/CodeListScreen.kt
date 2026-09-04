@@ -90,6 +90,8 @@ fun CodesListScreen(
     // превращают список в стену текста, от которой всё это и уводит
     var expandedCode by rememberSaveable { mutableStateOf<String?>(null) }
     var codeToDelete by remember { mutableStateOf<String?>(null) }
+    // порядок списка. Один переключатель вместо меню: вариантов ровно два
+    var newestFirst by rememberSaveable { mutableStateOf(true) }
     var skipDeleteConfirm by remember {
         mutableStateOf(DeleteConfirmation.isSkipped(context, sessionId))
     }
@@ -123,6 +125,8 @@ fun CodesListScreen(
     val deleteFailed = stringResource(id = R.string.delete_code_failed)
     val deleteError = stringResource(id = R.string.delete_code_error)
     val exportCd = stringResource(id = R.string.cd_export)
+    val sortNewestCd = stringResource(id = R.string.cd_sort_newest)
+    val sortOldestCd = stringResource(id = R.string.cd_sort_oldest)
     val searchLabel = stringResource(id = R.string.search_codes)
     val clearSearchCd = stringResource(id = R.string.cd_clear_search)
     val noSearchResults = stringResource(id = R.string.no_search_results)
@@ -143,11 +147,18 @@ fun CodesListScreen(
     )
 
     // hoisted above the Scaffold: the toolbar action needs the same list the body draws
+    //
+    // Отсканированные идут от свежих к старым: наверху то, что человек только что
+    // отметил, - к нему и возвращаются, если ошиблись. Неотсканированные времени не
+    // имеют вовсе, у них порядок документа, и переворачивать его можно только целиком.
     val exportableCodes: List<String> = session?.let { loaded ->
         if (type == TYPE_SCANNED) {
-            loaded.scannedCodes
+            val times = loaded.scanTimes.orEmpty()
+            val order = loaded.scannedCodes.sortedByDescending { times[it] ?: 0L }
+            if (newestFirst) order else order.asReversed()
         } else {
-            loaded.codes.filter { it !in loaded.scannedCodes }
+            val order = loaded.codes.filter { it !in loaded.scannedCodes }
+            if (newestFirst) order else order.asReversed()
         }
     }.orEmpty()
 
@@ -229,6 +240,16 @@ fun CodesListScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { newestFirst = !newestFirst }) {
+                        Icon(
+                            painter = painterResource(
+                                id = if (newestFirst) R.drawable.ic_sort_desc
+                                else R.drawable.ic_sort_asc
+                            ),
+                            contentDescription = if (newestFirst) sortOldestCd else sortNewestCd
+                        )
+                    }
+
                     IconButton(
                         // кнопка живая и при пустом списке: неактивная выглядит ровно как
                         // сломанная, и понять, почему ничего не происходит, неоткуда

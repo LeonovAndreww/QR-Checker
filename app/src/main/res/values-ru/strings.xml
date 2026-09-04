@@ -51,13 +51,13 @@
 
     <!-- ScanScreen -->
     <string name="session_not_found">Сессия не найдена</string>
-    <string name="msg_already_scanned">Код уже был отсканирован ранее</string>
-    <string name="msg_scanned">Успешно отсканировано</string>
-    <string name="msg_not_in_list">Код не найден в списке</string>
+    <string name="msg_already_scanned">Уже отсканирован</string>
+    <string name="msg_scanned">Отсканирован</string>
+    <string name="msg_not_in_list">Нет в этой сессии</string>
     <string name="btn_scanned">Отсканированные</string>
     <string name="btn_not_scanned">Неотсканированные</string>
     <string name="progress_format">Прогресс:\n%1$d / %2$d</string>
-    <string name="no_camera_permission">Не предоставлен доступ к камере</string>
+    <string name="no_camera_permission">Нет доступа к камере</string>
     <string name="cd_manual_entry">Ввести код вручную</string>
     <string name="manual_entry_title">Ввод кода</string>
     <string name="manual_entry_label">Код</string>
@@ -69,23 +69,23 @@
     <string name="csv_column_on_box">Код на коробке</string>
     <string name="csv_column_full">Полный код</string>
     <string name="share_session">Поделиться сессией файлом</string>
-    <string name="session_exists_title">Эта партия уже открыта</string>
-    <string name="session_exists_text">Сессия с таким же набором кодов уже есть: %1$s. Перенести отметки в неё или добавить отдельную?</string>
+    <string name="session_exists_title">Такая сессия уже есть</string>
+    <string name="session_exists_text">В «%1$s» те же коды. Перенести отметки туда или создать вторую сессию?</string>
     <string name="session_merge">Перенести</string>
-    <string name="session_add_new">Добавить отдельную</string>
-    <string name="session_merged_title">Сессия обновлена</string>
-    <string name="session_merged">Перенесено отметок: %1$d</string>
+    <string name="session_add_new">Создать вторую</string>
+    <string name="session_merged_title">Отметки перенесены</string>
+    <string name="session_merged">Добавлено отметок: %1$d</string>
     <string name="session_share_failed">Не удалось поделиться сессией</string>
     <string name="settings_title">Настройки</string>
     <string name="cd_settings">Настройки</string>
-    <string name="backup_title">Копия сессий</string>
-    <string name="backup_why">Удаление приложения стирает его хранилище. Выбранная вами папка — ваша, она это переживёт.</string>
+    <string name="backup_title">Резервная копия</string>
+    <string name="backup_why">Сессии копируются в выбранную папку. Они переживут удаление приложения.</string>
     <string name="backup_folder_none">Папка не выбрана</string>
     <string name="backup_choose_folder">Выбрать папку</string>
     <string name="backup_change_folder">Изменить</string>
     <string name="backup_forget_folder">Забыть</string>
     <string name="backup_auto">Копировать автоматически</string>
-    <string name="backup_restore">Восстановить из папки</string>
+    <string name="backup_restore">Восстановить</string>
     <string name="backup_folder_failed">Не удалось сохранить доступ к папке</string>
     <string name="backup_restored">Восстановлено сессий: %1$d</string>
     <string name="backup_restore_failed">Не удалось восстановить из папки</string>
@@ -102,7 +102,7 @@
     <string name="save_codes">Сохранить</string>
     <string name="csv_column_scanned_at">Когда отсканирован</string>
     <string name="sessions_progress">%1$d из %2$d</string>
-    <string name="sessions_empty">Сессий пока нет.\nСоздайте из PDF с кодами или откройте файл сессии.</string>
+    <string name="sessions_empty">Сессий пока нет.\nСоздайте её из файла с кодами.</string>
     <string name="parsing_cancel">Отменить</string>
     <string name="parsed_session_summary">Файл сессии: кодов %1$d, из них уже отсканировано %2$d</string>
     <string name="manual_entry_already_scanned">уже отсканирован</string>
@@ -119,8 +119,8 @@
     <string name="cd_swipe_copy">Копировать</string>
     <string name="cd_swipe_delete">Удалить</string>
     <string name="manual_entry_button">Вручную</string>
-    <string name="export_nothing_to_share">Выгружать нечего: список пуст</string>
-    <string name="backup_pick_folder_first">Сначала выберите папку — копировать некуда</string>
+    <string name="export_nothing_to_share">Список пуст</string>
+    <string name="backup_pick_folder_first">Сначала выберите папку</string>
     <string name="delete_code_confirm">Удалить этот код?</string>
     <string name="cd_pdf_icon">Файл</string>
     <string name="session_file_not_json">Файл не читается как JSON</string>
@@ -134,7 +134,7 @@
     <string name="session_file_unreadable">Не удалось открыть файл</string>
 
     <!-- внешний вид и отклик -->
-    <string name="appearance_title">Вид</string>
+    <string name="appearance_title">Оформление</string>
     <string name="theme_label">Тема</string>
     <string name="theme_system">Системная</string>
     <string name="theme_light">Светлая</string>
@@ -148,7 +148,7 @@
     <string name="clock_24">24 ч</string>
     <string name="clock_12">12 ч</string>
     <string name="feedback_title">Отклик</string>
-    <string name="feedback_why">Чем телефон отвечает на код. Пригодится, когда смотреть на экран некогда.</string>
+    <string name="feedback_why">Чем телефон отвечает на отсканированный код.</string>
     <string name="feedback_haptics">Вибрация</string>
     <string name="feedback_sound">Звук</string>
 
@@ -187,4 +187,6 @@
     <string name="format_filter_count">%1$s · %2$d</string>
     <string name="cd_torch_on">Включить подсветку</string>
     <string name="cd_torch_off">Выключить подсветку</string>
+    <string name="cd_sort_newest">Сначала старые</string>
+    <string name="cd_sort_oldest">Сначала новые</string>
 </resources>

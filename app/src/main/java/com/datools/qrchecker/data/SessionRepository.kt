@@ -122,6 +122,20 @@ class SessionRepository(context: Context) {
 
     /** Идентификаторы всех сессий - чтобы при восстановлении не заводить дубликаты. */
     suspend fun existingIds(): Set<String> = dao.getSessionIds().toHashSet()
+
+    /**
+     * Свободное имя: то же самое, а если такое уже занято - с номером в скобках.
+     *
+     * Две сессии с одинаковым именем в списке неразличимы, а «создать отдельную» именно
+     * это и делало: рядом появлялась вторая строка, ничем не отличающаяся от первой.
+     */
+    suspend fun freeName(wanted: String): String {
+        val taken = dao.getSessionNames().toHashSet()
+        if (wanted !in taken) return wanted
+        var n = 2
+        while ("$wanted ($n)" in taken) n++
+        return "$wanted ($n)"
+    }
 }
 
 private fun SessionData.toCodeEntities(): List<SessionCodeEntity> {
