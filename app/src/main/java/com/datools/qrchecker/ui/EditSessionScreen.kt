@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -206,8 +205,10 @@ fun EditSessionScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.pdf_icon),
+                    // общий значок файла, а не лист PDF: сюда давно кладут ещё CSV,
+                    // картинки и файлы сессий
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_file_open),
                         contentDescription = pdfIconDesc
                     )
 
