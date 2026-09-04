@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.datools.qrchecker.R
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.model.SessionData
+import com.datools.qrchecker.util.CodeFormat
 import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.util.SessionFileException
 import com.datools.qrchecker.util.SourceSummary
@@ -35,7 +36,9 @@ sealed interface ParsedFile {
         val codes: List<String>,
         val sources: List<SourceSummary>,
         val scanned: List<String> = emptyList(),
-        val scanTimes: Map<String, Long> = emptyMap()
+        val scanTimes: Map<String, Long> = emptyMap(),
+        /** Чем записан каждый код - чтобы лишний вид можно было снять галочкой. */
+        val formats: Map<String, CodeFormat> = emptyMap()
     ) : ParsedFile
 
     /** Готовая сессия: имя, коды и отметки уже внутри, придумывать нечего. */
@@ -128,7 +131,8 @@ class ScanViewModel : ViewModel() {
                         codes = result.codes,
                         sources = result.sources,
                         scanned = result.scanned,
-                        scanTimes = result.scanTimes
+                        scanTimes = result.scanTimes,
+                        formats = result.formats
                     )
                 }
             } catch (c: CancellationException) {
@@ -146,6 +150,23 @@ class ScanViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Оставляет только выбранные виды кодов.
+     *
+     * На розничной этикетке рядом с Data Matrix маркировки стоит обычный штрихкод товара,
+     * и в сессию он не нужен: сверяют не его.
+     */
+    private fun keep(source: ParsedFile, formats: Set<CodeFormat>): ParsedFile {
+        if (formats.isEmpty() || source !is ParsedFile.Codes) return source
+        val codes = source.codes.filter { source.formats[it] in formats }
+        if (codes.size == source.codes.size) return source
+        return source.copy(
+            codes = codes,
+            scanned = source.scanned.filter { it in codes },
+            scanTimes = source.scanTimes.filterKeys { it in codes }
+        )
+    }
+
     /** Бросает разбор, когда человек передумал ждать. */
     fun cancelParsing() {
         parseJob?.cancel()
@@ -158,8 +179,14 @@ class ScanViewModel : ViewModel() {
      * Сохраняет разобранное как новую сессию. Ничего не разбирает заново - к этому моменту
      * коды уже прочитаны, и повторять минуту работы на нажатие кнопки незачем.
      */
-    fun createSession(context: Context, name: String, force: Boolean = false) {
-        val source = _parsed.value ?: return
+    fun createSession(
+        context: Context,
+        name: String,
+        force: Boolean = false,
+        /** Виды кодов, которые человек оставил. Пусто - значит все. */
+        keepFormats: Set<CodeFormat> = emptySet()
+    ) {
+        val source = _parsed.value?.let { keep(it, keepFormats) } ?: return
         if (_isLoading.value) return
         val appContext = context.applicationContext
 

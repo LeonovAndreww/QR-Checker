@@ -45,7 +45,7 @@ private const val DECODE_TIMEOUT_SECONDS = 15L
  * at all", which is otherwise the same empty list to the user.
  */
 data class PdfScanResult(
-    val codes: List<String>,
+    val codes: List<ScannedCode>,
     val pageCount: Int,
     /** Size the pages were rendered at, so a fruitless import can be told what it looked at. */
     val renderedSize: String = ""
@@ -70,16 +70,18 @@ suspend fun parsePdfForQRCodes(
      */
     onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
 ): PdfScanResult = withContext(Dispatchers.IO) {
-    val qrCodes = LinkedHashSet<String>()
+    // по коду, а не по паре: один и тот же код, прочитанный дважды, остаётся одним
+    val qrCodes = LinkedHashMap<String, ScannedCode>()
     var pageCount = 0
     var renderedSize = ""
 
     val tempFile = File.createTempFile("qrchecker_", ".pdf", context.cacheDir)
     val scanner = BarcodeScanning.getClient(
         BarcodeScannerOptions.Builder()
-            // Data Matrix is what the marking system prints, QR is what earlier
-            // batches used; both have to be read or the list comes back empty
-            .setBarcodeFormats(Barcode.FORMAT_DATA_MATRIX, Barcode.FORMAT_QR_CODE)
+            // читается всё, что умеет распознаватель: на складах и в фондах наклеен
+            // обычный штрихкод, а не Data Matrix. Что из прочитанного взять в сессию,
+            // решают уже на экране создания
+            .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
             .build()
     )
 
@@ -133,7 +135,10 @@ suspend fun parsePdfForQRCodes(
                         )
                         for (barcode in barcodes) {
                             val text = normalizeCode(barcode.rawValue.orEmpty())
-                            if (text.isNotEmpty()) qrCodes.add(text)
+                            if (text.isEmpty()) continue
+                            qrCodes.getOrPut(text) {
+                                ScannedCode(text, CodeFormat.of(barcode.format))
+                            }
                         }
                     } catch (e: OutOfMemoryError) {
                         Log.e(TAG, "Out of memory decoding page $pageIndex", e)
@@ -152,7 +157,7 @@ suspend fun parsePdfForQRCodes(
         }
     }
 
-    PdfScanResult(qrCodes.toList(), pageCount, renderedSize)
+    PdfScanResult(qrCodes.values.toList(), pageCount, renderedSize)
 }
 
 fun getFileNameFromUri(uri: Uri, context: Context): String {

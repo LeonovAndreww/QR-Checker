@@ -23,7 +23,7 @@ private const val DECODE_TIMEOUT_SECONDS = 15L
  * экрана. Отдельная ветка нужна потому, что декодер требует картинку, а не файл, и путь
  * через PdfRenderer сюда не ведёт.
  */
-suspend fun parseImageForCodes(context: Context, uri: Uri): List<String> =
+suspend fun parseImageForCodes(context: Context, uri: Uri): List<ScannedCode> =
     withContext(Dispatchers.IO) {
         val bitmap = context.contentResolver.openInputStream(uri)?.use { input ->
             // снимок с камеры бывает на 50 мегапикселей: декодеру столько не нужно, а
@@ -34,7 +34,7 @@ suspend fun parseImageForCodes(context: Context, uri: Uri): List<String> =
 
         val scanner = BarcodeScanning.getClient(
             BarcodeScannerOptions.Builder()
-                .setBarcodeFormats(Barcode.FORMAT_DATA_MATRIX, Barcode.FORMAT_QR_CODE)
+                .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
                 .build()
         )
 
@@ -45,7 +45,8 @@ suspend fun parseImageForCodes(context: Context, uri: Uri): List<String> =
                 TimeUnit.SECONDS
             )
             barcodes.mapNotNull { barcode ->
-                normalizeCode(barcode.rawValue.orEmpty()).ifEmpty { null }
+                val text = normalizeCode(barcode.rawValue.orEmpty())
+                if (text.isEmpty()) null else ScannedCode(text, CodeFormat.of(barcode.format))
             }
         } catch (e: OutOfMemoryError) {
             Log.e(TAG, "Out of memory decoding an image", e)

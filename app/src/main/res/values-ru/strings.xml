@@ -177,4 +177,12 @@
     <string name="ago_on_date_at">%1$s в %2$s</string>
     <string name="msg_already_scanned_ago">Отсканирован %1$s</string>
 
+    <!-- виды кодов -->
+    <string name="format_data_matrix">Data Matrix</string>
+    <string name="format_qr">QR</string>
+    <string name="format_linear">Штрихкод</string>
+    <string name="format_other">Другое</string>
+    <string name="format_text">Из списка</string>
+    <string name="format_filter_hint">В файлах коды нескольких видов. Взят только самый частый — нажмите, чтобы добавить остальные.</string>
+    <string name="format_filter_count">%1$s · %2$d</string>
 </resources>
