@@ -64,7 +64,7 @@ private val LightAccents = AppAccents(
     edit = OnColor(EditGrayLight, OnEditGray),
     delete = OnColor(DeleteRedLight, OnDeleteRedLight),
     success = OnColor(SuccessLight, Color.White),
-    warning = OnColor(WarningLight, Color.White),
+    warning = OnColor(WarningLight, OnWarning),
     danger = OnColor(DangerLight, Color.White)
 )
 
@@ -73,7 +73,7 @@ private val DarkAccents = AppAccents(
     edit = OnColor(EditGrayDark, OnEditGray),
     delete = OnColor(DeleteRedDark, OnDeleteRedDark),
     success = OnColor(SuccessDark, Color.Black),
-    warning = OnColor(WarningDark, Color.Black),
+    warning = OnColor(WarningDark, OnWarning),
     danger = OnColor(DangerDark, Color.Black)
 )
 

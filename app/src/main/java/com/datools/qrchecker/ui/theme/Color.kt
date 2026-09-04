@@ -42,7 +42,15 @@ internal val OnDeleteRedDark = Color(0xFF1A0000)
  */
 internal val SuccessLight = Color(0xFF1B6B2A)
 internal val SuccessDark = Color(0xFF6EDD83)
-internal val WarningLight = Color(0xFF8A5000)
-internal val WarningDark = Color(0xFFFFB868)
+/*
+ * «Уже отсканирован» - жёлтый, и он обязан оставаться жёлтым.
+ *
+ * Прежний светлый вариант был затемнён до 0xFF8A5000 ради белых букв на нём, и на этом
+ * жёлтый кончился: получился коричневый. Правильный размен обратный - яркий янтарь с
+ * тёмными буквами: и цвет на месте, и контраст 10:1 вместо натянутых 4.5.
+ */
+internal val WarningLight = Color(0xFFFFC107)
+internal val WarningDark = Color(0xFFFFCA45)
+internal val OnWarning = Color(0xFF241C00)
 internal val DangerLight = Color(0xFFB3261E)
 internal val DangerDark = Color(0xFFFFB4AB)
