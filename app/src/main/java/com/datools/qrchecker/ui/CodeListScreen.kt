@@ -36,9 +36,11 @@ import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.buildCsv
 import com.datools.qrchecker.util.formatScanTimeForScreen
+import com.datools.qrchecker.util.formatTimeAgo
 import com.datools.qrchecker.util.shortCode
 import com.datools.qrchecker.util.shareCsv
 import com.datools.qrchecker.model.SessionData
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
@@ -51,6 +53,9 @@ import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.R
 
 private const val TAG = "QRChecker"
+
+/** Как часто пересчитывается «сколько времени назад». Чаще незачем, реже уже заметно. */
+private const val TIME_AGO_REFRESH_MS = 10_000L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,6 +73,16 @@ fun CodesListScreen(
 
     // snackbar host
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // «двенадцать секунд назад» перестаёт быть правдой через двенадцать секунд, а список
+    // сам по себе не перерисовывается - его никто не трогает
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(TIME_AGO_REFRESH_MS)
+            now = System.currentTimeMillis()
+        }
+    }
 
     // dialog state for delete confirmation
     var query by rememberSaveable { mutableStateOf("") }
@@ -361,15 +376,33 @@ fun CodesListScreen(
                                             // свёрнуто видно ровно то, что напечатано на
                                             // коробке; криптохвост кода маркировки на
                                             // этикетку не выводят и глазами не сверяют
-                                            Text(
-                                                text = if (expanded) code else shortCode(code),
-                                                maxLines = if (expanded) Int.MAX_VALUE else 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                style = MaterialTheme.typography.bodyLarge,
+                                            Column(
                                                 modifier = Modifier
                                                     .weight(1f)
                                                     .padding(end = 8.dp)
-                                            )
+                                            ) {
+                                                Text(
+                                                    text = if (expanded) code else shortCode(code),
+                                                    maxLines = if (expanded) Int.MAX_VALUE else 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                                // свёрнуто - «как давно», развёрнуто -
+                                                // точная дата: свёрнутый список читают
+                                                // глазами на ходу, а точное время нужно,
+                                                // только когда в него вглядываются
+                                                if (!expanded) {
+                                                    session?.scanTimes?.get(code)?.let { at ->
+                                                        Text(
+                                                            text = formatTimeAgo(context, at, now),
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            maxLines = 1,
+                                                            overflow = TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                }
+                                            }
 
                                             IconButton(
                                                 onClick = {
@@ -406,7 +439,7 @@ fun CodesListScreen(
                                             Spacer(modifier = Modifier.weight(1f))
                                             session?.scanTimes?.get(code)?.let { at ->
                                                 Text(
-                                                    text = formatScanTimeForScreen(at),
+                                                    text = formatScanTimeForScreen(context, at),
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )

@@ -54,7 +54,7 @@ import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.DeleteConfirmation
-import com.datools.qrchecker.util.formatScanTimeForScreen
+import com.datools.qrchecker.util.formatTimeAgo
 import com.datools.qrchecker.ui.theme.accents
 import com.datools.qrchecker.model.SessionSummary
 import kotlinx.coroutines.launch
@@ -199,7 +199,7 @@ fun HomeScreen(navController: NavController) {
                                         val at = maxOf(session.openedAt, session.createdAt)
                                         if (at > 0) {
                                             append("  ·  ")
-                                            append(formatScanTimeForScreen(at))
+                                            append(formatTimeAgo(context, at))
                                         }
                                     },
                                     style = MaterialTheme.typography.bodyMedium,

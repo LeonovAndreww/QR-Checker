@@ -152,4 +152,29 @@
     <string name="feedback_haptics">Вибрация</string>
     <string name="feedback_sound">Звук</string>
 
+    <!-- как давно код отсканирован -->
+    <string name="ago_just_now">только что</string>
+    <plurals name="ago_seconds">
+        <item quantity="one">%1$d секунду назад</item>
+        <item quantity="few">%1$d секунды назад</item>
+        <item quantity="many">%1$d секунд назад</item>
+        <item quantity="other">%1$d секунды назад</item>
+    </plurals>
+    <plurals name="ago_minutes">
+        <item quantity="one">%1$d минуту назад</item>
+        <item quantity="few">%1$d минуты назад</item>
+        <item quantity="many">%1$d минут назад</item>
+        <item quantity="other">%1$d минуты назад</item>
+    </plurals>
+    <plurals name="ago_hours">
+        <item quantity="one">%1$d час назад</item>
+        <item quantity="few">%1$d часа назад</item>
+        <item quantity="many">%1$d часов назад</item>
+        <item quantity="other">%1$d часа назад</item>
+    </plurals>
+    <string name="ago_today_at">сегодня в %1$s</string>
+    <string name="ago_yesterday_at">вчера в %1$s</string>
+    <string name="ago_on_date_at">%1$s в %2$s</string>
+    <string name="msg_already_scanned_ago">Отсканирован %1$s</string>
+
 </resources>
