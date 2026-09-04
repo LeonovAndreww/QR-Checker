@@ -18,6 +18,9 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -61,6 +64,8 @@ import androidx.compose.material3.MaterialTheme
 import com.datools.qrchecker.ui.theme.OnColor
 import com.datools.qrchecker.ui.theme.accents
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.LazyColumn
@@ -92,12 +97,17 @@ private const val MANUAL_SUGGESTIONS = 30
 
 private const val BACKUP_DEBOUNCE_MS = 5_000L
 
-/** Сколько держится колечко на месте нажатия и сколько камера держит наведённый фокус. */
-private const val FOCUS_RING_MS = 900L
+/** Как ведёт себя колечко на месте нажатия и сколько камера держит наведённый фокус. */
+private const val FOCUS_RING_IN_MS = 180
+private const val FOCUS_RING_HOLD_MS = 450L
+private const val FOCUS_RING_OUT_MS = 260
 private const val FOCUS_HOLD_SECONDS = 4L
 
+/** Насколько плавно появляется и гаснет подсветка принятого кода. */
+private const val HIGHLIGHT_FADE_MS = 200
+
 /** Сколько места занимает самая широкая группа кнопок в верхней полосе. */
-private val TOP_BAR_SIDE = 104.dp
+private val TOP_BAR_SIDE = 112.dp
 
 /** Высота затемнения под верхней и нижней полосами управления. */
 private val CONTROL_SCRIM = 140.dp
@@ -146,6 +156,10 @@ fun ScanScreen(
 
     // a torn or smudged label is otherwise a dead end
     var manualCode by remember { mutableStateOf<String?>(null) }
+    var torchOn by remember { mutableStateOf(false) }
+    // одна прокрутка вбок на весь список подсказок ручного ввода
+    val suggestionScroll = rememberScrollState()
+    var hasTorch by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val feel = rememberFeedback(withSound = true)
 
@@ -201,7 +215,7 @@ fun ScanScreen(
         }
     }
 
-    val awayMs = 1500L
+    val awayMs = 2500L
     val displayMs = 1200L
     var hideFeedbackJob by remember { mutableStateOf<Job?>(null) }
 
@@ -225,6 +239,8 @@ fun ScanScreen(
     val alreadyScannedLabel = stringResource(id = R.string.manual_entry_already_scanned)
     val cancelText = stringResource(id = R.string.delete_cancel)
     val shareFailedText = stringResource(id = R.string.session_share_failed)
+    val torchOnCd = stringResource(id = R.string.cd_torch_on)
+    val torchOffCd = stringResource(id = R.string.cd_torch_off)
 
     fun showFeedback(message: String, color: OnColor, outcome: Outcome, code: String?) {
         // новая плашка вытесняет прежнюю, и её таймер отменяется вместе с ней
@@ -318,6 +334,13 @@ fun ScanScreen(
             if (hasPermission) {
                 CameraPreview(
                     highlightColor = feedback?.color?.container,
+                    torchOn = torchOn,
+                    onTorchAvailable = { hasTorch = it },
+                    // нажали по кадру - спрашиваем заново даже про тот же код
+                    onTapped = { presentCode = null },
+                    onCodeSeen = { code ->
+                        if (code == presentCode) presentSeenAt = System.currentTimeMillis()
+                    },
                     onCodeScanned = { code -> onCodeScanned(code) }
                 )
 
@@ -393,6 +416,23 @@ fun ScanScreen(
                     modifier = Modifier.align(Alignment.CenterEnd),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Фонарь - первым: на складе между стеллажами и в кузове темно, а
+                    // без света Data Matrix не читается вообще никак. Кнопка есть
+                    // только там, где вспышка есть у камеры.
+                    if (hasTorch) {
+                        IconButton(onClick = { torchOn = !torchOn }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_torch_on),
+                                contentDescription = if (torchOn) torchOffCd else torchOnCd,
+                                tint = if (torchOn) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    Color.White
+                                }
+                            )
+                        }
+                    }
+
                     // «Поделиться» живёт здесь, а не в правке сессии: это действие над
                     // той сессией, с которой человек сейчас работает, и искать его в
                     // настройках никто не станет
@@ -561,11 +601,20 @@ fun ScanScreen(
                                                 }
                                                 .padding(vertical = 8.dp)
                                         ) {
+                                            // Подсказки листаются вбок все разом, одним
+                                            // состоянием на список: код длиннее экрана,
+                                            // и по первым двум десяткам символов от
+                                            // соседа его не отличить. У каждой строки
+                                            // своя прокрутка означала бы, что строки
+                                            // разъезжаются и сравнивать их уже нельзя.
                                             Text(
                                                 text = shortCode(code),
                                                 style = MaterialTheme.typography.bodyLarge,
                                                 maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
+                                                softWrap = false,
+                                                modifier = Modifier.horizontalScroll(
+                                                    suggestionScroll
+                                                ),
                                                 color = if (isScanned) {
                                                     MaterialTheme.colorScheme.onSurfaceVariant
                                                 } else {
@@ -697,6 +746,11 @@ private fun viewfinderRect(viewSize: IntSize): androidx.compose.ui.geometry.Rect
 @Composable
 private fun CameraPreview(
     highlightColor: Color?,
+    torchOn: Boolean,
+    onTorchAvailable: (Boolean) -> Unit,
+    onTapped: () -> Unit,
+    /** Код виден в кадре - неважно, попал он в рамку или нет. */
+    onCodeSeen: (String) -> Unit,
     onCodeScanned: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -711,6 +765,8 @@ private fun CameraPreview(
         }
     }
     val currentOnCodeScanned by rememberUpdatedState(onCodeScanned)
+    val currentOnTapped by rememberUpdatedState(onTapped)
+    val currentOnCodeSeen by rememberUpdatedState(onCodeSeen)
     val mainExecutor = remember(context) { ContextCompat.getMainExecutor(context) }
 
     var viewSize by remember { mutableStateOf(IntSize.Zero) }
@@ -719,8 +775,15 @@ private fun CameraPreview(
     var camera by remember { mutableStateOf<Camera?>(null) }
     // куда ткнули: колечко живёт секунду, чтобы было видно, что нажатие приняли
     var focusAt by remember { mutableStateOf<Offset?>(null) }
-    // последний принятый код: по нему рисуется подсветка, пока висит плашка ответа
+    // последний принятый код: по нему рисуется подсветка, пока висит плашка ответа.
+    // Прямоугольник обновляется, пока камера продолжает видеть тот же код, - иначе
+    // подсветка застывает там, где код был в момент отметки, и уезжает вместе с рукой
+    var acceptedCode by remember { mutableStateOf<String?>(null) }
     var acceptedBox by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    // прозрачность подсветки и колечка: появляться и пропадать рывком некрасиво
+    val highlightAlpha = remember { Animatable(0f) }
+    val focusScale = remember { Animatable(1f) }
+    val focusAlpha = remember { Animatable(0f) }
 
     DisposableEffect(lifecycleOwner) {
         // owned by this effect: restarting it must not reuse an executor already shut down
@@ -736,8 +799,20 @@ private fun CameraPreview(
 
                 // принимается только то, что человек навёл: центр кода внутри рамки.
                 // Иначе соседняя коробка в кадре отмечалась бы молча и незаметно
+                // Код в кадре - этого довольно, чтобы считать его тем же самым.
+                //
+                // Раньше это считалось только по кодам внутри рамки, и стоило коробке
+                // чуть сместиться, как приложение решало, что её унесли и принесли
+                // обратно, - и отвечало заново. Отсюда и попискивание над неподвижной
+                // коробкой.
+                currentOnCodeSeen(detected.value)
+
+                // подсветка уже принятого кода едет за ним, пока он в кадре
+                if (detected.value == acceptedCode) acceptedBox = onScreen
+
                 if (!frame.contains(onScreen.center)) return@execute
 
+                acceptedCode = detected.value
                 acceptedBox = onScreen
                 currentOnCodeScanned(detected.value)
             }
@@ -779,15 +854,36 @@ private fun CameraPreview(
         }
     }
 
-    // подсветка гаснет вместе с ответом, иначе она повисает на пустом месте
+    // подсветка гаснет вместе с ответом, но плавно, а не пропадает кадром
     LaunchedEffect(highlightColor) {
-        if (highlightColor == null) acceptedBox = null
+        if (highlightColor == null) {
+            highlightAlpha.animateTo(0f, tween(HIGHLIGHT_FADE_MS))
+            acceptedCode = null
+            acceptedBox = null
+        } else {
+            highlightAlpha.animateTo(1f, tween(HIGHLIGHT_FADE_MS))
+        }
     }
 
+    // колечко фокуса: сжимается к точке и тает - так это показывают в камере телефона
     LaunchedEffect(focusAt) {
-        if (focusAt != null) {
-            delay(FOCUS_RING_MS)
-            focusAt = null
+        val at = focusAt ?: return@LaunchedEffect
+        focusScale.snapTo(1.35f)
+        focusAlpha.snapTo(1f)
+        focusScale.animateTo(1f, tween(FOCUS_RING_IN_MS))
+        delay(FOCUS_RING_HOLD_MS)
+        focusAlpha.animateTo(0f, tween(FOCUS_RING_OUT_MS))
+        if (focusAt == at) focusAt = null
+    }
+
+    // фонарь включается только когда камера уже привязана
+    LaunchedEffect(camera, torchOn) {
+        val control = camera ?: return@LaunchedEffect
+        onTorchAvailable(camera?.cameraInfo?.hasFlashUnit() == true)
+        try {
+            control.cameraControl.enableTorch(torchOn)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Can't switch the torch", t)
         }
     }
 
@@ -801,6 +897,12 @@ private fun CameraPreview(
             // телефона, поэтому этому и учить никого не надо.
             .pointerInput(Unit) {
                 detectTapGestures { at ->
+                    // нажатие - это ещё и «спроси заново»: человек наводится на ту же
+                    // коробку, чтобы убедиться в её состоянии, и молчание в ответ
+                    // означало бы, что приложение его не услышало
+                    currentOnTapped()
+                    focusAt = at
+
                     val control = camera?.cameraControl ?: return@detectTapGestures
                     val point = previewView.meteringPointFactory.createPoint(at.x, at.y)
                     try {
@@ -812,7 +914,6 @@ private fun CameraPreview(
                                 .setAutoCancelDuration(FOCUS_HOLD_SECONDS, TimeUnit.SECONDS)
                                 .build()
                         )
-                        focusAt = at
                     } catch (t: Throwable) {
                         Log.w(TAG, "Can't focus at the tapped point", t)
                     }
@@ -849,17 +950,40 @@ private fun CameraPreview(
 
             acceptedBox?.let { box ->
                 highlightColor?.let { color ->
-                    drawCorners(box, color, 4.dp.toPx(), box.width * 0.25f)
+                    // сплошная скруглённая рамка вокруг кода вместо уголков: уголки
+                    // читались как второй видоискатель внутри первого
+                    val grown = box.inflate(6.dp.toPx())
+                    drawRoundRect(
+                        color = color.copy(alpha = 0.18f * highlightAlpha.value),
+                        topLeft = grown.topLeft,
+                        size = grown.size,
+                        cornerRadius = CornerRadius(8.dp.toPx())
+                    )
+                    drawRoundRect(
+                        color = color.copy(alpha = highlightAlpha.value),
+                        topLeft = grown.topLeft,
+                        size = grown.size,
+                        cornerRadius = CornerRadius(8.dp.toPx()),
+                        style = Stroke(width = 3.dp.toPx())
+                    )
                 }
             }
 
             focusAt?.let { at ->
-                drawCircle(
-                    color = Color.White.copy(alpha = 0.9f),
-                    radius = 22.dp.toPx(),
-                    center = at,
-                    style = Stroke(width = 2.dp.toPx())
-                )
+                val alpha = focusAlpha.value
+                if (alpha > 0f) {
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.95f * alpha),
+                        radius = 26.dp.toPx() * focusScale.value,
+                        center = at,
+                        style = Stroke(width = 1.5.dp.toPx())
+                    )
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.55f * alpha),
+                        radius = 3.dp.toPx(),
+                        center = at
+                    )
+                }
             }
         }
     }
