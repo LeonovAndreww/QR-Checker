@@ -55,7 +55,7 @@
     <!-- ScanScreen -->
     <string name="session_not_found">Session not found</string>
     <string name="msg_already_scanned">Already scanned</string>
-    <string name="msg_scanned">Scanned</string>
+    <string name="msg_scanned">Scanned successfully</string>
     <string name="msg_not_in_list">Not in this session</string>
     <string name="btn_scanned">Scanned</string>
     <string name="btn_not_scanned">Not scanned</string>

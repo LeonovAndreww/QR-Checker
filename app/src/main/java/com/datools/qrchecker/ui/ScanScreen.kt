@@ -18,9 +18,13 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.geometry.Rect as GeomRect
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -103,8 +107,12 @@ private const val FOCUS_RING_HOLD_MS = 450L
 private const val FOCUS_RING_OUT_MS = 260
 private const val FOCUS_HOLD_SECONDS = 4L
 
-/** Насколько плавно появляется и гаснет подсветка принятого кода. */
-private const val HIGHLIGHT_FADE_MS = 200
+/** Насколько плавно рамка переезжает к найденному коду и обратно в центр. */
+private const val FRAME_SNAP_MS = 260
+
+/** Сколько рамка ждёт код, пропавший из кадра, прежде чем вернуться в центр. */
+private const val FRAME_RELEASE_MS = 700L
+private const val FRAME_RELEASE_CHECK_MS = 120L
 
 /** Сколько места занимает самая широкая группа кнопок в верхней полосе. */
 private val TOP_BAR_SIDE = 112.dp
@@ -775,13 +783,27 @@ private fun CameraPreview(
     var camera by remember { mutableStateOf<Camera?>(null) }
     // куда ткнули: колечко живёт секунду, чтобы было видно, что нажатие приняли
     var focusAt by remember { mutableStateOf<Offset?>(null) }
-    // последний принятый код: по нему рисуется подсветка, пока висит плашка ответа.
-    // Прямоугольник обновляется, пока камера продолжает видеть тот же код, - иначе
-    // подсветка застывает там, где код был в момент отметки, и уезжает вместе с рукой
+    // Последний принятый код и его место в кадре.
+    //
+    // Пока камера продолжает его видеть, прямоугольник обновляется на каждом кадре -
+    // рамка едет за коробкой. Время последнего появления нужно отдельно от плашки
+    // ответа: плашка гаснет через секунду, а помеченным код остаётся всё то время, что
+    // он в кадре.
     var acceptedCode by remember { mutableStateOf<String?>(null) }
     var acceptedBox by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-    // прозрачность подсветки и колечка: появляться и пропадать рывком некрасиво
-    val highlightAlpha = remember { Animatable(0f) }
+    var acceptedSeenAt by remember { mutableLongStateOf(0L) }
+    var acceptedColor by remember { mutableStateOf<Color?>(null) }
+
+    // рамка видоискателя: одно анимируемое значение на все четыре стороны, чтобы она
+    // переезжала к коду целиком, а не рывками по каждой границе отдельно
+    val frame = remember {
+        Animatable(GeomRect.Zero, GeomRect.VectorConverter)
+    }
+    val cornerColor by animateColorAsState(
+        targetValue = acceptedColor ?: Color.White.copy(alpha = 0.9f),
+        animationSpec = tween(FRAME_SNAP_MS),
+        label = "corners"
+    )
     val focusScale = remember { Animatable(1f) }
     val focusAlpha = remember { Animatable(0f) }
 
@@ -794,7 +816,10 @@ private fun CameraPreview(
                 if (size == IntSize.Zero) return@execute
 
                 val mapping = PreviewMapping(detected.imageWidth, detected.imageHeight, size)
-                val frame = viewfinderRect(size)
+                // отбор идёт по неподвижному квадрату в центре, а не по нарисованной
+                // рамке: та переезжает к коду, и вместе с ней уезжала бы область,
+                // в которой приложение вообще что-либо принимает
+                val target = viewfinderRect(size)
                 val onScreen = mapping.toView(detected.box)
 
                 // принимается только то, что человек навёл: центр кода внутри рамки.
@@ -807,13 +832,17 @@ private fun CameraPreview(
                 // коробкой.
                 currentOnCodeSeen(detected.value)
 
-                // подсветка уже принятого кода едет за ним, пока он в кадре
-                if (detected.value == acceptedCode) acceptedBox = onScreen
+                // рамка уже принятого кода едет за ним, пока он в кадре
+                if (detected.value == acceptedCode) {
+                    acceptedBox = onScreen
+                    acceptedSeenAt = System.currentTimeMillis()
+                }
 
-                if (!frame.contains(onScreen.center)) return@execute
+                if (!target.contains(onScreen.center)) return@execute
 
                 acceptedCode = detected.value
                 acceptedBox = onScreen
+                acceptedSeenAt = System.currentTimeMillis()
                 currentOnCodeScanned(detected.value)
             }
         }
@@ -854,14 +883,47 @@ private fun CameraPreview(
         }
     }
 
-    // подсветка гаснет вместе с ответом, но плавно, а не пропадает кадром
+    // цвет ответа запоминается отдельно: плашка гаснет через секунду, а рамка обязана
+    // остаться на коде и остаться того же цвета, пока коробку не увели
     LaunchedEffect(highlightColor) {
-        if (highlightColor == null) {
-            highlightAlpha.animateTo(0f, tween(HIGHLIGHT_FADE_MS))
-            acceptedCode = null
-            acceptedBox = null
+        if (highlightColor != null) acceptedColor = highlightColor
+    }
+
+    // Код ушёл из кадра - рамка отпускает его и возвращается в центр.
+    //
+    // Считается по последнему кадру с этим кодом, а не по таймеру ответа: пока коробка
+    // перед камерой, она помечена, сколько бы ни прошло времени.
+    LaunchedEffect(acceptedCode) {
+        while (acceptedCode != null) {
+            delay(FRAME_RELEASE_CHECK_MS)
+            if (System.currentTimeMillis() - acceptedSeenAt > FRAME_RELEASE_MS) {
+                acceptedCode = null
+                acceptedBox = null
+                acceptedColor = null
+            }
+        }
+    }
+
+    // Рамка переезжает к коду и обратно.
+    //
+    // К коду - пружиной, а не за фиксированное время: цель меняется на каждом кадре,
+    // пока коробку держат в руках, и анимация запускается заново по многу раз в
+    // секунду. Пружина при перезапуске подхватывает набранную скорость, поэтому рамка
+    // едет за кодом плавно; постоянное время дёргало бы её с каждого кадра заново.
+    // Обратно в центр возвращаться некуда спешить - там обычный переход.
+    LaunchedEffect(acceptedBox, viewSize) {
+        if (viewSize == IntSize.Zero) return@LaunchedEffect
+        val home = viewfinderRect(viewSize)
+        if (frame.value == GeomRect.Zero) frame.snapTo(home)
+
+        val box = acceptedBox
+        if (box == null) {
+            frame.animateTo(home, tween(FRAME_SNAP_MS))
         } else {
-            highlightAlpha.animateTo(1f, tween(HIGHLIGHT_FADE_MS))
+            frame.animateTo(
+                snapTarget(box, home),
+                spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow)
+            )
         }
     }
 
@@ -924,50 +986,33 @@ private fun CameraPreview(
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             if (size.width <= 0f || size.height <= 0f) return@Canvas
-            val frame = viewfinderRect(IntSize(size.width.toInt(), size.height.toInt()))
+            val drawn = frame.value.takeIf { it.width > 0f && it.height > 0f }
+                ?: viewfinderRect(IntSize(size.width.toInt(), size.height.toInt()))
 
             // затемнение вокруг рамки: показывает, где приложение смотрит, и заодно
-            // подсказывает, куда наводить
+            // подсказывает, куда наводить. Переезжает вместе с рамкой, поэтому светлое
+            // окно всегда там же, где уголки
             val scrim = Color.Black.copy(alpha = 0.45f)
-            drawRect(scrim, size = Size(size.width, frame.top))
+            drawRect(scrim, size = Size(size.width, drawn.top))
             drawRect(
                 scrim,
-                topLeft = Offset(0f, frame.bottom),
-                size = Size(size.width, size.height - frame.bottom)
+                topLeft = Offset(0f, drawn.bottom),
+                size = Size(size.width, size.height - drawn.bottom)
             )
             drawRect(
                 scrim,
-                topLeft = Offset(0f, frame.top),
-                size = Size(frame.left, frame.height)
+                topLeft = Offset(0f, drawn.top),
+                size = Size(drawn.left, drawn.height)
             )
             drawRect(
                 scrim,
-                topLeft = Offset(frame.right, frame.top),
-                size = Size(size.width - frame.right, frame.height)
+                topLeft = Offset(drawn.right, drawn.top),
+                size = Size(size.width - drawn.right, drawn.height)
             )
 
-            drawCorners(frame, Color.White.copy(alpha = 0.9f), 3.dp.toPx(), frame.width * 0.12f)
-
-            acceptedBox?.let { box ->
-                highlightColor?.let { color ->
-                    // сплошная скруглённая рамка вокруг кода вместо уголков: уголки
-                    // читались как второй видоискатель внутри первого
-                    val grown = box.inflate(6.dp.toPx())
-                    drawRoundRect(
-                        color = color.copy(alpha = 0.18f * highlightAlpha.value),
-                        topLeft = grown.topLeft,
-                        size = grown.size,
-                        cornerRadius = CornerRadius(8.dp.toPx())
-                    )
-                    drawRoundRect(
-                        color = color.copy(alpha = highlightAlpha.value),
-                        topLeft = grown.topLeft,
-                        size = grown.size,
-                        cornerRadius = CornerRadius(8.dp.toPx()),
-                        style = Stroke(width = 3.dp.toPx())
-                    )
-                }
-            }
+            // уголки одни и те же: в покое они очерчивают центр кадра, на найденном
+            // коде - сам код, и по дороге между этими двумя положениями просто едут
+            drawCorners(drawn, cornerColor, 3.dp.toPx(), drawn.width * 0.22f)
 
             focusAt?.let { at ->
                 val alpha = focusAlpha.value
@@ -978,15 +1023,35 @@ private fun CameraPreview(
                         center = at,
                         style = Stroke(width = 1.5.dp.toPx())
                     )
-                    drawCircle(
-                        color = Color.White.copy(alpha = 0.55f * alpha),
-                        radius = 3.dp.toPx(),
-                        center = at
-                    )
                 }
             }
         }
     }
+}
+
+/**
+ * Куда именно переезжает рамка, найдя код.
+ *
+ * Вплотную к коду она смотрится тесно, а совсем маленький код превратил бы её в точку,
+ * поэтому прямоугольник немного раздувается и не даёт себе стать меньше трети исходной
+ * рамки. И не вылезает за неё же: рамка не должна оказаться больше того окна, в котором
+ * приложение вообще смотрит.
+ */
+private fun snapTarget(
+    box: androidx.compose.ui.geometry.Rect,
+    home: androidx.compose.ui.geometry.Rect
+): androidx.compose.ui.geometry.Rect {
+    val minSide = home.width * 0.33f
+    val padded = box.inflate(box.minDimension * 0.12f)
+    val side = maxOf(padded.width, padded.height, minSide).coerceAtMost(home.width)
+    val half = side / 2f
+    val c = box.center
+    return androidx.compose.ui.geometry.Rect(
+        c.x - half,
+        c.y - half,
+        c.x + half,
+        c.y + half
+    )
 }
 
 /** Уголки прямоугольника: так рисуют видоискатель, чтобы рамка не закрывала сам код. */

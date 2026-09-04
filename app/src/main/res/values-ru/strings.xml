@@ -52,7 +52,7 @@
     <!-- ScanScreen -->
     <string name="session_not_found">Сессия не найдена</string>
     <string name="msg_already_scanned">Уже отсканирован</string>
-    <string name="msg_scanned">Отсканирован</string>
+    <string name="msg_scanned">Успешно отсканировано</string>
     <string name="msg_not_in_list">Нет в этой сессии</string>
     <string name="btn_scanned">Отсканированные</string>
     <string name="btn_not_scanned">Неотсканированные</string>
