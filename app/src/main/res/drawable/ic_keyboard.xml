@@ -6,5 +6,9 @@
     android:tint="?attr/colorControlNormal">
     <path
         android:fillColor="@android:color/white"
-        android:pathData="M160,760q-33,0 -56.5,-23.5T80,680v-400q0,-33 23.5,-56.5T160,200h640q33,0 56.5,23.5T880,280v400q0,33 -23.5,56.5T800,760L160,760ZM160,680h640v-400L160,280v400ZM360,640h240v-80L360,560v80ZM240,520h80v-80h-80v80ZM360,520h80v-80h-80v80ZM480,520h80v-80h-80v80ZM600,520h80v-80h-80v80ZM720,520h80v-80h-80v80ZM240,400h80v-80h-80v80ZM360,400h80v-80h-80v80ZM480,400h80v-80h-80v80ZM600,400h80v-80h-80v80ZM720,400h80v-80h-80v80Z" />
+        android:fillType="evenOdd"
+        android:pathData="M160,200h640a80,80 0 0 1 80,80v400a80,80 0 0 1 -80,80h-640a80,80 0 0 1 -80,-80v-400a80,80 0 0 1 80,-80ZM160,280v400h640v-400h-640Z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M200,340h80v80h-80zM320,340h80v80h-80zM440,340h80v80h-80zM560,340h80v80h-80zM680,340h80v80h-80zM200,460h80v80h-80zM320,460h80v80h-80zM440,460h80v80h-80zM560,460h80v80h-80zM680,460h80v80h-80zM320,580h320v80h-320z" />
 </vector>

@@ -110,9 +110,9 @@ fun CreateSessionScreen(navController: NavController) {
     // Какие виды кодов берём в сессию. Пересобирается на каждый новый разбор: остаться
     // от прошлого файла выбор не должен.
     //
-    // Когда вид один - он и выбран. Когда их несколько, отмечен только самый частый:
-    // на розничной этикетке рядом с Data Matrix маркировки стоит штрихкод товара, и
-    // взять оба означало бы удвоить партию, ничего об этом не сказав.
+    // Отмечено всё найденное: сводка выше говорит «найдено N кодов», и если часть из них
+    // молча не попадёт в сессию, эти два числа разойдутся без объяснения. Когда видов
+    // несколько, они перечислены с количествами - и лишний снимается одним нажатием.
     val formatCounts = (parsed as? ParsedFile.Codes)?.let { source ->
         source.codes.groupingBy { source.formats[it] ?: CodeFormat.OTHER }.eachCount()
             .toList()
@@ -120,7 +120,7 @@ fun CreateSessionScreen(navController: NavController) {
                 .thenBy { it.first.ordinal })
     }.orEmpty()
     var keptFormats by remember(parsed) {
-        mutableStateOf(setOfNotNull(formatCounts.firstOrNull()?.first))
+        mutableStateOf(formatCounts.map { it.first }.toSet())
     }
     val errorMessage by scanViewModel.errorMessage
 

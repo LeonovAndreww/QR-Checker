@@ -44,7 +44,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
@@ -99,6 +101,18 @@ private val TOP_BAR_SIDE = 104.dp
 
 /** Высота затемнения под верхней и нижней полосами управления. */
 private val CONTROL_SCRIM = 140.dp
+
+/**
+ * Подписи на двух нижних кнопках подбирают размер под ширину.
+ *
+ * «Неотсканированные» - слово из семнадцати букв, и на узком экране оно не влезает ни
+ * при каком фиксированном кегле; обрезать его нельзя - обе кнопки перестают читаться.
+ */
+private val BUTTON_TEXT_SIZE = TextAutoSize.StepBased(
+    minFontSize = 11.sp,
+    maxFontSize = 16.sp,
+    stepSize = 0.5.sp
+)
 
 private const val TAG = "QRChecker"
 
@@ -439,6 +453,9 @@ fun ScanScreen(
                     Text(
                         text = scannedButtonText,
                         maxLines = 1,
+                        // подпись занимает столько, сколько влезло, а не обрезается:
+                        // «Неотсканирован...» - это не название кнопки
+                        autoSize = BUTTON_TEXT_SIZE,
                         style = MaterialTheme.typography.titleMedium,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
@@ -468,7 +485,7 @@ fun ScanScreen(
                     Text(
                         text = notScannedButtonText,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        autoSize = BUTTON_TEXT_SIZE,
                         style = MaterialTheme.typography.titleMedium,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()

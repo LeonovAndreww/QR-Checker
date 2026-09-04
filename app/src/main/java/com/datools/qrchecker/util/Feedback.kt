@@ -7,16 +7,11 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
-import android.view.View
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
-import androidx.core.view.HapticFeedbackConstantsCompat
-import androidx.core.view.ViewCompat
 
 private const val TAG = "QRChecker"
 private const val TONE_SILENT = -1
@@ -25,103 +20,115 @@ private const val TONE_VOLUME = 90
 /**
  * Что именно случилось.
  *
- * Отклик выбирается по смыслу события, а не по длительности: система знает про моторику
- * своего телефона больше, чем «повибрируй 60 миллисекунд». CONFIRM и REJECT - готовые
- * узоры «получилось» и «нет», одинаковые во всех приложениях телефона, их не спутаешь на
- * ощупь. На старых версиях androidx подставляет ближайший доступный узор сам.
+ * Узор задаётся здесь, а не берётся у системы.
  *
- * [pattern] - запасной вариант на случай, если системный отклик не сработал: там узор
- * приходится задавать руками, и разница между событиями держится длительностью.
+ * Через performHapticFeedback это не работало: тот подчиняется общей настройке телефона
+ * «вибрация при нажатии», и с ней выключенной молчал вообще весь отклик - хотя свой
+ * тумблер в настройках включён. Хуже того, метод возвращает true и в этом случае, так
+ * что и запасного пути по его ответу не построить. У приложения есть разрешение VIBRATE
+ * и собственный выключатель; им и пользуемся.
+ *
+ * Длительности и силы подобраны так, чтобы события различались вслепую: короткий уверенный
+ * толчок на отмеченный код, лёгкий двойной на повтор, тяжёлый двойной на чужой.
  */
 enum class Outcome(
-    internal val haptic: Int,
-    internal val tone: Int,
-    internal val pattern: LongArray
+    internal val timings: LongArray,
+    internal val amplitudes: IntArray,
+    internal val tone: Int
 ) {
     /** Код найден и отмечен. */
-    SUCCESS(
-        HapticFeedbackConstantsCompat.CONFIRM,
-        ToneGenerator.TONE_PROP_BEEP,
-        longArrayOf(0, 45)
-    ),
+    SUCCESS(longArrayOf(0, 40), intArrayOf(0, 180), ToneGenerator.TONE_PROP_BEEP),
 
     /** Код уже был отмечен: ничего плохого, но и делать нечего. */
-    REPEAT(
-        HapticFeedbackConstantsCompat.GESTURE_END,
-        ToneGenerator.TONE_PROP_ACK,
-        longArrayOf(0, 20, 70, 20)
-    ),
+    REPEAT(longArrayOf(0, 18, 70, 18), intArrayOf(0, 120, 0, 120), ToneGenerator.TONE_PROP_ACK),
 
     /** Кода нет в этой сессии - чужая коробка. */
-    FAILURE(
-        HapticFeedbackConstantsCompat.REJECT,
-        ToneGenerator.TONE_PROP_NACK,
-        longArrayOf(0, 90, 80, 90)
-    ),
+    FAILURE(longArrayOf(0, 70, 60, 70), intArrayOf(0, 255, 0, 255), ToneGenerator.TONE_PROP_NACK),
 
     /** Свайп дотянут до порога: можно отпускать. */
-    THRESHOLD(
-        HapticFeedbackConstantsCompat.GESTURE_THRESHOLD_ACTIVATE,
-        TONE_SILENT,
-        longArrayOf(0, 18)
-    ),
+    THRESHOLD(longArrayOf(0, 22), intArrayOf(0, 170), TONE_SILENT),
 
     /** Мелкое действие получилось: скопировали, переключили. */
-    ACTION(
-        HapticFeedbackConstantsCompat.CONTEXT_CLICK,
-        TONE_SILENT,
-        longArrayOf(0, 25)
-    )
+    ACTION(longArrayOf(0, 20), intArrayOf(0, 140), TONE_SILENT)
+}
+
+/**
+ * Генератор тонов, открываемый при первом звуке.
+ *
+ * Лениво, а не вместе с экраном: звук чаще выключен, а открытие занимает десятки
+ * миллисекунд. И не по состоянию Compose - тумблер в настройках отвечает звуком сразу
+ * в обработчике нажатия, до того как экран пересоберётся.
+ */
+internal class Tones : AutoCloseable {
+    private var generator: ToneGenerator? = null
+    private var failed = false
+
+    fun startTone(tone: Int) {
+        if (failed) return
+        val open = generator ?: openToneGenerator().also {
+            generator = it
+            if (it == null) failed = true
+        } ?: return
+        open.startTone(tone)
+    }
+
+    override fun close() {
+        runCatching { generator?.release() }
+        generator = null
+    }
 }
 
 /** Отклик на действие: вибрация и, если включён, звук. */
 class Feedback internal constructor(
-    private val view: View,
     private val vibrator: Vibrator?,
-    private val haptics: () -> Boolean,
-    private val sound: () -> Boolean,
-    private val tones: () -> ToneGenerator?
+    private val hapticsOn: () -> Boolean,
+    private val soundOn: () -> Boolean,
+    private val tones: Tones
 ) {
+    /** Обычный отклик: и вибрация, и звук - смотря что включено. */
     operator fun invoke(outcome: Outcome) {
-        if (haptics()) vibrate(outcome)
-        if (sound() && outcome.tone != TONE_SILENT) {
-            try {
-                tones()?.startTone(outcome.tone)
-            } catch (t: Throwable) {
-                Log.w(TAG, "Tone failed", t)
-            }
-        }
+        if (hapticsOn()) vibrate(outcome)
+        if (soundOn()) play(outcome)
     }
 
     /**
-     * Системный отклик - и вибратор, если тот промолчал.
+     * Только вибрация и только звук - для тумблеров в настройках.
      *
-     * performHapticFeedback подчиняется общей настройке «вибрация при нажатии»: у кого
-     * она выключена, приложение молчало целиком, хотя свой тумблер в настройках включён.
-     * Здесь спрашивают систему, а когда та отказывается - вибрируют сами.
+     * Общий отклик там не годится: включаешь вибрацию, а телефон пищит, потому что звук
+     * был включён раньше. Тумблер должен показывать себя, а не соседа.
      */
-    private fun vibrate(outcome: Outcome) {
-        try {
-            val played = ViewCompat.performHapticFeedback(
-                view,
-                outcome.haptic,
-                HapticFeedbackConstantsCompat.FLAG_IGNORE_VIEW_SETTING
-            )
-            if (played) return
-        } catch (t: Throwable) {
-            Log.w(TAG, "Haptic feedback failed", t)
-        }
+    fun vibrateOnly(outcome: Outcome) = vibrate(outcome)
 
+    /** Звук в ответ на свой тумблер играется и тогда, когда общий звук ещё выключен. */
+    fun playOnly(outcome: Outcome) = play(outcome)
+
+    private fun vibrate(outcome: Outcome) {
         try {
             val device = vibrator?.takeIf { it.hasVibrator() } ?: return
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                device.vibrate(VibrationEffect.createWaveform(outcome.pattern, -1))
+                // с амплитудами - там, где мотор их умеет; иначе система сама сведёт
+                // узор к включено/выключено по тем же длительностям
+                val effect = if (device.hasAmplitudeControl()) {
+                    VibrationEffect.createWaveform(outcome.timings, outcome.amplitudes, -1)
+                } else {
+                    VibrationEffect.createWaveform(outcome.timings, -1)
+                }
+                device.vibrate(effect)
             } else {
                 @Suppress("DEPRECATION")
-                device.vibrate(outcome.pattern, -1)
+                device.vibrate(outcome.timings, -1)
             }
         } catch (t: Throwable) {
             Log.w(TAG, "Vibrate failed", t)
+        }
+    }
+
+    private fun play(outcome: Outcome) {
+        if (outcome.tone == TONE_SILENT) return
+        try {
+            tones.startTone(outcome.tone)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Tone failed", t)
         }
     }
 }
@@ -129,35 +136,26 @@ class Feedback internal constructor(
 /**
  * Готовит отклик для экрана.
  *
- * Настройки читаются на каждое событие, а не один раз на вход: тумблер переключают и тут
- * же ждут, что он подействует, - в том числе на самом экране настроек.
+ * Значения настроек читаются в момент события, а не при входе на экран: тумблер
+ * переключают и тут же ждут, что он подействует, - в том числе на самом экране настроек.
  */
 @Composable
 fun rememberFeedback(withSound: Boolean = false): Feedback {
-    val view = LocalView.current
     val context = LocalContext.current
     val vibrator = remember(context) {
         ContextCompat.getSystemService(context.applicationContext, Vibrator::class.java)
     }
-    val soundOn by AppSettings.soundState(context)
-    val sound = withSound && soundOn
-
-    // генератор держится, пока звук включён: создавать его на каждый код - десятки
-    // миллисекунд и слышимая задержка перед первым сигналом
-    val tones = remember(sound) { if (sound) openToneGenerator() else null }
+    val tones = remember { Tones() }
     DisposableEffect(tones) {
-        onDispose { runCatching { tones?.release() } }
+        onDispose { tones.close() }
     }
 
-    // сами значения читаются в момент события, а не здесь: тумблер переключают и тут же
-    // ждут, что он подействует
-    return remember(view, vibrator, tones) {
+    return remember(vibrator, tones) {
         Feedback(
-            view = view,
             vibrator = vibrator,
-            haptics = { AppSettings.hapticsState(context).value },
-            sound = { withSound && AppSettings.soundState(context).value },
-            tones = { tones }
+            hapticsOn = { AppSettings.hapticsState(context).value },
+            soundOn = { withSound && AppSettings.soundState(context).value },
+            tones = tones
         )
     }
 }
