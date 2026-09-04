@@ -2,10 +2,13 @@ package com.datools.qrchecker
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
+import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.applyLanguage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Область корутин, живущая столько же, сколько процесс.
@@ -16,6 +19,8 @@ import kotlinx.coroutines.SupervisorJob
  * и переживал экран без всякой на то причины; у этого владелец есть, он один на
  * приложение и умирает вместе с процессом.
  */
+private const val TAG = "QRChecker"
+
 class QrCheckerApp : Application() {
     val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -25,5 +30,18 @@ class QrCheckerApp : Application() {
      */
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(applyLanguage(base))
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        // Просроченная корзина выметается при запуске, а не по расписанию: заводить ради
+        // этого работу в фоне - лишний повод для системы будить приложение.
+        backgroundScope.launch {
+            try {
+                SessionRepository(this@QrCheckerApp).purgeOldBin()
+            } catch (t: Throwable) {
+                Log.w(TAG, "Can't sweep the bin", t)
+            }
+        }
     }
 }

@@ -24,7 +24,6 @@
     <string name="loading_session">Loading session…</string>
     <string name="no_scanned_codes">No scanned codes</string>
     <string name="no_not_scanned_codes">No unscanned codes</string>
-    <string name="delete_code_title">Delete code?</string>
     <string name="delete_code_binned">Moved to the bin</string>
     <string name="delete_code_unmarked">Mark removed</string>
     <string name="delete_code_failed">Failed to delete code</string>
@@ -124,7 +123,6 @@
     <string name="manual_entry_button">By hand</string>
     <string name="export_nothing_to_share">The list is empty</string>
     <string name="backup_pick_folder_first">Pick a folder first</string>
-    <string name="delete_code_confirm">Delete this code?</string>
     <string name="cd_pdf_icon">File</string>
     <string name="session_file_not_json">The file is not readable as JSON</string>
     <string name="session_file_not_object">The file does not look like a session</string>
@@ -194,4 +192,12 @@
     <string name="bin_empty_title">Empty the bin?</string>
     <string name="bin_empty_confirm">%1$d codes will be gone for good.</string>
     <string name="error_loading_session">Could not open the session: %1$s</string>
+    <string name="bin_deleted">Deleted for good</string>
+    <!-- taking a code out of a list -->
+    <string name="bin_code_title">Move to the bin?</string>
+    <string name="bin_code_confirm">The code leaves the session and waits in the bin:</string>
+    <string name="bin_code_action">Move</string>
+    <string name="unmark_code_title">Remove the mark?</string>
+    <string name="unmark_code_confirm">The code goes back to the not scanned list:</string>
+    <string name="unmark_code_action">Remove</string>
 </resources>

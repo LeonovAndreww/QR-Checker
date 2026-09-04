@@ -132,6 +132,19 @@ abstract class SessionDao {
     @Query("DELETE FROM session_codes WHERE sessionId = :sessionId AND deletedAt IS NOT NULL")
     abstract suspend fun purgeBin(sessionId: String): Int
 
+    /** Один код из корзины - насовсем. */
+    @Query(
+        """
+        DELETE FROM session_codes
+        WHERE sessionId = :sessionId AND code = :code AND deletedAt IS NOT NULL
+        """
+    )
+    abstract suspend fun purgeCode(sessionId: String, code: String): Int
+
+    /** Всё, что пролежало в корзине дольше положенного, по всем сессиям разом. */
+    @Query("DELETE FROM session_codes WHERE deletedAt IS NOT NULL AND deletedAt < :before")
+    abstract suspend fun purgeBinnedBefore(before: Long): Int
+
     @Query(
         """
         SELECT s.id AS id,
