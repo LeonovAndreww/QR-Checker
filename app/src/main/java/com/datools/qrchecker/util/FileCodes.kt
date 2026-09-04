@@ -32,7 +32,9 @@ data class ParsedFiles(
     val scanned: List<String>,
     val scanTimes: Map<String, Long>,
     /** Имя сессии - только когда выбран ровно один файл сессии и придумывать нечего. */
-    val sessionName: String?
+    val sessionName: String?,
+    /** Чем записан каждый код: по этому его можно отсеять перед созданием сессии. */
+    val formats: Map<String, CodeFormat> = emptyMap()
 )
 
 /**
@@ -50,6 +52,7 @@ suspend fun readCodesFromFiles(
         { _, _, _, _, _ -> }
 ): ParsedFiles {
     val codes = LinkedHashSet<String>()
+    val formats = HashMap<String, CodeFormat>()
     val sources = ArrayList<SourceSummary>(files.size)
     val scanned = LinkedHashSet<String>()
     val scanTimes = HashMap<String, Long>()
@@ -64,10 +67,16 @@ suspend fun readCodesFromFiles(
                 val result = parsePdfForQRCodes(context, uri, scale) { done, total ->
                     onProgress(index, files.size, name, done, total)
                 }
-                codes += result.codes
+                for (found in result.codes) {
+                    codes += found.value
+                    formats.putIfAbsent(found.value, found.format)
+                }
             }
 
-            FileKind.IMAGE -> codes += parseImageForCodes(context, uri)
+            FileKind.IMAGE -> for (found in parseImageForCodes(context, uri)) {
+                codes += found.value
+                formats.putIfAbsent(found.value, found.format)
+            }
 
             FileKind.TEXT -> {
                 // файл сессии отдаёт и коды, и отметки: разобранный как обычный список,
@@ -75,13 +84,16 @@ suspend fun readCodesFromFiles(
                 val session = readSessionOrNull(context, uri)
                 if (session != null) {
                     codes += session.codes
+                    session.codes.forEach { formats.putIfAbsent(it, CodeFormat.TEXT) }
                     scanned += session.scannedCodes
                     session.scanTimes?.let { scanTimes.putAll(it) }
                     if (files.size == 1) sessionName = session.name
                 } else {
-                    codes += withContext(Dispatchers.IO) {
+                    val listed = withContext(Dispatchers.IO) {
                         parseCodeList(readTextFromUri(context, uri))
                     }
+                    codes += listed
+                    listed.forEach { formats.putIfAbsent(it, CodeFormat.TEXT) }
                 }
             }
         }
@@ -94,7 +106,8 @@ suspend fun readCodesFromFiles(
         sources = sources,
         scanned = scanned.filter { it in codes },
         scanTimes = scanTimes.filterKeys { it in codes },
-        sessionName = sessionName
+        sessionName = sessionName,
+        formats = formats
     )
 }
 

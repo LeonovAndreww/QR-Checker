@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,6 +54,9 @@ import com.datools.qrchecker.Screen
 import com.datools.qrchecker.util.getFileNameFromUri
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.FilterChip
+import com.datools.qrchecker.util.CodeFormat
 import com.datools.qrchecker.viewmodel.ScanViewModel
 
 private const val TAG = "QRChecker"
@@ -102,6 +106,22 @@ fun CreateSessionScreen(navController: NavController) {
     val createdSessionId by scanViewModel.createdSessionId
     val conflict by scanViewModel.conflict
     val mergedMarks by scanViewModel.mergedMarks
+
+    // Какие виды кодов берём в сессию. Пересобирается на каждый новый разбор: остаться
+    // от прошлого файла выбор не должен.
+    //
+    // Когда вид один - он и выбран. Когда их несколько, отмечен только самый частый:
+    // на розничной этикетке рядом с Data Matrix маркировки стоит штрихкод товара, и
+    // взять оба означало бы удвоить партию, ничего об этом не сказав.
+    val formatCounts = (parsed as? ParsedFile.Codes)?.let { source ->
+        source.codes.groupingBy { source.formats[it] ?: CodeFormat.OTHER }.eachCount()
+            .toList()
+            .sortedWith(compareByDescending<Pair<CodeFormat, Int>> { it.second }
+                .thenBy { it.first.ordinal })
+    }.orEmpty()
+    var keptFormats by remember(parsed) {
+        mutableStateOf(setOfNotNull(formatCounts.firstOrNull()?.first))
+    }
     val errorMessage by scanViewModel.errorMessage
 
     // у файла сессии имя уже есть - подставляем его, чтобы не заставлять придумывать
@@ -135,6 +155,8 @@ fun CreateSessionScreen(navController: NavController) {
     val parsingText = stringResource(id = R.string.parsing_pdf)
     val cancelParsingText = stringResource(id = R.string.parsing_cancel)
     val sessionSummaryTemplate = stringResource(id = R.string.parsed_session_summary)
+    val formatHint = stringResource(id = R.string.format_filter_hint)
+    val formatCountTemplate = stringResource(id = R.string.format_filter_count)
     val existsTitle = stringResource(id = R.string.session_exists_title)
     val mergedTitle = stringResource(id = R.string.session_merged_title)
     val mergeText = stringResource(id = R.string.session_merge)
@@ -280,6 +302,48 @@ fun CreateSessionScreen(navController: NavController) {
                                     )
                                 }
                             }
+
+                            // Выбор появляется, только когда выбирать есть из чего.
+                            // На обычном листе маркировки вид один, и лишний ряд
+                            // галочек там был бы вопросом без содержания.
+                            if (formatCounts.size > 1) {
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    text = formatHint,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    for ((format, count) in formatCounts) {
+                                        val on = format in keptFormats
+                                        FilterChip(
+                                            selected = on,
+                                            onClick = {
+                                                // последний вид снять нельзя: сессия
+                                                // без кодов - это не сессия
+                                                keptFormats = when {
+                                                    !on -> keptFormats + format
+                                                    keptFormats.size > 1 -> keptFormats - format
+                                                    else -> keptFormats
+                                                }
+                                            },
+                                            label = {
+                                                Text(
+                                                    formatCountTemplate.format(
+                                                        stringResource(id = format.label),
+                                                        count
+                                                    )
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         is ParsedFile.Session -> Text(
@@ -310,7 +374,7 @@ fun CreateSessionScreen(navController: NavController) {
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
-                onClick = { scanViewModel.createSession(context, sessionName) },
+                onClick = { scanViewModel.createSession(context, sessionName, keepFormats = keptFormats) },
                 enabled = (sessionName.isNotBlank() && parsed != null && !isLoading),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -356,7 +420,7 @@ fun CreateSessionScreen(navController: NavController) {
             dismissButton = {
                 TextButton(onClick = {
                     scanViewModel.dismissConflict()
-                    scanViewModel.createSession(context, sessionName, force = true)
+                    scanViewModel.createSession(context, sessionName, force = true, keepFormats = keptFormats)
                 }) {
                     Text(addNewText)
                 }
