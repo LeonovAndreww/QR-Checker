@@ -25,7 +25,8 @@
     <string name="no_scanned_codes">No scanned codes</string>
     <string name="no_not_scanned_codes">No unscanned codes</string>
     <string name="delete_code_title">Delete code?</string>
-    <string name="delete_code_success">Code deleted</string>
+    <string name="delete_code_binned">Moved to the bin</string>
+    <string name="delete_code_unmarked">Mark removed</string>
     <string name="delete_code_failed">Failed to delete code</string>
     <string name="delete_code_error">Error while deleting</string>
     <string name="cd_export">Export list</string>
@@ -185,5 +186,12 @@
     <string name="cd_torch_off">Turn the light off</string>
     <string name="cd_sort_newest">Sort oldest first</string>
     <string name="cd_sort_oldest">Sort newest first</string>
+    <!-- bin -->
+    <string name="bin_title">Bin: %1$d</string>
+    <string name="bin_why">Codes removed from this session. They are not in the lists, the counts or the export.</string>
+    <string name="bin_restore">Put back</string>
+    <string name="bin_empty">Empty</string>
+    <string name="bin_empty_title">Empty the bin?</string>
+    <string name="bin_empty_confirm">%1$d codes will be gone for good.</string>
     <string name="error_loading_session">Could not open the session: %1$s</string>
 </resources>

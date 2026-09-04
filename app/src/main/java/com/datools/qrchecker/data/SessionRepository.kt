@@ -63,9 +63,27 @@ class SessionRepository(context: Context) {
         dao.markUnscanned(sessionId, code)
     }
 
-    suspend fun deleteCode(sessionId: String, code: String) {
-        dao.deleteCode(sessionId, code)
+    /**
+     * Убирает код из сессии в корзину.
+     *
+     * Не насовсем: удаление кода - единственное здесь необратимое действие, а
+     * промахнуться по строке в списке на несколько тысяч проще простого. Вернуть его
+     * можно на экране правки сессии.
+     */
+    suspend fun deleteCode(sessionId: String, code: String, at: Long = System.currentTimeMillis()) {
+        dao.moveCodeToBin(sessionId, code, at)
     }
+
+    /** Что лежит в корзине этой сессии, свежеудалённое сверху. */
+    suspend fun binnedCodes(sessionId: String): List<Pair<String, Long>> =
+        dao.getDeletedCodes(sessionId).map { it.code to (it.deletedAt ?: 0L) }
+
+    suspend fun restoreCode(sessionId: String, code: String) {
+        dao.restoreCode(sessionId, code)
+    }
+
+    /** Очищает корзину. Вот это уже насовсем. */
+    suspend fun emptyBin(sessionId: String): Int = dao.purgeBin(sessionId)
 
     suspend fun rename(sessionId: String, name: String) = dao.renameSession(sessionId, name)
 

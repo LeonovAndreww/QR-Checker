@@ -29,8 +29,24 @@ abstract class SessionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertCodes(codes: List<SessionCodeEntity>)
 
-    @Query("SELECT * FROM session_codes WHERE sessionId = :sessionId ORDER BY position")
+    @Query(
+        """
+        SELECT * FROM session_codes
+        WHERE sessionId = :sessionId AND deletedAt IS NULL
+        ORDER BY position
+        """
+    )
     abstract suspend fun getCodes(sessionId: String): List<SessionCodeEntity>
+
+    /** Что лежит в корзине - свежеудалённое сверху. */
+    @Query(
+        """
+        SELECT * FROM session_codes
+        WHERE sessionId = :sessionId AND deletedAt IS NOT NULL
+        ORDER BY deletedAt DESC
+        """
+    )
+    abstract suspend fun getDeletedCodes(sessionId: String): List<SessionCodeEntity>
 
     @Query("DELETE FROM session_codes WHERE sessionId = :sessionId")
     abstract suspend fun deleteAllCodes(sessionId: String)
@@ -40,6 +56,7 @@ abstract class SessionDao {
         """
         UPDATE session_codes SET scanned = 1, scannedAt = :at
         WHERE sessionId = :sessionId AND code = :code AND scanned = 0
+          AND deletedAt IS NULL
         """
     )
     abstract suspend fun markScanned(sessionId: String, code: String, at: Long): Int
@@ -51,12 +68,15 @@ abstract class SessionDao {
     @Query(
         """
         UPDATE session_codes SET scanned = 1, scannedAt = :at
-        WHERE sessionId = :sessionId AND scanned = 0 AND code IN (:codes)
+        WHERE sessionId = :sessionId AND scanned = 0 AND deletedAt IS NULL
+          AND code IN (:codes)
         """
     )
     abstract suspend fun markScannedIn(sessionId: String, codes: List<String>, at: Long): Int
 
-    @Query("SELECT code FROM session_codes WHERE sessionId = :sessionId")
+    @Query(
+        "SELECT code FROM session_codes WHERE sessionId = :sessionId AND deletedAt IS NULL"
+    )
     abstract suspend fun getCodeValues(sessionId: String): List<String>
 
     @Query("SELECT id FROM sessions")
@@ -74,17 +94,43 @@ abstract class SessionDao {
      */
     @Query(
         """
-        SELECT sessionId FROM session_codes
+        SELECT sessionId FROM session_codes WHERE deletedAt IS NULL
         GROUP BY sessionId HAVING COUNT(*) = :size
         """
     )
     abstract suspend fun sessionIdsWithCodeCount(size: Int): List<String>
 
-    @Query("UPDATE session_codes SET scanned = 0, scannedAt = NULL WHERE sessionId = :sessionId AND code = :code")
+    @Query(
+        """
+        UPDATE session_codes SET scanned = 0, scannedAt = NULL
+        WHERE sessionId = :sessionId AND code = :code AND deletedAt IS NULL
+        """
+    )
     abstract suspend fun markUnscanned(sessionId: String, code: String): Int
 
-    @Query("DELETE FROM session_codes WHERE sessionId = :sessionId AND code = :code")
-    abstract suspend fun deleteCode(sessionId: String, code: String): Int
+    /**
+     * Убирает код в корзину. Отметка при этом снимается: код вернётся неотсканированным,
+     * потому что убирали его именно из списка неотсканированных.
+     */
+    @Query(
+        """
+        UPDATE session_codes SET deletedAt = :at, scanned = 0, scannedAt = NULL
+        WHERE sessionId = :sessionId AND code = :code AND deletedAt IS NULL
+        """
+    )
+    abstract suspend fun moveCodeToBin(sessionId: String, code: String, at: Long): Int
+
+    @Query(
+        """
+        UPDATE session_codes SET deletedAt = NULL
+        WHERE sessionId = :sessionId AND code = :code AND deletedAt IS NOT NULL
+        """
+    )
+    abstract suspend fun restoreCode(sessionId: String, code: String): Int
+
+    /** Насовсем: это и есть «очистить корзину». */
+    @Query("DELETE FROM session_codes WHERE sessionId = :sessionId AND deletedAt IS NOT NULL")
+    abstract suspend fun purgeBin(sessionId: String): Int
 
     @Query(
         """
@@ -95,7 +141,7 @@ abstract class SessionDao {
                s.createdAt AS createdAt,
                s.openedAt AS openedAt
         FROM sessions s
-        LEFT JOIN session_codes c ON c.sessionId = s.id
+        LEFT JOIN session_codes c ON c.sessionId = s.id AND c.deletedAt IS NULL
         GROUP BY s.id, s.name, s.createdAt, s.openedAt, s.rowid
         ORDER BY s.openedAt DESC, s.rowid DESC
         """

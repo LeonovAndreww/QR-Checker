@@ -121,7 +121,8 @@ fun CodesListScreen(
     val deleteCodeTitle = stringResource(id = R.string.delete_code_title)
     val deleteCancel = stringResource(id = R.string.delete_cancel)
     val deleteConfirm = stringResource(id = R.string.delete_confirm)
-    val deleteSuccess = stringResource(id = R.string.delete_code_success)
+    val binSuccess = stringResource(id = R.string.delete_code_binned)
+    val unmarkSuccess = stringResource(id = R.string.delete_code_unmarked)
     val deleteFailed = stringResource(id = R.string.delete_code_failed)
     val deleteError = stringResource(id = R.string.delete_code_error)
     val exportCd = stringResource(id = R.string.cd_export)
@@ -202,7 +203,9 @@ fun CodesListScreen(
                 if (updated != null) {
                     session = updated
                     SessionBackup.scheduleSave(context, updated)
-                    say(deleteSuccess)
+                    // два разных действия и два разных ответа: в списке отмеченных
+                    // снимается отметка, в списке неотмеченных код уезжает в корзину
+                    say(if (isScanned) unmarkSuccess else binSuccess)
                 } else {
                     say(deleteFailed)
                 }
