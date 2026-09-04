@@ -19,6 +19,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
@@ -70,6 +71,9 @@ import com.datools.qrchecker.ui.theme.accents
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.LazyColumn
@@ -95,6 +99,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
 
 /** Сколько подсказок показывать: экран телефона всё равно не вместит больше. */
 private const val MANUAL_SUGGESTIONS = 30
@@ -106,6 +111,38 @@ private const val FOCUS_RING_IN_MS = 180
 private const val FOCUS_RING_HOLD_MS = 450L
 private const val FOCUS_RING_OUT_MS = 260
 private const val FOCUS_HOLD_SECONDS = 4L
+
+/**
+ * Как показывать найденный код.
+ *
+ * Переключается здесь, а не в настройках: это выбор оформления, который делается один
+ * раз при сборке, а не то, в чём человек у ленты станет разбираться.
+ */
+private enum class ViewfinderStyle {
+    /**
+     * Рамка стоит на месте, у кода своя обводка. Видно и то, куда наводить, и что
+     * именно приняли, - обе рамки в кадре одновременно.
+     */
+    FIXED,
+
+    /** Уголки рамки съезжаются к коду и едут за ним, пока он в кадре. */
+    LATCHING
+}
+
+private val VIEWFINDER_STYLE = ViewfinderStyle.FIXED
+
+/** Сколько висит пузырёк с кратностью после того, как щипок закончился. */
+private const val ZOOM_BUBBLE_MS = 1200L
+
+/** «1x», «2.5x», «0.6x» - так их подписывают в камерах. */
+internal fun formatZoom(ratio: Float): String {
+    val rounded = (ratio * 10f).roundToInt() / 10f
+    val text = if (rounded % 1f == 0f) rounded.toInt().toString() else rounded.toString()
+    return "${text}x"
+}
+
+/** Как часто проверяется, держат ли ту же коробку перед камерой. */
+private const val FEEDBACK_HOLD_CHECK_MS = 150L
 
 /** Насколько плавно рамка переезжает к найденному коду и обратно в центр. */
 private const val FRAME_SNAP_MS = 260
@@ -165,6 +202,10 @@ fun ScanScreen(
     // a torn or smudged label is otherwise a dead end
     var manualCode by remember { mutableStateOf<String?>(null) }
     var torchOn by remember { mutableStateOf(false) }
+    // кратность и когда её последний раз меняли: пузырёк живёт секунду после щипка
+    var zoomRatio by remember { mutableFloatStateOf(0f) }
+    var zoomShownAt by remember { mutableLongStateOf(0L) }
+    var zoomVisible by remember { mutableStateOf(false) }
     // одна прокрутка вбок на весь список подсказок ручного ввода
     val suggestionScroll = rememberScrollState()
     var hasTorch by remember { mutableStateOf(false) }
@@ -257,7 +298,18 @@ fun ScanScreen(
         feel(outcome)
 
         hideFeedbackJob = scope.launch {
+            // Сначала показать положенное время, а дальше держать, пока код в кадре.
+            //
+            // Плашка - ответ про ту коробку, что человек сейчас держит перед камерой;
+            // пока она там, ответ остаётся верным, и убирать его незачем.
             delay(displayMs)
+            while (
+                code != null &&
+                presentCode == code &&
+                System.currentTimeMillis() - presentSeenAt < awayMs
+            ) {
+                delay(FEEDBACK_HOLD_CHECK_MS)
+            }
             if (feedback?.code == code) feedback = null
         }
     }
@@ -342,10 +394,26 @@ fun ScanScreen(
             if (hasPermission) {
                 CameraPreview(
                     highlightColor = feedback?.color?.container,
+                    // состояние кода, а не ответ на действие: отмеченный - зелёный,
+                    // чужой - красный, а тот, что в списке и ещё не отмечен, цвета
+                    // не имеет, потому что сказать о нём пока нечего
+                    colorOf = { code ->
+                        val current = session
+                        when {
+                            current == null -> null
+                            code !in current.codes -> accents.danger.container
+                            code in current.scannedCodes -> accents.success.container
+                            else -> null
+                        }
+                    },
                     torchOn = torchOn,
                     onTorchAvailable = { hasTorch = it },
                     // нажали по кадру - спрашиваем заново даже про тот же код
                     onTapped = { presentCode = null },
+                    onZoomChanged = { ratio ->
+                        zoomRatio = ratio
+                        zoomShownAt = System.currentTimeMillis()
+                    },
                     onCodeSeen = { code ->
                         if (code == presentCode) presentSeenAt = System.currentTimeMillis()
                     },
@@ -472,6 +540,41 @@ fun ScanScreen(
                             tint = Color.White
                         )
                     }
+                }
+            }
+
+            // Кратность показывается пузырьком, а не полосой с делениями: пальцы уже
+            // заняты щипком, а знать нужно ровно одно - на какой объектив попал.
+            LaunchedEffect(zoomShownAt) {
+                if (zoomShownAt == 0L) return@LaunchedEffect
+                zoomVisible = true
+                delay(ZOOM_BUBBLE_MS)
+                if (System.currentTimeMillis() - zoomShownAt >= ZOOM_BUBBLE_MS) {
+                    zoomVisible = false
+                }
+            }
+
+            AnimatedVisibility(
+                visible = zoomVisible,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = padding.calculateBottomPadding() + 88.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = Color.Black.copy(alpha = 0.55f),
+                            shape = MaterialTheme.shapes.large
+                        )
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = formatZoom(zoomRatio),
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
+                    )
                 }
             }
 
@@ -754,9 +857,13 @@ private fun viewfinderRect(viewSize: IntSize): androidx.compose.ui.geometry.Rect
 @Composable
 private fun CameraPreview(
     highlightColor: Color?,
+    /** Цвет по состоянию кода: он нужен и тогда, когда плашки ответа уже нет. */
+    colorOf: (String) -> Color?,
     torchOn: Boolean,
     onTorchAvailable: (Boolean) -> Unit,
     onTapped: () -> Unit,
+    /** Текущая кратность - её показывает уже сам экран. */
+    onZoomChanged: (Float) -> Unit,
     /** Код виден в кадре - неважно, попал он в рамку или нет. */
     onCodeSeen: (String) -> Unit,
     onCodeScanned: (String) -> Unit
@@ -775,6 +882,7 @@ private fun CameraPreview(
     val currentOnCodeScanned by rememberUpdatedState(onCodeScanned)
     val currentOnTapped by rememberUpdatedState(onTapped)
     val currentOnCodeSeen by rememberUpdatedState(onCodeSeen)
+    val currentOnZoomChanged by rememberUpdatedState(onZoomChanged)
     val mainExecutor = remember(context) { ContextCompat.getMainExecutor(context) }
 
     var viewSize by remember { mutableStateOf(IntSize.Zero) }
@@ -883,10 +991,13 @@ private fun CameraPreview(
         }
     }
 
-    // цвет ответа запоминается отдельно: плашка гаснет через секунду, а рамка обязана
-    // остаться на коде и остаться того же цвета, пока коробку не увели
-    LaunchedEffect(highlightColor) {
-        if (highlightColor != null) acceptedColor = highlightColor
+    // Цвет рамки берётся у плашки, пока она висит, и у самого кода, когда её уже нет.
+    //
+    // Пока он брался только у плашки, выходило вот что: наводишь на код, ответ на него
+    // придержан (та же коробка всё ещё в кадре, отвечать второй раз незачем) - и рамка
+    // сжимается вокруг кода, оставаясь белой, будто ничего не нашла.
+    LaunchedEffect(highlightColor, acceptedCode) {
+        acceptedColor = highlightColor ?: acceptedCode?.let { colorOf(it) }
     }
 
     // Код ушёл из кадра - рамка отпускает его и возвращается в центр.
@@ -916,7 +1027,7 @@ private fun CameraPreview(
         val home = viewfinderRect(viewSize)
         if (frame.value == GeomRect.Zero) frame.snapTo(home)
 
-        val box = acceptedBox
+        val box = acceptedBox.takeIf { VIEWFINDER_STYLE == ViewfinderStyle.LATCHING }
         if (box == null) {
             frame.animateTo(home, tween(FRAME_SNAP_MS))
         } else {
@@ -957,6 +1068,39 @@ private fun CameraPreview(
             // объектив цепляется за фон и не может собрать мелкую сетку Data Matrix.
             // Нажатие говорит камере, куда смотреть, - ровно так же, как в любой камере
             // телефона, поэтому этому и учить никого не надо.
+            // Щипок - до нажатия в цепочке: он забирает событие себе, как только
+            // пальцев становится двое, и одиночное нажатие после этого не считается
+            // за наведение фокуса.
+            //
+            // Кратность отдаётся камере как отношение, а не как «цифровой зум»: на
+            // телефонах с несколькими объективами система сама переключается между
+            // ними на нужных значениях, и оптический зум работает как оптический.
+            .pointerInput(camera) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    do {
+                        val event = awaitPointerEvent()
+                        if (event.changes.size < 2) continue
+
+                        val change = event.calculateZoom()
+                        if (change == 1f) continue
+
+                        val state = camera?.cameraInfo?.zoomState?.value
+                        val control = camera?.cameraControl
+                        if (state != null && control != null) {
+                            val next = (state.zoomRatio * change)
+                                .coerceIn(state.minZoomRatio, state.maxZoomRatio)
+                            try {
+                                control.setZoomRatio(next)
+                                currentOnZoomChanged(next)
+                            } catch (t: Throwable) {
+                                Log.w(TAG, "Can't set the zoom ratio", t)
+                            }
+                        }
+                        event.changes.forEach { it.consume() }
+                    } while (event.changes.any { it.pressed })
+                }
+            }
             .pointerInput(Unit) {
                 detectTapGestures { at ->
                     // нажатие - это ещё и «спроси заново»: человек наводится на ту же
@@ -1010,9 +1154,40 @@ private fun CameraPreview(
                 size = Size(size.width - drawn.right, drawn.height)
             )
 
-            // уголки одни и те же: в покое они очерчивают центр кадра, на найденном
-            // коде - сам код, и по дороге между этими двумя положениями просто едут
-            drawCorners(drawn, cornerColor, 3.dp.toPx(), drawn.width * 0.22f)
+            when (VIEWFINDER_STYLE) {
+                // уголки стоят на месте и остаются белыми, а найденный код получает
+                // собственную обводку цвета ответа - в кадре видно и то, и другое
+                ViewfinderStyle.FIXED -> {
+                    drawCorners(
+                        drawn,
+                        Color.White.copy(alpha = 0.9f),
+                        3.dp.toPx(),
+                        drawn.width * 0.12f
+                    )
+                    acceptedBox?.let { box ->
+                        val color = acceptedColor ?: return@let
+                        val grown = box.inflate(6.dp.toPx())
+                        drawRoundRect(
+                            color = color.copy(alpha = 0.16f),
+                            topLeft = grown.topLeft,
+                            size = grown.size,
+                            cornerRadius = CornerRadius(10.dp.toPx())
+                        )
+                        drawRoundRect(
+                            color = color,
+                            topLeft = grown.topLeft,
+                            size = grown.size,
+                            cornerRadius = CornerRadius(10.dp.toPx()),
+                            style = Stroke(width = 3.dp.toPx())
+                        )
+                    }
+                }
+
+                // уголки одни и те же: в покое они очерчивают центр кадра, на найденном
+                // коде - сам код, и по дороге между положениями просто едут
+                ViewfinderStyle.LATCHING ->
+                    drawCorners(drawn, cornerColor, 3.dp.toPx(), drawn.width * 0.22f)
+            }
 
             focusAt?.let { at ->
                 val alpha = focusAlpha.value
