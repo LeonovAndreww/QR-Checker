@@ -36,14 +36,14 @@
     <!-- CreateSessionScreen -->
     <string name="setup_session_title">Настройка сессии</string>
     <string name="session_name_label">Имя сессии</string>
-    <string name="parsing_pdf">Парсинг PDF…</string>
+    <string name="parsing_pdf">Читаю файлы…</string>
     <string name="continue_button">Продолжить</string>
 
     <!-- EditSessionScreen -->
-    <string name="select_pdf_label">Выбрать PDF файл</string>
+    <string name="select_pdf_label">Выбрать файлы с кодами</string>
     <string name="was_qr_count">Было QR-кодов: %1$d</string>
     <string name="will_be_qr_count">Станет QR-кодов: %1$s</string>
-    <string name="error_parsing_pdf">Ошибка парсинга PDF: %1$s</string>
+    <string name="error_parsing_pdf">Не удалось прочитать файл: %1$s</string>
     <string name="error_saving_session">Не удалось сохранить: %1$s</string>
     <string name="save_button">Сохранить</string>
 
@@ -95,7 +95,7 @@
     <string name="replace_diff_total">Кодов в сессии станет: %1$d</string>
     <string name="replace_diff_lost_header">Эти отметки пропадут:</string>
     <string name="replace_diff_and_more">…и ещё %1$d</string>
-    <string name="codes_from_pdf_title">Коды из PDF</string>
+    <string name="codes_from_pdf_title">Коды из файлов</string>
     <string name="codes_mode_replace">Заменить</string>
     <string name="codes_mode_append">Добавить</string>
     <string name="codes_already_present">Уже в сессии: %1$d</string>
@@ -122,7 +122,7 @@
     <string name="export_nothing_to_share">Выгружать нечего: список пуст</string>
     <string name="backup_pick_folder_first">Сначала выберите папку — копировать некуда</string>
     <string name="delete_code_confirm">Удалить этот код?</string>
-    <string name="cd_pdf_icon">PDF</string>
+    <string name="cd_pdf_icon">Файл</string>
     <string name="session_file_not_json">Файл не читается как JSON</string>
     <string name="session_file_not_object">Файл не похож на сессию</string>
     <string name="session_file_foreign">Это не файл сессии QR Checker</string>

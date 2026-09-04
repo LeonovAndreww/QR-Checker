@@ -27,6 +27,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import android.graphics.Rect
 import androidx.compose.foundation.Canvas
@@ -64,6 +65,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.HorizontalDivider
+import com.datools.qrchecker.util.formatTimeAgo
 import com.datools.qrchecker.util.shortCode
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
@@ -94,6 +96,9 @@ private const val FOCUS_HOLD_SECONDS = 4L
 
 /** Сколько места занимает самая широкая группа кнопок в верхней полосе. */
 private val TOP_BAR_SIDE = 104.dp
+
+/** Высота затемнения под верхней и нижней полосами управления. */
+private val CONTROL_SCRIM = 140.dp
 
 private const val TAG = "QRChecker"
 
@@ -188,6 +193,7 @@ fun ScanScreen(
 
     // localized strings
     val alreadyScannedMsg = stringResource(id = R.string.msg_already_scanned)
+    val alreadyScannedAgoTemplate = stringResource(id = R.string.msg_already_scanned_ago)
     val scannedMsg = stringResource(id = R.string.msg_scanned)
     val notFoundMsg = stringResource(id = R.string.msg_not_in_list)
     val scannedButtonText = stringResource(id = R.string.btn_scanned)
@@ -242,8 +248,18 @@ fun ScanScreen(
             code !in current.codes ->
                 showFeedback(notFoundMsg, accents.danger, Outcome.FAILURE, code)
 
-            code in current.scannedCodes ->
-                showFeedback(alreadyScannedMsg, accents.warning, Outcome.REPEAT, code)
+            code in current.scannedCodes -> {
+                // не просто «уже был», а когда именно: между «пять секунд назад» и
+                // «вчера в 17:55» разница в том, пересчитывает человек ту же коробку
+                // прямо сейчас или наткнулся на позавчерашнюю
+                val at = current.scanTimes?.get(code)
+                val message = if (at == null) {
+                    alreadyScannedMsg
+                } else {
+                    alreadyScannedAgoTemplate.format(formatTimeAgo(context, at))
+                }
+                showFeedback(message, accents.warning, Outcome.REPEAT, code)
+            }
 
             else -> {
                 // одно и то же время идёт и в базу, и в состояние экрана: с него потом
@@ -290,6 +306,35 @@ fun ScanScreen(
                     highlightColor = feedback?.color?.container,
                     onCodeScanned = { code -> onCodeScanned(code) }
                 )
+
+                // Затемнение под полосами с кнопками.
+                //
+                // Управление лежит поверх живого кадра, а кадр бывает любой яркости, так
+                // что цвет из темы на нём то читается, то нет: в светлой теме чёрные
+                // буквы пропадали на тёмном кадре, в тёмной - белые на светлом. Здесь
+                // фон делается предсказуемым, а буквы ниже - всегда белыми.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(CONTROL_SCRIM)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent)
+                            )
+                        )
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(CONTROL_SCRIM)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f))
+                            )
+                        )
+                )
             }
 
             // Одна полоса поверх камеры: слева «назад», справа действия, название -
@@ -312,6 +357,7 @@ fun ScanScreen(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .padding(horizontal = TOP_BAR_SIDE),
+                    color = Color.White,
                     style = MaterialTheme.typography.headlineSmall,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
@@ -324,7 +370,8 @@ fun ScanScreen(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = backCd
+                        contentDescription = backCd,
+                        tint = Color.White
                     )
                 }
 
@@ -347,23 +394,21 @@ fun ScanScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Default.Share,
-                            contentDescription = shareSessionCd
+                            contentDescription = shareSessionCd,
+                            tint = Color.White
                         )
                     }
 
-                    Button(
-                        onClick = { manualCode = "" },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        // клавиатура, а не карандаш: карандаш - это «поправить то, что
-                        // есть», а здесь код набирают с нуля
+                    // клавиатура вместо карандаша и подписи: карандаш - это «поправить
+                    // то, что есть», а здесь код набирают с нуля, и по клавиатуре это
+                    // видно без слов. Заодно с экрана уходит синяя плашка, которая
+                    // закрывала кадр и спорила со всем вокруг
+                    IconButton(onClick = { manualCode = "" }) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_keyboard),
                             contentDescription = manualEntryCd,
-                            modifier = Modifier.size(18.dp)
+                            tint = Color.White
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(manualEntryButton, style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -394,6 +439,7 @@ fun ScanScreen(
                     Text(
                         text = scannedButtonText,
                         maxLines = 1,
+                        style = MaterialTheme.typography.titleMedium,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -402,7 +448,8 @@ fun ScanScreen(
                 Text(
                     text = progressText,
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(horizontal = 8.dp)
                 )
 
@@ -422,6 +469,7 @@ fun ScanScreen(
                         text = notScannedButtonText,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleMedium,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -838,9 +886,11 @@ class MlKitQrCodeAnalyzer(
 
     private val scanner = BarcodeScanning.getClient(
         BarcodeScannerOptions.Builder()
-            // must match what the PDF parser reads, or a scanned label never
-            // matches its entry in the session
-            .setBarcodeFormats(Barcode.FORMAT_DATA_MATRIX, Barcode.FORMAT_QR_CODE)
+            // Камера читает всё, что умеет распознаватель. Ограничение двумя форматами
+            // осталось с перехода на ML Kit и было лишним: код не из списка получает
+            // честный ответ «нет в этой сессии», а вот молчание на поднесённый штрихкод
+            // читается как сломанная камера.
+            .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
             .build()
     )
 

@@ -39,14 +39,14 @@
     <!-- CreateSessionScreen -->
     <string name="setup_session_title">Session setup</string>
     <string name="session_name_label">Session name</string>
-    <string name="parsing_pdf">Parsing PDF…</string>
+    <string name="parsing_pdf">Reading the files…</string>
     <string name="continue_button">Continue</string>
 
     <!-- EditSessionScreen -->
-    <string name="select_pdf_label">Select PDF file</string>
+    <string name="select_pdf_label">Choose files with codes</string>
     <string name="was_qr_count">Original QR count: %1$d</string>
     <string name="will_be_qr_count">Resulting QR count: %1$s</string>
-    <string name="error_parsing_pdf">PDF parsing error: %1$s</string>
+    <string name="error_parsing_pdf">Could not read the file: %1$s</string>
     <string name="error_saving_session">Failed to save: %1$s</string>
     <string name="save_button">Save</string>
 
@@ -97,7 +97,7 @@
     <string name="replace_diff_total">Codes after the replacement: %1$d</string>
     <string name="replace_diff_lost_header">These marks will be lost:</string>
     <string name="replace_diff_and_more">…and %1$d more</string>
-    <string name="codes_from_pdf_title">Codes from the PDF</string>
+    <string name="codes_from_pdf_title">Codes from the files</string>
     <string name="codes_mode_replace">Replace</string>
     <string name="codes_mode_append">Add</string>
     <string name="codes_already_present">Already in the session: %1$d</string>
@@ -124,7 +124,7 @@
     <string name="export_nothing_to_share">Nothing to export: the list is empty</string>
     <string name="backup_pick_folder_first">Pick a folder first — there is nowhere to copy to</string>
     <string name="delete_code_confirm">Delete this code?</string>
-    <string name="cd_pdf_icon">PDF</string>
+    <string name="cd_pdf_icon">File</string>
     <string name="session_file_not_json">The file is not readable as JSON</string>
     <string name="session_file_not_object">The file does not look like a session</string>
     <string name="session_file_foreign">This is not a QR Checker session file</string>
