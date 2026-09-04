@@ -200,7 +200,6 @@ class ScanViewModel : ViewModel() {
                 }
 
                 val repo = SessionRepository(appContext)
-                repo.migrateFromSharedPrefsIfNeeded()
                 repo.insert(session)
                 SessionBackup.autoSave(appContext, session)
                 _createdSessionId.value = session.id

@@ -2,20 +2,16 @@ package com.datools.qrchecker.data
 
 import android.content.Context
 import android.util.Log
-import androidx.core.content.edit
 import com.datools.qrchecker.data.room.AppDatabase
 import com.datools.qrchecker.data.room.SessionCodeEntity
 import com.datools.qrchecker.data.room.SessionEntity
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.model.SessionSummary
-import com.google.gson.Gson
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.withContext
 
 private const val TAG = "QRChecker"
 
-class SessionRepository(private val context: Context) {
+class SessionRepository(context: Context) {
     private val dao = AppDatabase.getInstance(context).sessionDao()
 
     suspend fun insert(session: SessionData, now: Long = System.currentTimeMillis()) {
@@ -126,23 +122,6 @@ class SessionRepository(private val context: Context) {
 
     /** Идентификаторы всех сессий - чтобы при восстановлении не заводить дубликаты. */
     suspend fun existingIds(): Set<String> = dao.getSessionIds().toHashSet()
-
-    suspend fun migrateFromSharedPrefsIfNeeded() = withContext(Dispatchers.IO) {
-        val prefs = context.getSharedPreferences("sessions", Context.MODE_PRIVATE)
-        if (prefs.getBoolean("migrated_to_room", false)) return@withContext
-
-        val gson = Gson()
-        for ((_, value) in prefs.all) {
-            try {
-                val json = value as? String ?: continue
-                val old = gson.fromJson(json, SessionData::class.java) ?: continue
-                insert(old)
-            } catch (t: Throwable) {
-                Log.w(TAG, "Can't migrate a legacy session", t)
-            }
-        }
-        prefs.edit { clear().putBoolean("migrated_to_room", true) }
-    }
 }
 
 private fun SessionData.toCodeEntities(): List<SessionCodeEntity> {
