@@ -19,7 +19,6 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
@@ -1164,21 +1163,16 @@ private fun CameraPreview(
                         3.dp.toPx(),
                         drawn.width * 0.12f
                     )
+                    // те же уголки, что и у видоискателя, только вокруг кода и цвета
+                    // ответа: две рамки на экране должны быть одного языка
                     acceptedBox?.let { box ->
                         val color = acceptedColor ?: return@let
                         val grown = box.inflate(6.dp.toPx())
-                        drawRoundRect(
-                            color = color.copy(alpha = 0.16f),
-                            topLeft = grown.topLeft,
-                            size = grown.size,
-                            cornerRadius = CornerRadius(10.dp.toPx())
-                        )
-                        drawRoundRect(
-                            color = color,
-                            topLeft = grown.topLeft,
-                            size = grown.size,
-                            cornerRadius = CornerRadius(10.dp.toPx()),
-                            style = Stroke(width = 3.dp.toPx())
+                        drawCorners(
+                            grown,
+                            color,
+                            3.dp.toPx(),
+                            grown.minDimension * 0.3f
                         )
                     }
                 }
