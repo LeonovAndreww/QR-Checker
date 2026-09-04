@@ -136,17 +136,22 @@
     <string name="session_file_unreadable">The file could not be opened</string>
 
     <!-- appearance and feedback -->
-    <string name="appearance_title">Appearance</string>
+    <string name="appearance_title">Look</string>
     <string name="theme_label">Theme</string>
-    <string name="theme_system">Follow the phone</string>
+    <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="language_label">Language</string>
-    <string name="language_system">Follow the phone</string>
+    <string name="language_system">System</string>
     <string name="language_russian">Русский</string>
     <string name="language_english">English</string>
-    <string name="feedback_title">Response to a scan</string>
-    <string name="feedback_why">How the app answers a code when the screen is out of sight.</string>
+    <string name="clock_label">Clock</string>
+    <string name="clock_system">System</string>
+    <string name="clock_24">24 h</string>
+    <string name="clock_12">12 h</string>
+    <string name="feedback_title">Feedback</string>
+    <string name="feedback_why">What the phone does when a code is scanned. Handy when there is no time to look at the screen.</string>
     <string name="feedback_haptics">Vibration</string>
     <string name="feedback_sound">Sound</string>
+
 </resources>

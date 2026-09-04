@@ -1,7 +1,9 @@
 package com.datools.qrchecker.util
 
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.res.Configuration
+import android.content.res.Resources
 import java.util.Locale
 
 /**
@@ -43,6 +45,37 @@ fun refreshAppLanguage(context: Context) {
     config.setLayoutDirection(locale)
     @Suppress("DEPRECATION")
     resources.updateConfiguration(config, resources.displayMetrics)
+}
+
+/**
+ * Тот же контекст, но с ресурсами на выбранном языке.
+ *
+ * Всё остальное - запуск экранов, доступ к файлам, тема - остаётся за исходным контекстом:
+ * createConfigurationContext вернул бы не-Activity, и share-меню с выбором файлов через
+ * него уже не открылись бы.
+ */
+private class LocalizedContext(
+    base: Context,
+    private val localized: Resources
+) : ContextWrapper(base) {
+    override fun getResources(): Resources = localized
+}
+
+/**
+ * Оборачивает контекст экрана так, чтобы строки читались на выбранном языке.
+ *
+ * Экран при этом не пересоздаётся: recreate() гасит и собирает окно заново, и на смене
+ * языка это видно как рывок помех. Здесь меняются только ресурсы, а Compose перечитывает
+ * строки сам, потому что выбор языка - это состояние.
+ */
+fun localizedContext(base: Context, choice: LanguageChoice): Context {
+    val tag = choice.tag
+    if (tag.isEmpty()) return base
+    val locale = Locale.forLanguageTag(tag)
+    val config = Configuration(base.resources.configuration)
+    config.setLocale(locale)
+    config.setLayoutDirection(locale)
+    return LocalizedContext(base, base.createConfigurationContext(config).resources)
 }
 
 private fun chosenLocale(context: Context): Locale? =

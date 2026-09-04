@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.GenericShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SegmentedButton
@@ -40,19 +49,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.R
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.LocalActivity
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.AppSettings
+import com.datools.qrchecker.util.ClockChoice
 import com.datools.qrchecker.util.LanguageChoice
+import com.datools.qrchecker.util.Outcome
 import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.util.ThemeChoice
-import com.datools.qrchecker.util.refreshAppLanguage
+import com.datools.qrchecker.util.rememberFeedback
 import kotlinx.coroutines.launch
 
 private const val TAG = "QRChecker"
@@ -65,13 +78,13 @@ fun SettingsScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    val activity = LocalActivity.current
-
     var folderName by remember { mutableStateOf(SessionBackup.folderName(context)) }
-    var theme by remember { mutableStateOf(AppSettings.theme(context)) }
-    var language by remember { mutableStateOf(AppSettings.language(context)) }
-    var haptics by remember { mutableStateOf(AppSettings.haptics(context)) }
-    var sound by remember { mutableStateOf(AppSettings.sound(context)) }
+    val theme by AppSettings.themeState(context)
+    val language by AppSettings.languageState(context)
+    val clock by AppSettings.clockState(context)
+    val haptics by AppSettings.hapticsState(context)
+    val sound by AppSettings.soundState(context)
+    val feel = rememberFeedback(withSound = true)
     var enabled by remember { mutableStateOf(SessionBackup.isEnabled(context)) }
     var restoring by remember { mutableStateOf(false) }
 
@@ -92,6 +105,12 @@ fun SettingsScreen(navController: NavController) {
         LanguageChoice.SYSTEM to stringResource(id = R.string.language_system),
         LanguageChoice.RUSSIAN to stringResource(id = R.string.language_russian),
         LanguageChoice.ENGLISH to stringResource(id = R.string.language_english)
+    )
+    val clockLabel = stringResource(id = R.string.clock_label)
+    val clockOptions = listOf(
+        ClockChoice.SYSTEM to stringResource(id = R.string.clock_system),
+        ClockChoice.H24 to stringResource(id = R.string.clock_24),
+        ClockChoice.H12 to stringResource(id = R.string.clock_12)
     )
     val backupTitle = stringResource(id = R.string.backup_title)
     val backupWhy = stringResource(id = R.string.backup_why)
@@ -147,35 +166,33 @@ fun SettingsScreen(navController: NavController) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(appearanceTitle, style = MaterialTheme.typography.titleMedium)
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                     Text(themeLabel, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    ChoiceRow(
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // тема показывается собой: подписью «тёмная» можно было бы и
+                    // ошибиться, а образцом - нет
+                    ThemePicker(
                         options = themeOptions,
                         selected = theme,
-                        onSelect = {
-                            theme = it
-                            // тема - это цвета уже нарисованного экрана, он просто
-                            // перекрашивается; пересоздавать ничего не нужно
-                            AppSettings.setTheme(context, it)
-                        }
+                        onSelect = { AppSettings.setTheme(context, it) }
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
                     Text(languageLabel, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     ChoiceRow(
                         options = languageOptions,
                         selected = language,
-                        onSelect = {
-                            if (it == language) return@ChoiceRow
-                            language = it
-                            AppSettings.setLanguage(context, it)
-                            // строки уже прочитаны и разложены по экрану, менять их
-                            // поштучно негде: экран пересоздаётся целиком
-                            refreshAppLanguage(context)
-                            (activity as? ComponentActivity)?.recreate()
-                        }
+                        onSelect = { AppSettings.setLanguage(context, it) }
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Text(clockLabel, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    ChoiceRow(
+                        options = clockOptions,
+                        selected = clock,
+                        onSelect = { AppSettings.setClock(context, it) }
                     )
                 }
             }
@@ -192,35 +209,27 @@ fun SettingsScreen(navController: NavController) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(hapticsLabel, style = MaterialTheme.typography.bodyLarge)
-                        Switch(
-                            checked = haptics,
-                            onCheckedChange = {
-                                haptics = it
-                                AppSettings.setHaptics(context, it)
-                            }
-                        )
-                    }
+                    SwitchRow(
+                        icon = R.drawable.ic_vibration,
+                        label = hapticsLabel,
+                        checked = haptics,
+                        onCheckedChange = {
+                            AppSettings.setHaptics(context, it)
+                            // включил - тут же почувствовал; иначе о том, что тумблер
+                            // подействовал, можно узнать только на складе
+                            if (it) feel(Outcome.SUCCESS)
+                        }
+                    )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(soundLabel, style = MaterialTheme.typography.bodyLarge)
-                        Switch(
-                            checked = sound,
-                            onCheckedChange = {
-                                sound = it
-                                AppSettings.setSound(context, it)
-                            }
-                        )
-                    }
+                    SwitchRow(
+                        icon = R.drawable.ic_volume,
+                        label = soundLabel,
+                        checked = sound,
+                        onCheckedChange = {
+                            AppSettings.setSound(context, it)
+                            if (it) feel(Outcome.SUCCESS)
+                        }
+                    )
                 }
             }
 
@@ -322,6 +331,9 @@ fun SettingsScreen(navController: NavController) {
  *
  * Не выпадающий список и не столбик переключателей: вариантов три, они короткие, и
  * выбранный виден без единого нажатия.
+ *
+ * Галочка у выбранного убрана. Она вставала вплотную к левому краю кнопки, ужимала
+ * подпись до «Как в» и объясняла то, что и так видно по заливке.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -334,11 +346,182 @@ private fun <T> ChoiceRow(
         options.forEachIndexed { index, (value, label) ->
             SegmentedButton(
                 selected = value == selected,
-                onClick = { onSelect(value) },
-                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size)
+                onClick = { if (value != selected) onSelect(value) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                icon = {}
             ) {
-                Text(label, maxLines = 1)
+                Text(
+                    text = label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         }
+    }
+}
+
+/**
+ * Выбор темы образцами.
+ *
+ * Каждый вариант нарисован в той теме, которую включает: светлый - светлым, тёмный -
+ * тёмным, «системная» - разрезанной по диагонали, потому что она и есть та или другая в
+ * зависимости от телефона. Подпись под образцом остаётся - образец говорит «как будет
+ * выглядеть», а не «как называется».
+ */
+@Composable
+private fun ThemePicker(
+    options: List<Pair<ThemeChoice, String>>,
+    selected: ThemeChoice,
+    onSelect: (ThemeChoice) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        for ((value, label) in options) {
+            val chosen = value == selected
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(MaterialTheme.shapes.medium)
+                    .clickable { if (!chosen) onSelect(value) }
+                    .padding(bottom = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                ThemeSwatch(
+                    choice = value,
+                    selected = chosen,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = label,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (chosen) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+        }
+    }
+}
+
+/** Кусочек экрана в заданной теме: фон, полоса заголовка и две строки текста. */
+@Composable
+private fun ThemeSwatch(
+    choice: ThemeChoice,
+    selected: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val ring =
+        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val ringWidth = if (selected) 2.dp else 1.dp
+
+    Box(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.small)
+            .border(ringWidth, ring, MaterialTheme.shapes.small)
+    ) {
+        when (choice) {
+            ThemeChoice.LIGHT -> SwatchFace(dark = false, modifier = Modifier.fillMaxSize())
+            ThemeChoice.DARK -> SwatchFace(dark = true, modifier = Modifier.fillMaxSize())
+            // «системная» - обе сразу, разрезанные по диагонали
+            ThemeChoice.SYSTEM -> Box(modifier = Modifier.fillMaxSize()) {
+                SwatchFace(dark = false, modifier = Modifier.fillMaxSize())
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(DiagonalHalf)
+                ) {
+                    SwatchFace(dark = true, modifier = Modifier.fillMaxSize())
+                }
+            }
+        }
+    }
+}
+
+private val SwatchLightBack = Color(0xFFFBFBFB)
+private val SwatchLightInk = Color(0xFF1B1B1B)
+private val SwatchDarkBack = Color(0xFF16181A)
+private val SwatchDarkInk = Color(0xFFE6E6E6)
+
+@Composable
+private fun SwatchFace(dark: Boolean, modifier: Modifier = Modifier) {
+    val back = if (dark) SwatchDarkBack else SwatchLightBack
+    val ink = if (dark) SwatchDarkInk else SwatchLightInk
+
+    Column(
+        modifier = modifier
+            .background(back)
+            .padding(horizontal = 9.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.62f)
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(ink)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(ink.copy(alpha = 0.38f))
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(ink.copy(alpha = 0.38f))
+        )
+    }
+}
+
+/** Нижний левый треугольник: им закрывают светлую половину образца «как в системе». */
+private val DiagonalHalf = GenericShape { size, _ ->
+    moveTo(0f, size.height)
+    lineTo(size.width, 0f)
+    lineTo(size.width, size.height)
+    close()
+}
+
+/** Строка настройки со значком, подписью и тумблером. */
+@Composable
+private fun SwitchRow(
+    @DrawableRes icon: Int,
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

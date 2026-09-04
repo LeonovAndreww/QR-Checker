@@ -133,18 +133,23 @@
     <string name="session_file_empty">В файле нет ни одного кода</string>
     <string name="session_file_unreadable">Не удалось открыть файл</string>
 
-    <!-- внешний вид и отдача -->
-    <string name="appearance_title">Внешний вид</string>
+    <!-- внешний вид и отклик -->
+    <string name="appearance_title">Вид</string>
     <string name="theme_label">Тема</string>
-    <string name="theme_system">Как в телефоне</string>
+    <string name="theme_system">Системная</string>
     <string name="theme_light">Светлая</string>
     <string name="theme_dark">Тёмная</string>
     <string name="language_label">Язык</string>
-    <string name="language_system">Как в телефоне</string>
+    <string name="language_system">Системный</string>
     <string name="language_russian">Русский</string>
     <string name="language_english">English</string>
-    <string name="feedback_title">Ответ на сканирование</string>
-    <string name="feedback_why">Чем приложение отвечает на код, когда на экран смотреть некогда.</string>
+    <string name="clock_label">Часы</string>
+    <string name="clock_system">Как в системе</string>
+    <string name="clock_24">24 ч</string>
+    <string name="clock_12">12 ч</string>
+    <string name="feedback_title">Отклик</string>
+    <string name="feedback_why">Чем телефон отвечает на код. Пригодится, когда смотреть на экран некогда.</string>
     <string name="feedback_haptics">Вибрация</string>
     <string name="feedback_sound">Звук</string>
+
 </resources>
