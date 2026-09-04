@@ -22,7 +22,8 @@
     <string name="no_scanned_codes">Нет отсканированных кодов</string>
     <string name="no_not_scanned_codes">Нет неотсканированных кодов</string>
     <string name="delete_code_title">Удалить код?</string>
-    <string name="delete_code_success">Код удалён</string>
+    <string name="delete_code_binned">Убран в корзину</string>
+    <string name="delete_code_unmarked">Отметка снята</string>
     <string name="delete_code_failed">Не удалось удалить код</string>
     <string name="delete_code_error">Ошибка при удалении</string>
     <string name="cd_export">Экспорт списка</string>
@@ -189,5 +190,12 @@
     <string name="cd_torch_off">Выключить подсветку</string>
     <string name="cd_sort_newest">Сначала старые</string>
     <string name="cd_sort_oldest">Сначала новые</string>
+    <!-- корзина -->
+    <string name="bin_title">Корзина: %1$d</string>
+    <string name="bin_why">Коды, убранные из этой сессии. В списках, счётчиках и выгрузке их нет.</string>
+    <string name="bin_restore">Вернуть</string>
+    <string name="bin_empty">Очистить</string>
+    <string name="bin_empty_title">Очистить корзину?</string>
+    <string name="bin_empty_confirm">%1$d кодов исчезнут насовсем.</string>
     <string name="error_loading_session">Не удалось открыть сессию: %1$s</string>
 </resources>

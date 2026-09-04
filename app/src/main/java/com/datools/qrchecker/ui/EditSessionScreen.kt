@@ -29,6 +29,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -53,7 +57,9 @@ import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.shortCode
 import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.model.SessionData
+import com.datools.qrchecker.util.formatTimeAgo
 import com.datools.qrchecker.util.getFileNameFromUri
+import com.datools.qrchecker.util.shortCode
 import com.datools.qrchecker.util.readCodesFromFiles
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -92,6 +98,10 @@ fun EditSessionScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<ScreenError?>(null) }
 
+    // корзина: что убрали из сессии и когда
+    var binned by remember { mutableStateOf<List<Pair<String, Long>>>(emptyList()) }
+    var showEmptyBinConfirm by remember { mutableStateOf(false) }
+
     // confirmation dialog when replacing codes
     var showReplaceConfirm by remember { mutableStateOf(false) }
     // «Заменить» - поведение, которое было до сих пор, поэтому оно и остаётся по умолчанию
@@ -100,8 +110,23 @@ fun EditSessionScreen(
     val modeReplaceText = stringResource(id = R.string.codes_mode_replace)
     val modeAppendText = stringResource(id = R.string.codes_mode_append)
     val saveCodesText = stringResource(id = R.string.save_codes)
+    val binTitle = stringResource(id = R.string.bin_title)
+    val binWhy = stringResource(id = R.string.bin_why)
+    val binRestoreCd = stringResource(id = R.string.bin_restore)
+    val binEmptyText = stringResource(id = R.string.bin_empty)
+    val binEmptyTitle = stringResource(id = R.string.bin_empty_title)
+    val binEmptyConfirm = stringResource(id = R.string.bin_empty_confirm)
 
-    // Сессия читается при входе на экран.
+    suspend fun reloadBin() {
+        binned = try {
+            repo.binnedCodes(sessionId)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Can't read the bin of session $sessionId", t)
+            emptyList()
+        }
+    }
+
+    // Сессия и её корзина читаются при входе на экран.
     //
     // Загрузка пропала при выносе разбора файлов в FileCodes.kt, и экран правки с тех
     // пор открывался с пустым полем имени, а «Сохранить» молча ничего не делал: сохранять
@@ -113,6 +138,7 @@ fun EditSessionScreen(
             original = loaded
             if (loaded != null) {
                 name = loaded.name
+                reloadBin()
             } else {
                 navController.popBackStackOnce()
             }
@@ -291,6 +317,85 @@ fun EditSessionScreen(
                 )
             }
 
+            // Корзина показывается, только когда в ней что-то есть.
+            //
+            // Пустая карточка «здесь ничего нет» - это строка, объясняющая собственное
+            // отсутствие; на экране правки, где и так тесно, ей делать нечего.
+            if (binned.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = binTitle.format(binned.size),
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = { showEmptyBinConfirm = true }) {
+                                Text(binEmptyText)
+                            }
+                        }
+
+                        Text(
+                            text = binWhy,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Список ограничен по высоте и прокручивается сам: в корзине
+                        // может лежать и сотня кодов, а экран правки - не место, где
+                        // их разглядывают.
+                        LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
+                            items(binned, key = { it.first }) { (code, at) ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = shortCode(code),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (at > 0) {
+                                            Text(
+                                                text = formatTimeAgo(context, at),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    IconButton(onClick = {
+                                        scope.launch {
+                                            try {
+                                                repo.restoreCode(sessionId, code)
+                                                original = repo.getById(sessionId)
+                                                reloadBin()
+                                            } catch (t: Throwable) {
+                                                Log.e(TAG, "Can't restore $code", t)
+                                            }
+                                        }
+                                    }) {
+                                        Icon(
+                                            painter = painterResource(
+                                                id = R.drawable.ic_restore
+                                            ),
+                                            contentDescription = binRestoreCd
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.weight(1f))
 
             Row(
@@ -332,6 +437,34 @@ fun EditSessionScreen(
             }
         }
 
+    }
+
+    if (showEmptyBinConfirm) {
+        AlertDialog(
+            onDismissRequest = { showEmptyBinConfirm = false },
+            title = { Text(binEmptyTitle) },
+            text = { Text(binEmptyConfirm.format(binned.size)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEmptyBinConfirm = false
+                    scope.launch {
+                        try {
+                            repo.emptyBin(sessionId)
+                            reloadBin()
+                        } catch (t: Throwable) {
+                            Log.e(TAG, "Can't empty the bin", t)
+                        }
+                    }
+                }) {
+                    Text(stringResource(id = R.string.delete_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEmptyBinConfirm = false }) {
+                    Text(cancelText)
+                }
+            }
+        )
     }
 
     original?.let { current ->
