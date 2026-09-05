@@ -205,10 +205,20 @@ fun EditSessionScreen(
                 // тот же разбор, что и при создании сессии: документы, картинки и списки
                 // вперемешку. Раньше здесь принимался только PDF, и одно и то же действие
                 // в двух местах приложения работало по-разному
-                parsedCodes = readCodesFromFiles(context, files).codes
+                // Пустой разбор - это ошибка, а не «новый список кодов».
+                //
+                // Пока сюда клался пустой список, «Сохранить» предлагало заменить им всю
+                // сессию: один нечитаемый файл стирал партию вместе с отметками.
+                val found = readCodesFromFiles(context, files).codes
+                if (found.isEmpty()) {
+                    parsedCodes = null
+                    errorMessage = ScreenError(R.string.error_no_codes_in_files, "")
+                } else {
+                    parsedCodes = found
+                }
             } catch (t: Throwable) {
                 Log.e(TAG, "Can't read the selected files", t)
-                parsedCodes = emptyList()
+                parsedCodes = null
                 errorMessage = ScreenError(R.string.error_parsing_pdf, t.message ?: "")
             } finally {
                 isLoading = false

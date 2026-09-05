@@ -11,10 +11,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.graphics.drawable.toDrawable
 import com.datools.qrchecker.ui.theme.QRCheckerTheme
 import com.datools.qrchecker.util.AppSettings
 import com.datools.qrchecker.util.applyLanguage
@@ -80,11 +83,23 @@ class MainActivity : ComponentActivity() {
 
             CompositionLocalProvider(LocalContext provides localizedForScreen) {
                 QRCheckerTheme {
+                    val background = MaterialTheme.colorScheme.background
+
+                    // Фон окна перекрашивается под выбранную тему.
+                    //
+                    // В ресурсах он может следовать только ночному режиму системы, а
+                    // тему в приложении выбирают отдельно: со светлой темой на тёмном
+                    // телефоне окно оставалось тёмным, и вспышка при переходах, ради
+                    // которой этот цвет и заводился, возвращалась.
+                    LaunchedEffect(background) {
+                        window.setBackgroundDrawable(background.toArgb().toDrawable())
+                    }
+
                     // сплошная подложка цвета темы: между экранами под ними не должно
                     // просвечивать окно
                     Surface(
                         modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
+                        color = background
                     ) {
                         AppNav()
                     }

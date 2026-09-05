@@ -156,16 +156,21 @@ fun CodesListScreen(
     // Отсканированные идут от свежих к старым: наверху то, что человек только что
     // отметил, - к нему и возвращаются, если ошиблись. Неотсканированные времени не
     // имеют вовсе, у них порядок документа, и переворачивать его можно только целиком.
-    val exportableCodes: List<String> = session?.let { loaded ->
-        if (type == TYPE_SCANNED) {
+    //
+    // Считается один раз на смену сессии или порядка, и отбор идёт по множеству: список
+    // на несколько тысяч кодов с проверкой «есть ли в списке отмеченных» превращал
+    // каждую букву в поиске в десятки миллионов сравнений.
+    val exportableCodes: List<String> = remember(session, type, newestFirst) {
+        val loaded = session ?: return@remember emptyList()
+        val order = if (type == TYPE_SCANNED) {
             val times = loaded.scanTimes.orEmpty()
-            val order = loaded.scannedCodes.sortedByDescending { times[it] ?: 0L }
-            if (newestFirst) order else order.asReversed()
+            loaded.scannedCodes.sortedByDescending { times[it] ?: 0L }
         } else {
-            val order = loaded.codes.filter { it !in loaded.scannedCodes }
-            if (newestFirst) order else order.asReversed()
+            val scanned = loaded.scannedCodes.toHashSet()
+            loaded.codes.filterNot { it in scanned }
         }
-    }.orEmpty()
+        if (newestFirst) order else order.asReversed()
+    }
 
     // the search narrows what is shown; the export always writes the whole list, so a
     // forgotten filter cannot quietly turn "what is missing" into a shorter answer

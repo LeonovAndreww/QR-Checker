@@ -67,7 +67,11 @@ fun HomeScreen(navController: NavController) {
     val repo = remember { SessionRepository(context) }
     val scope = rememberCoroutineScope()
     // summaries only: the list draws names, so pulling every code of every session would be waste
-    val sessions by remember { repo.getSummariesFlow() }.collectAsState(initial = emptyList())
+    // null - «база ещё не ответила», пустой список - «сессий нет».
+    //
+    // Раньше и то и другое было пустым списком, и на каждом холодном запуске на миг
+    // показывалось «сессий пока нет» - у человека с десятком партий в работе.
+    val sessions by remember { repo.getSummariesFlow() }.collectAsState(initial = null)
     var sessionToDelete by remember { mutableStateOf<SessionSummary?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val accents = MaterialTheme.accents
@@ -123,7 +127,10 @@ fun HomeScreen(navController: NavController) {
             modifier = Modifier.padding(innerPadding)
         )
         {
-            if (sessions.isEmpty()) {
+            // база ещё не ответила: экран пуст, но ничего не утверждает
+            val loaded = sessions ?: return@Column
+
+            if (loaded.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -145,7 +152,7 @@ fun HomeScreen(navController: NavController) {
                 // сверху зазор: без него первая сессия прилипала к панели
                 contentPadding = PaddingValues(top = 12.dp, bottom = 80.dp)
             ) {
-                items(sessions) { session ->
+                items(loaded) { session ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

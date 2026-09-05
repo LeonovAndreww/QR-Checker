@@ -48,7 +48,14 @@ abstract class SessionDao {
     )
     abstract suspend fun getDeletedCodes(sessionId: String): List<SessionCodeEntity>
 
-    @Query("DELETE FROM session_codes WHERE sessionId = :sessionId")
+    /**
+     * Убирает коды сессии, не трогая корзину.
+     *
+     * Замена документа не должна выметать то, что человек убрал руками: это разные
+     * действия. Код из корзины, снова оказавшийся в новом документе, вернётся обычным -
+     * вставка перезапишет его строку.
+     */
+    @Query("DELETE FROM session_codes WHERE sessionId = :sessionId AND deletedAt IS NULL")
     abstract suspend fun deleteAllCodes(sessionId: String)
 
     /** Returns 0 when the code does not belong to the session or was already scanned. */
