@@ -4,6 +4,20 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+
+/**
+ * Появился столбец «когда убрали в корзину».
+ *
+ * Одна строка вместо пересоздания базы: терять партию из-за обновления приложения
+ * человеку незачем, а размен «немного кода против стёртой работы» тут очевидный.
+ */
+private val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE session_codes ADD COLUMN deletedAt INTEGER")
+    }
+}
 
 @Database(
     entities = [SessionEntity::class, SessionCodeEntity::class],
@@ -27,12 +41,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "sessions.db"
                 )
-                    // Миграций нет и не было кому их проходить: приложение не
-                    // публиковалось, а сессия здесь живёт часы. База со старой схемой
-                    // пересоздаётся вместо того, чтобы тянуть за собой код переноса,
-                    // который никто никогда не выполнит.
+                    .addMigrations(MIGRATION_1_2)
+                    // Запасной путь на случай схемы, к которой перехода нет: база
+                    // пересоздаётся, а не роняет приложение при открытии.
                     .fallbackToDestructiveMigration(dropAllTables = true)
-                    .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                     .build().also { INSTANCE = it }
             }
         }
