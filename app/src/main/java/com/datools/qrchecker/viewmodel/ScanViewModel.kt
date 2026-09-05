@@ -249,7 +249,13 @@ class ScanViewModel : ViewModel() {
     /** Переносит отметки открытого файла в уже существующую сессию с теми же кодами. */
     fun mergeIntoExisting(context: Context) {
         val target = _conflict.value ?: return
-        val marks = (_parsed.value as? ParsedFile.Session)?.session?.scannedCodes.orEmpty()
+        // отметки берутся из обоих видов разобранного: файл сессии, выбранный вместе с
+        // документом, приезжает как Codes, и его отметки так же нужно перенести
+        val marks = when (val source = _parsed.value) {
+            is ParsedFile.Session -> source.session.scannedCodes
+            is ParsedFile.Codes -> source.scanned
+            null -> emptyList()
+        }
         val appContext = context.applicationContext
         _conflict.value = null
         _isLoading.value = true

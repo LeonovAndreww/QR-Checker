@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.datools.qrchecker.QrCheckerApp
 import com.datools.qrchecker.navigateOnce
 import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
@@ -186,6 +187,11 @@ fun ScanScreen(
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val repo = remember { SessionRepository(context) }
     val scope = rememberCoroutineScope()
+    // живёт столько же, сколько процесс: запись отметки не должна зависеть от того,
+    // на экране ли ещё человек
+    val appScope = remember(context) {
+        (context.applicationContext as QrCheckerApp).backgroundScope
+    }
     val accents = MaterialTheme.accents
     val view = LocalView.current
 
@@ -360,7 +366,12 @@ fun ScanScreen(
                     scanTimes = current.scanTimes.orEmpty() + (code to at)
                 )
                 showFeedback(scannedMsg, accents.success, Outcome.SUCCESS, code)
-                scope.launch {
+                // Пишется областью приложения, а не областью экрана.
+                //
+                // Область экрана отменяется вместе с ним, и отметка последнего кода
+                // терялась, если сразу после сканирования нажать «назад»: на экране и
+                // в копии сессии она уже есть, а в базе - нет.
+                appScope.launch {
                     try {
                         // a single UPDATE of one row; two scans cannot overwrite each other
                         repo.markScanned(sessionId, code, at)
@@ -955,10 +966,20 @@ private fun CameraPreview(
         }
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         var boundProvider: ProcessCameraProvider? = null
+        // Экран могли закрыть, пока провайдер готовился.
+        //
+        // Тогда onDispose уже прошёл - анализатор закрыт, исполнитель остановлен, а
+        // boundProvider ещё пуст, так что отвязывать было нечего. Привязка после этого
+        // запускала камеру в закрытый декодер и оставляла её работать за спиной.
+        var disposed = false
 
         cameraProviderFuture.addListener({
             try {
                 val cameraProvider = cameraProviderFuture.get()
+                if (disposed) {
+                    cameraProvider.unbindAll()
+                    return@addListener
+                }
                 boundProvider = cameraProvider
 
                 val preview = Preview.Builder().build().also {
@@ -983,6 +1004,7 @@ private fun CameraPreview(
         }, mainExecutor)
 
         onDispose {
+            disposed = true
             boundProvider?.unbindAll()
             camera = null
             analyzer.close()

@@ -1,6 +1,5 @@
 package com.datools.qrchecker.ui
 
-import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -77,19 +76,13 @@ fun CreateSessionScreen(navController: NavController) {
         contract = ActivityResultContracts.OpenMultipleDocuments(),
         onResult = { uris: List<Uri> ->
             if (uris.isNotEmpty()) {
-                val files = uris.map { uri ->
-                // the uri is kept across process death via rememberSaveable, so the read
-                // grant has to outlive this activity instance as well
-                    try {
-                        context.contentResolver.takePersistableUriPermission(
-                            uri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        )
-                    } catch (e: SecurityException) {
-                        Log.w(TAG, "Could not persist read access to $uri", e)
-                    }
-                    uri to getFileNameFromUri(uri, context)
-                }
+                // Постоянное разрешение на файл здесь не берётся.
+                //
+                // Оно требовалось, пока ссылка на файл переживала смерть процесса; теперь
+                // файл читается сразу после выбора, и разрешения из системного окна на
+                // это хватает. А взятые постоянные никто не отпускал, и они копились в
+                // счёт лимита, отведённого приложению.
+                val files = uris.map { uri -> uri to getFileNameFromUri(uri, context) }
                 selectedNames = files.map { it.second }
                 nameTakenFromFile = false
                 // Имя подставляется само - по первому файлу, без расширения.
