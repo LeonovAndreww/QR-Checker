@@ -1,19 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+   Правила автобэкапа Android, API 31 и новее.
+
+   В облако база не уходит по той же причине, что и в backup_rules.xml: снимок живого
+   WAL восстанавливается битым.
+
+   При прямом переносе на новый телефон база копируется - приложение в этот момент не
+   работает, и снимок целый. Права на папку бэкапа не переносятся никогда: они выданы
+   конкретному устройству.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="database" path="sessions.db" />
+        <exclude domain="database" path="sessions.db-wal" />
+        <exclude domain="database" path="sessions.db-shm" />
+        <exclude domain="sharedpref" path="backup.xml" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="backup.xml" />
     </device-transfer>
-    -->
 </data-extraction-rules>
