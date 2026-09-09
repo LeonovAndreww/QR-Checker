@@ -76,6 +76,9 @@ The app asks for nothing else. Internet access is explicitly removed from the ma
 - Third-party telemetry:
   - There is no analytics/telemetry enabled.
 
+The full policy is published at
+[leonovandreww.github.io/QR-Checker/privacy.html](https://leonovandreww.github.io/QR-Checker/privacy.html).
+
 ## Installation
 ### Option A - Download APK
 1. Go to [Releases](https://github.com/LeonovAndreww/QR-Checker/releases).
