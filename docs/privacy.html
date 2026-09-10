@@ -5,16 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>QR Checker — Политика конфиденциальности / Privacy Policy</title>
 <style>
-  :root { color-scheme: light dark; }
+  :root {
+    color-scheme: light dark;
+    --ink: #1b1b1f;
+    --paper: #fbfbfd;
+    --chip: #ececf1;
+    --rule: #dddde2;
+    --link: #0b57d0;
+  }
   body {
     margin: 0 auto; padding: 32px 20px 64px; max-width: 720px;
     font: 16px/1.6 -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-    color: #1b1b1f; background: #fbfbfd;
-  }
-  @media (prefers-color-scheme: dark) {
-    body { color: #e5e5e9; background: #131316; }
-    code { background: #26262c; }
-    hr { border-color: #333; }
+    color: var(--ink); background: var(--paper);
   }
   h1 { font-size: 26px; margin: 0 0 4px; }
   h2 { font-size: 20px; margin: 36px 0 10px; }
@@ -22,9 +24,22 @@
   .meta { opacity: .65; font-size: 14px; margin-bottom: 28px; }
   ul { padding-left: 22px; }
   li { margin: 4px 0; }
-  code { background: #ececf1; padding: 1px 5px; border-radius: 4px; font-size: 14px; }
-  hr { border: 0; border-top: 1px solid #ddd; margin: 48px 0; }
-  a { color: #1a73e8; }
+  code {
+    color: var(--ink); background: var(--chip);
+    padding: 1px 5px; border-radius: 4px; font-size: 14px;
+  }
+  hr { border: 0; border-top: 1px solid var(--rule); margin: 48px 0; }
+  a { color: var(--link); }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e5e5e9;
+      --paper: #131316;
+      --chip: #2a2a31;
+      --rule: #33333a;
+      --link: #7cb0f5;
+    }
+  }
 </style>
 </head>
 <body>
