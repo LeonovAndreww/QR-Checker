@@ -18,28 +18,21 @@ still missing.
 
 ## What it does
 
-**A session is a list of codes and the marks on it.**
+A session is a list of codes and the marks on it. The list is read out of a document -
+PDF, photos, screenshots, text or CSV, several files at once. Then you scan the boxes, and
+for every code the app answers: scanned, already scanned and how long ago, or not in this
+session at all. A torn label can be typed in by hand - any part of the code is enough to
+find it.
 
-- Build a session from PDF documents, photos, screenshots and plain text or CSV lists -
-  several files at once, mixed. The kind of file is read from its first bytes, so a
-  document that arrived from a messenger without a name still works.
-- Data Matrix, QR and linear barcodes are all read. A retail label usually carries a
-  product barcode next to the Data Matrix, so the symbology of every code is remembered
-  and the unneeded kind can be unticked before the session is created.
-- Scan with the camera and get an answer for every code: scanned, not in this session, or
-  already scanned - with how long ago it was scanned.
-- Enter a code by hand when a label is torn: type any part of it and the session is
-  searched for a match.
-- Two lists, scanned and not scanned, both searchable and sortable by scan time. A code
-  can be opened in full, copied with a swipe right and put into the bin with a swipe left.
-- The bin lives on the session edit screen, holds removed codes for seven days and keeps
-  them out of the lists, the counts and the export.
-- Export a list as CSV, or share a whole session as a file: another phone opens it and
-  either merges the marks into the session it already has, or keeps it as a second one.
-- Back sessions up to a folder of your choice, by hand or automatically. Those files
-  survive uninstalling the app.
-- Torch and pinch zoom on the scan screen; theme, language, 12/24-hour clock, vibration
-  and sound in the settings.
+Data Matrix, QR and linear barcodes are all read. A retail label usually carries a product
+barcode next to the Data Matrix, so the symbology of every code is kept and the unneeded
+kind can be unticked before the session is created.
+
+The scanned and remaining lists are searchable and sortable; a code is copied with a swipe
+right and moved to the bin with a swipe left, where it waits a week. A list exports to CSV,
+and a whole session can be sent as a file - the other phone merges the marks into the
+session it already has. Sessions are also backed up to a folder of your choice and survive
+uninstalling the app.
 
 ## Technologies used
 [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org/) 
