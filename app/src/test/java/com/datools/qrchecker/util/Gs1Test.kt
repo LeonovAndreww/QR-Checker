@@ -87,4 +87,52 @@ class Gs1Test {
         val code = "8899abcdef${gs}хвост"
         assertEquals("8899abcdef", shortCode(code))
     }
+
+    @Test
+    fun `поля берутся из GS1 независимо от порядка`() {
+        val code = "010461234567890417250131${gs}10AB-123${gs}21SN00042"
+        assertEquals(
+            CodeFields(
+                product = "04612345678904",
+                serial = "SN00042",
+                batch = "AB-123",
+                expiry = "250131"
+            ),
+            codeFields(code)
+        )
+    }
+
+    @Test
+    fun `немецкий PPN разбирается своим словарём`() {
+        val code = "9N03752864${gs}1T12345ABCDE${gs}D160617${gs}S12345ABCDEF98765"
+        assertEquals(
+            CodeFields(
+                product = "03752864",
+                serial = "12345ABCDEF98765",
+                batch = "12345ABCDE",
+                expiry = "160617"
+            ),
+            codeFields(code)
+        )
+    }
+
+    @Test
+    fun `конверт ISO 15434 снимается`() {
+        val code = "[)>\u001E06${gs}9N03752864${gs}D160617\u001E\u0004"
+        assertEquals(
+            CodeFields(product = "03752864", expiry = "160617"),
+            codeFields(code)
+        )
+    }
+
+    @Test
+    fun `дата изготовления не путается со сроком годности`() {
+        val code = "9N03752864${gs}16D20240115${gs}D260131"
+        assertEquals("260131", codeFields(code)?.expiry)
+    }
+
+    @Test
+    fun `у обычного QR полей нет`() {
+        assertNull(codeFields("https://example.com/01234"))
+    }
 }

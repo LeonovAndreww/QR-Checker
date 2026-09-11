@@ -34,6 +34,7 @@ object AppSettings {
     private const val KEY_CLOCK = "clock"
     private const val KEY_HAPTICS = "haptics"
     private const val KEY_SOUND = "sound"
+    private const val KEY_CODE_FIELDS = "code_fields"
 
     // не applicationContext: язык читается из attachBaseContext приложения, когда
     // applicationContext ещё не существует
@@ -45,6 +46,7 @@ object AppSettings {
     private var clockState: MutableState<ClockChoice>? = null
     private var hapticsState: MutableState<Boolean>? = null
     private var soundState: MutableState<Boolean>? = null
+    private var codeFieldsState: MutableState<Boolean>? = null
 
     fun themeState(context: Context): MutableState<ThemeChoice> =
         themeState ?: mutableStateOf(
@@ -104,6 +106,22 @@ object AppSettings {
     fun setSound(context: Context, on: Boolean) {
         soundState(context).value = on
         prefs(context).edit { putBoolean(KEY_SOUND, on) }
+    }
+
+    /**
+     * Показывать ли под развёрнутым кодом то, что в нём записано помимо самого номера:
+     * срок годности и партию. Включено по умолчанию - данные уже есть в коде, и на
+     * складе они как раз и нужны.
+     */
+    fun codeFieldsState(context: Context): MutableState<Boolean> =
+        codeFieldsState ?: mutableStateOf(prefs(context).getBoolean(KEY_CODE_FIELDS, true))
+            .also { codeFieldsState = it }
+
+    fun codeFields(context: Context): Boolean = codeFieldsState(context).value
+
+    fun setCodeFields(context: Context, on: Boolean) {
+        codeFieldsState(context).value = on
+        prefs(context).edit { putBoolean(KEY_CODE_FIELDS, on) }
     }
 
     private inline fun <T> read(context: Context, key: String, fallback: T, parse: (String) -> T): T =

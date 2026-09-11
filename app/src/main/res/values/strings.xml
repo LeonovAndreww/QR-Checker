@@ -200,4 +200,12 @@
     <string name="unmark_code_title">Remove the mark?</string>
     <string name="unmark_code_confirm">The code goes back to the not scanned list:</string>
     <string name="unmark_code_action">Remove</string>
+
+    <!-- что записано в коде -->
+    <string name="code_details_title">Code details</string>
+    <string name="code_details_why">Show the expiry date and the batch under an expanded code when the code itself carries them.</string>
+    <string name="field_expiry">Expires</string>
+    <string name="field_batch">Batch</string>
+    <string name="expiry_full">%1$02d.%2$02d.%3$d</string>
+    <string name="expiry_month_only">%1$02d.%2$d</string>
 </resources>

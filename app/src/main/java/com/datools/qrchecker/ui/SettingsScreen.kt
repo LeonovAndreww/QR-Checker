@@ -84,6 +84,7 @@ fun SettingsScreen(navController: NavController) {
     val clock by AppSettings.clockState(context)
     val haptics by AppSettings.hapticsState(context)
     val sound by AppSettings.soundState(context)
+    val codeDetails by AppSettings.codeFieldsState(context)
     val feel = rememberFeedback(withSound = true)
     var enabled by remember { mutableStateOf(SessionBackup.isEnabled(context)) }
     var restoring by remember { mutableStateOf(false) }
@@ -96,6 +97,8 @@ fun SettingsScreen(navController: NavController) {
     val feedbackWhy = stringResource(id = R.string.feedback_why)
     val hapticsLabel = stringResource(id = R.string.feedback_haptics)
     val soundLabel = stringResource(id = R.string.feedback_sound)
+    val codeDetailsTitle = stringResource(id = R.string.code_details_title)
+    val codeDetailsWhy = stringResource(id = R.string.code_details_why)
     val themeOptions = listOf(
         ThemeChoice.SYSTEM to stringResource(id = R.string.theme_system),
         ThemeChoice.LIGHT to stringResource(id = R.string.theme_light),
@@ -230,6 +233,30 @@ fun SettingsScreen(navController: NavController) {
                             AppSettings.setSound(context, it)
                             if (it) feel.playOnly(Outcome.SUCCESS)
                         }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = codeDetailsTitle,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Switch(
+                            checked = codeDetails,
+                            onCheckedChange = { AppSettings.setCodeFields(context, it) }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = codeDetailsWhy,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

@@ -38,6 +38,9 @@ import com.datools.qrchecker.util.buildCsv
 import com.datools.qrchecker.util.formatScanTimeForScreen
 import com.datools.qrchecker.util.formatTimeAgo
 import com.datools.qrchecker.util.shortCode
+import com.datools.qrchecker.util.codeFields
+import com.datools.qrchecker.util.formatExpiry
+import com.datools.qrchecker.util.AppSettings
 import com.datools.qrchecker.util.shareCsv
 import com.datools.qrchecker.model.SessionData
 import kotlinx.coroutines.delay
@@ -97,6 +100,7 @@ fun CodesListScreen(
     }
     var dontAskChecked by remember { mutableStateOf(false) }
     var codeToDeleteIsScanned by remember { mutableStateOf(false) }
+    val codeDetails by AppSettings.codeFieldsState(context)
 
     // LaunchedEffect is already a coroutine tied to this composable, and repo.getById is a
     // suspend Room call that dispatches itself — no extra scope or IO switch needed here
@@ -138,6 +142,8 @@ fun CodesListScreen(
     val copyCodeText = stringResource(id = R.string.cd_copy_code)
     val codeCopiedText = stringResource(id = R.string.code_copied)
     val deleteCodeCd = stringResource(id = R.string.cd_delete_code)
+    val expiryLabel = stringResource(id = R.string.field_expiry)
+    val batchLabel = stringResource(id = R.string.field_batch)
     val csvColumnOnBox = stringResource(id = R.string.csv_column_on_box)
     val csvColumnFull = stringResource(id = R.string.csv_column_full)
     val csvColumnScannedAt = stringResource(id = R.string.csv_column_scanned_at)
@@ -446,6 +452,34 @@ fun CodesListScreen(
                                                     imageVector = Icons.Default.Delete,
                                                     contentDescription = deleteCodeCd
                                                 )
+                                            }
+                                        }
+
+                                        // то, что записано в коде помимо номера:
+                                        // срок годности и партию на складе сверяют
+                                        // глазами, а из самого кода их не вычитать
+                                        if (expanded && codeDetails) {
+                                            val fields = remember(code) { codeFields(code) }
+                                            val expiry = fields?.expiry
+                                                ?.let { formatExpiry(context, it) }
+                                            val batch = fields?.batch
+
+                                            if (expiry != null || batch != null) {
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                expiry?.let {
+                                                    Text(
+                                                        text = "$expiryLabel: $it",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                                batch?.let {
+                                                    Text(
+                                                        text = "$batchLabel: $it",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
                                             }
                                         }
 

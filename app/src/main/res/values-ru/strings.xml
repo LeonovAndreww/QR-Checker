@@ -204,4 +204,12 @@
     <string name="unmark_code_title">Снять отметку?</string>
     <string name="unmark_code_confirm">Код вернётся в список неотсканированных:</string>
     <string name="unmark_code_action">Снять</string>
+
+    <!-- что записано в коде -->
+    <string name="code_details_title">Что записано в коде</string>
+    <string name="code_details_why">Показывать срок годности и партию под развёрнутым кодом, если они в нём есть.</string>
+    <string name="field_expiry">Годен до</string>
+    <string name="field_batch">Партия</string>
+    <string name="expiry_full">%1$02d.%2$02d.%3$d</string>
+    <string name="expiry_month_only">%1$02d.%2$d</string>
 </resources>
