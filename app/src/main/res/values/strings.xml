@@ -222,4 +222,5 @@
     <string name="no_collected_codes">Nothing scanned yet</string>
     <string name="manual_entry_will_record">The session has no such code. \"Record\" will add it.</string>
     <string name="manual_entry_record">Record</string>
+    <string name="msg_save_failed">Not saved, scan it again</string>
 </resources>

@@ -300,6 +300,12 @@ class ScanViewModel : ViewModel() {
             is ParsedFile.Codes -> source.scanned
             null -> emptyList()
         }
+        // вместе с отметками переносится и когда их поставили
+        val markTimes = when (val source = _parsed.value) {
+            is ParsedFile.Session -> source.session.scanTimes.orEmpty()
+            is ParsedFile.Codes -> source.scanTimes
+            null -> emptyMap()
+        }
         val appContext = context.applicationContext
         _conflict.value = null
         _isLoading.value = true
@@ -307,7 +313,7 @@ class ScanViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val repo = SessionRepository(appContext)
-                _mergedMarks.value = repo.mergeScanned(target.id, marks)
+                _mergedMarks.value = repo.mergeScanned(target.id, marks, markTimes)
                 repo.getById(target.id)?.let { SessionBackup.autoSave(appContext, it) }
                 _createdSessionId.value = target.id
             } catch (c: CancellationException) {

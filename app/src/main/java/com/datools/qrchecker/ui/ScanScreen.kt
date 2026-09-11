@@ -303,6 +303,7 @@ fun ScanScreen(
     val alreadyScannedAgoTemplate = stringResource(id = R.string.msg_already_scanned_ago)
     val scannedMsg = stringResource(id = R.string.msg_scanned)
     val recordedMsg = stringResource(id = R.string.msg_recorded)
+    val saveFailedMsg = stringResource(id = R.string.msg_save_failed)
     val collectedButtonText = stringResource(id = R.string.btn_collected)
     val notFoundMsg = stringResource(id = R.string.msg_not_in_list)
     val scannedButtonText = stringResource(id = R.string.btn_scanned)
@@ -346,6 +347,26 @@ fun ScanScreen(
             }
             if (feedback?.code == code) feedback = null
         }
+    }
+
+    /**
+     * Отменяет показанный успех, если запись в базу не удалась.
+     *
+     * Ответ даётся до записи намеренно: на потоке коробок он обязан быть мгновенным. Но
+     * без этого отката неудачная запись оставалась ложью - человек видел «Отсканирован»,
+     * отставлял коробку, а в сессии отметки не было, и узнать об этом было неоткуда.
+     *
+     * Снимается ровно то, что добавили, и только если с тех пор ничего не менялось:
+     * пересканировали тот же код или сессия перечиталась - откат уже не его дело.
+     */
+    fun undoFailedWrite(code: String, wasCollected: Boolean, failure: String) {
+        val current = session ?: return
+        session = current.copy(
+            codes = if (wasCollected) current.codes - code else current.codes,
+            scannedCodes = current.scannedCodes - code,
+            scanTimes = current.scanTimes?.minus(code)
+        )
+        showFeedback(failure, accents.danger, Outcome.FAILURE, code)
     }
 
     // Runs on the main thread (posted from the analyzer), so reading and updating
@@ -397,6 +418,7 @@ fun ScanScreen(
                         repo.recordScanned(sessionId, code, at)
                     } catch (t: Throwable) {
                         Log.e(TAG, "Can't record $code", t)
+                        undoFailedWrite(code, wasCollected = true, failure = saveFailedMsg)
                     }
                 }
             }
@@ -422,6 +444,7 @@ fun ScanScreen(
                         repo.markScanned(sessionId, code, at)
                     } catch (t: Throwable) {
                         Log.e(TAG, "Can't save the scanned code", t)
+                        undoFailedWrite(code, wasCollected = false, failure = saveFailedMsg)
                     }
                 }
             }

@@ -41,19 +41,35 @@ fun parseCodeList(text: String): List<String> {
 }
 
 private fun codeFromLine(line: String): String? {
-    // 1. Кавычек в строке нет, а сама она имеет форму кода маркировки - это голый код.
+    val fields = splitCsvRow(line)
+
+    // 1. Собственный отчёт приложения. Узнаётся по строению строки, а не по заголовкам:
+    //    заголовки переведены, а вот то, что первая колонка - это в точности короткая
+    //    форма второй, верно в любой локали.
+    //
+    //    Проверять это надо раньше правила про голый код: строка отчёта тоже начинается
+    //    с кода маркировки, и без этой ветки она целиком уходила в сессию кодом вида
+    //    «код;код;время», после чего камера переставала находить совпадение.
+    if (fields.size == 3) {
+        val full = normalizeCode(fields[1])
+        if (full.isNotEmpty() && normalizeCode(fields[0]) == shortCode(full)) {
+            return full.asCode()
+        }
+    }
+
+    // 2. Кавычек в строке нет, а сама она имеет форму кода маркировки - это голый код.
     //    Точка с запятой внутри него принадлежит серийнику: строка таблицы, в которой
     //    поле содержит разделитель, обязана это поле закавычить, иначе её не разберёт
     //    никто.
     val bare = normalizeCode(line)
     if ('"' !in line && MARKING_CODE.matches(bare)) return bare.asCode()
 
-    val fields = splitCsvRow(line)
+    // 3. Поле одно - значит колонок нет, и строка целиком и есть значение. Берётся
+    //    разобранное поле, а не сама строка: у значения с экранированной кавычкой
+    //    внутри снятие кавычек «по краям» оставляло и внешние, и удвоенные.
+    if (fields.size == 1) return normalizeCode(fields[0]).asCode()
 
-    // 2. Поле одно - значит колонок нет, и строка целиком и есть значение.
-    if (fields.size == 1) return normalizeCode(unwrapWholeLineQuotes(line)).asCode()
-
-    // 3. Иначе это таблица. Из полей берётся то, что похоже на код маркировки, а если
+    // 4. Иначе это таблица. Из полей берётся то, что похоже на код маркировки, а если
     //    таких нет - самое длинное: заголовки вроде "код" или "gtin" короче любого кода.
     val values = fields.mapNotNull { normalizeCode(it).asCode() }
     return values.filter { MARKING_CODE.matches(it) }.maxByOrNull { it.length }
@@ -62,16 +78,6 @@ private fun codeFromLine(line: String): String? {
 
 private fun String.asCode(): String? =
     takeIf { it.length >= SHORTEST_CODE && !it.contains(' ') }
-
-/** Снимает кавычки, если в них взята вся строка и внутри других кавычек нет. */
-private fun unwrapWholeLineQuotes(line: String): String =
-    if (line.length >= 2 && line.startsWith('"') && line.endsWith('"') &&
-        line.count { it == '"' } == 2
-    ) {
-        line.substring(1, line.length - 1)
-    } else {
-        line
-    }
 
 /** Режет строку таблицы на поля, не трогая разделители внутри кавычек. */
 private fun splitCsvRow(line: String): List<String> {

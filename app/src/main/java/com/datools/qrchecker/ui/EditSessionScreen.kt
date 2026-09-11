@@ -70,6 +70,7 @@ import com.datools.qrchecker.util.rememberFeedback
 import com.datools.qrchecker.util.getFileNameFromUri
 import com.datools.qrchecker.util.readCodesFromFiles
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -90,6 +91,8 @@ fun EditSessionScreen(
     val context = LocalContext.current
     val repo = remember { SessionRepository(context) }
     val scope = rememberCoroutineScope()
+    // разбор выбранных файлов: живёт между выборами, чтобы прежний можно было отменить
+    var parseJob by remember { mutableStateOf<Job?>(null) }
 
     var original by remember { mutableStateOf<SessionData?>(null) }
 
@@ -198,7 +201,11 @@ fun EditSessionScreen(
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
         val files = uris.map { it to getFileNameFromUri(it, context) }
         selectedNames = files.map { it.second }
-        scope.launch {
+        // Прежний разбор отменяется. Без этого два выбора шли параллельно, и результат
+        // побеждал не тот, что выбран последним, а тот, что дочитался последним: на
+        // экране стояло имя нового файла, а в сессию сохранялись коды старого.
+        parseJob?.cancel()
+        parseJob = scope.launch {
             isLoading = true
             errorMessage = null
             try {

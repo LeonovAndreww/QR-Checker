@@ -3,6 +3,7 @@ package com.datools.qrchecker.util
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -110,6 +111,12 @@ suspend fun readCodesFromFiles(
                     }
                 }
             }
+        } catch (c: CancellationException) {
+            // Отмена - не «файл не прочитался». Проглотив её здесь, функция досчитывала
+            // остальные файлы и возвращала прочитанное как готовый результат: нажатая
+            // «Отмена» показывала коды, а брошенная задача успевала переписать состояние
+            // следующего выбора.
+            throw c
         } catch (e: Exception) {
             Log.e(TAG, "Could not read $name", e)
         } catch (e: OutOfMemoryError) {

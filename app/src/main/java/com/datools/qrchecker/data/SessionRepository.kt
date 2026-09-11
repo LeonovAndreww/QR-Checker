@@ -164,11 +164,28 @@ class SessionRepository(context: Context) {
      * Пачка режется на куски: в списке IN у SQLite ограничение на число параметров, а
      * партия бывает и на несколько тысяч коробок.
      */
+    /**
+     * Переносит отметки из открытого файла в уже существующую сессию.
+     *
+     * Время у каждой отметки своё, из файла. Единое «сейчас» на всех приписывало
+     * вчерашней приёмке сегодняшний час: и «уже отсканирован час назад» на экране, и
+     * колонка времени в отчёте после такого слияния врали.
+     */
     suspend fun mergeScanned(
         sessionId: String,
         scanned: Collection<String>,
+        times: Map<String, Long> = emptyMap(),
         at: Long = System.currentTimeMillis()
-    ): Int = scanned.chunked(500).sumOf { dao.markScannedIn(sessionId, it, at) }
+    ): Int {
+        // Коды без известного времени идут пачками, с известным - по одному: пачкой их
+        // не отметить, у каждого своя отметка времени.
+        val (timed, untimed) = scanned.partition { it in times }
+        var changed = untimed.chunked(500).sumOf { dao.markScannedIn(sessionId, it, at) }
+        for (code in timed) {
+            changed += dao.markScanned(sessionId, code, times.getValue(code))
+        }
+        return changed
+    }
 
     /** Идентификаторы всех сессий - чтобы при восстановлении не заводить дубликаты. */
     suspend fun existingIds(): Set<String> = dao.getSessionIds().toHashSet()

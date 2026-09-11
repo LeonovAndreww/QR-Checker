@@ -226,4 +226,5 @@
     <string name="no_collected_codes">Пока ничего не отсканировано</string>
     <string name="manual_entry_will_record">Такого кода в сессии нет. «Записать» добавит его.</string>
     <string name="manual_entry_record">Записать</string>
+    <string name="msg_save_failed">Не сохранён, отсканируйте ещё раз</string>
 </resources>
