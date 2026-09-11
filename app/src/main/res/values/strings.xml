@@ -62,7 +62,7 @@
     <string name="progress_format">Progress:\n%1$d / %2$d</string>
     <string name="no_camera_permission">No access to the camera</string>
     <string name="cd_manual_entry">Enter code manually</string>
-    <string name="manual_entry_title">Enter code</string>
+    <string name="manual_entry_title">Manual input</string>
     <string name="manual_entry_label">Code</string>
     <string name="manual_entry_confirm">Check</string>
 
