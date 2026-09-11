@@ -209,5 +209,5 @@
     <string name="show_scan_code">Code on the scanning screen</string>
     <string name="show_scan_code_why">Under the answer after a scan.</string>
     <string name="show_code_fields">Expiry date and batch</string>
-    <string name="show_code_fields_why">Under an expanded code in the lists - Russian marking, EU medicines, German PPN.</string>
+    <string name="show_code_fields_why">Under an expanded code in the lists. EU medicines and German PPN carry them, Russian marking codes do not.</string>
 </resources>

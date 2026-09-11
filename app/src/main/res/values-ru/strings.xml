@@ -213,5 +213,5 @@
     <string name="show_scan_code">Код на экране сканирования</string>
     <string name="show_scan_code_why">Под ответом после сканирования.</string>
     <string name="show_code_fields">Срок годности и партия</string>
-    <string name="show_code_fields_why">Под развёрнутым кодом в списках — Честный ЗНАК, лекарства ЕС, немецкий PPN.</string>
+    <string name="show_code_fields_why">Под развёрнутым кодом в списках. Есть у лекарств ЕС и немецкого PPN, в Честном ЗНАКе таких полей нет.</string>
 </resources>
