@@ -211,7 +211,7 @@
     <string name="expiry_full">%1$02d.%2$02d.%3$d</string>
     <string name="expiry_month_only">%1$02d.%2$d</string>
     <string name="show_scan_code">Код на экране сканирования</string>
-    <string name="show_scan_code_why">Показывать отсканированный код под ответом. Data Matrix глазами не читается, а подпись под ним печатают не всегда.</string>
+    <string name="show_scan_code_why">Под ответом после сканирования.</string>
     <string name="show_code_fields">Срок годности и партия</string>
-    <string name="show_code_fields_why">Показывать их под развёрнутым кодом в списках, если они в нём записаны.</string>
+    <string name="show_code_fields_why">Под развёрнутым кодом в списках — Честный ЗНАК, лекарства ЕС, немецкий PPN.</string>
 </resources>

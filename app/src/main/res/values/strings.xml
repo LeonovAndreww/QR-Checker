@@ -207,7 +207,7 @@
     <string name="expiry_full">%1$02d.%2$02d.%3$d</string>
     <string name="expiry_month_only">%1$02d.%2$d</string>
     <string name="show_scan_code">Code on the scanning screen</string>
-    <string name="show_scan_code_why">Print the scanned code under the answer. A Data Matrix cannot be read by eye, and the line under it is not always printed.</string>
+    <string name="show_scan_code_why">Under the answer after a scan.</string>
     <string name="show_code_fields">Expiry date and batch</string>
-    <string name="show_code_fields_why">Show them under an expanded code in the lists, when the code carries them.</string>
+    <string name="show_code_fields_why">Under an expanded code in the lists - Russian marking, EU medicines, German PPN.</string>
 </resources>
