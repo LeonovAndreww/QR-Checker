@@ -214,11 +214,15 @@ fun CodesListScreen(
     }
 
     fun performDelete(code: String, isScanned: Boolean) {
+        // В собирающей сессии снимать отметку некуда: списка неотсканированных у неё
+        // нет, и код просто пропал бы из единственного видимого списка и из счётчика,
+        // оставшись в сессии и в выгрузке. Поэтому оттуда - сразу в корзину.
+        val unmark = isScanned && session?.collecting != true
         scope.launch {
             try {
                 // в списке отсканированных код возвращается в неотсканированные;
                 // в списке неотсканированных он уходит из сессии совсем
-                if (isScanned) {
+                if (unmark) {
                     repo.unmarkScanned(sessionId, code)
                 } else {
                     repo.deleteCode(sessionId, code)
@@ -230,7 +234,7 @@ fun CodesListScreen(
                     SessionBackup.scheduleSave(context, updated)
                     // два разных действия и два разных ответа: в списке отмеченных
                     // снимается отметка, в списке неотмеченных код уезжает в корзину
-                    say(if (isScanned) unmarkSuccess else binSuccess)
+                    say(if (unmark) unmarkSuccess else binSuccess)
                 } else {
                     say(deleteFailed)
                 }
@@ -544,14 +548,24 @@ fun CodesListScreen(
                         // корзину. Слово «удалить» осталось за самой корзиной, где оно
                         // и означает то, что означает.
                         Text(
-                            text = if (codeToDeleteIsScanned) unmarkTitle else binTitle,
+                            // спрашивается ровно про то, что произойдёт: в собирающей
+                            // сессии отметку снимать неоткуда, там код уезжает в корзину
+                            text = if (codeToDeleteIsScanned && session?.collecting != true) {
+                                unmarkTitle
+                            } else {
+                                binTitle
+                            },
                             style = MaterialTheme.typography.headlineSmall
                         )
                     },
                     text = {
                         Column {
                             Text(
-                                text = if (codeToDeleteIsScanned) unmarkConfirm else binConfirm,
+                                text = if (codeToDeleteIsScanned && session?.collecting != true) {
+                                    unmarkConfirm
+                                } else {
+                                    binConfirm
+                                },
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Spacer(modifier = Modifier.height(6.dp))
@@ -589,7 +603,13 @@ fun CodesListScreen(
                             dontAskChecked = false
                             performDelete(code, isScanned)
                         }) {
-                            Text(if (codeToDeleteIsScanned) unmarkAction else binAction)
+                            Text(
+                                if (codeToDeleteIsScanned && session?.collecting != true) {
+                                    unmarkAction
+                                } else {
+                                    binAction
+                                }
+                            )
                         }
                     },
                     dismissButton = {

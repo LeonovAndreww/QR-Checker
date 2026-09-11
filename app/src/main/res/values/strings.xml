@@ -220,5 +220,5 @@
     <string name="codes_title_collected">Recorded (%1$d)</string>
     <string name="sessions_collected">%1$d recorded</string>
     <string name="no_collected_codes">Nothing scanned yet</string>
-    <string name="manual_entry_will_record">The session has no such code. "Check" will record it.</string>
+    <string name="manual_entry_will_record">The session has no such code. \"Check\" will record it.</string>
 </resources>

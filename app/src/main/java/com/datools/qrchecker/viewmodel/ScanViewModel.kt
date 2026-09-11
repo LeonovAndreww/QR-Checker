@@ -111,7 +111,9 @@ class ScanViewModel : ViewModel() {
                 }
 
                 when {
-                    result.codes.isEmpty() ->
+                    // пустая собирающая сессия - это не «кодов не нашлось», а сессия,
+                    // в которую их ещё не насканировали
+                    result.codes.isEmpty() && !result.collecting ->
                         _errorMessage.value =
                             appContext.getString(R.string.error_no_codes_in_files)
 
@@ -123,7 +125,8 @@ class ScanViewModel : ViewModel() {
                             name = result.sessionName,
                             codes = result.codes,
                             scannedCodes = result.scanned,
-                            scanTimes = result.scanTimes
+                            scanTimes = result.scanTimes,
+                            collecting = result.collecting
                         )
                     )
 

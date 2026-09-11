@@ -36,6 +36,8 @@ data class ParsedFiles(
     val scanTimes: Map<String, Long>,
     /** Имя сессии - только когда выбран ровно один файл сессии и придумывать нечего. */
     val sessionName: String?,
+    /** Файл сессии сказал, что она собирающая. */
+    val collecting: Boolean = false,
     /** Чем записан каждый код: по этому его можно отсеять перед созданием сессии. */
     val formats: Map<String, CodeFormat> = emptyMap()
 )
@@ -60,6 +62,7 @@ suspend fun readCodesFromFiles(
     val scanned = LinkedHashSet<String>()
     val scanTimes = HashMap<String, Long>()
     var sessionName: String? = null
+    var collecting = false
 
     files.forEachIndexed { index, (uri, name) ->
         onProgress(index, files.size, name, 0, 0)
@@ -94,7 +97,10 @@ suspend fun readCodesFromFiles(
                         session.codes.forEach { formats.putIfAbsent(it, CodeFormat.TEXT) }
                         scanned += session.scannedCodes
                         session.scanTimes?.let { scanTimes.putAll(it) }
-                        if (files.size == 1) sessionName = session.name
+                        if (files.size == 1) {
+                            sessionName = session.name
+                            collecting = session.collecting
+                        }
                     } else {
                         val listed = withContext(Dispatchers.IO) {
                             parseCodeList(readTextFromUri(context, uri))
@@ -119,6 +125,7 @@ suspend fun readCodesFromFiles(
         scanned = scanned.filter { it in codes },
         scanTimes = scanTimes.filterKeys { it in codes },
         sessionName = sessionName,
+        collecting = collecting,
         formats = formats
     )
 }
