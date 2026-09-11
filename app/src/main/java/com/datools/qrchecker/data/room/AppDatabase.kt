@@ -36,8 +36,14 @@ abstract class AppDatabase : RoomDatabase() {
                     //
                     // Пересоздание ничего не стоит: 2.0.0 подписана другим ключом, и
                     // поверх прежней установки она всё равно не встанет.
+                    //
+                    // Только эта строка, и никакого fallbackToDestructiveMigrationOnDowngrade
+                    // рядом: оба метода пишут в одно поле requireMigration, и вызванный
+                    // вторым OnDowngrade ставит его обратно в true, то есть снова требует
+                    // миграцию и роняет приложение при обновлении. Понижение версии здесь
+                    // и так разрешено - fallbackToDestructiveMigration ставит
+                    // allowDestructiveMigrationOnDowngrade сам.
                     .fallbackToDestructiveMigration(dropAllTables = true)
-                    .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                     .build().also { INSTANCE = it }
             }
         }
