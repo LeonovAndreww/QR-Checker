@@ -35,6 +35,7 @@ object AppSettings {
     private const val KEY_HAPTICS = "haptics"
     private const val KEY_SOUND = "sound"
     private const val KEY_CODE_FIELDS = "code_fields"
+    private const val KEY_SCAN_CODE = "scan_code"
 
     // не applicationContext: язык читается из attachBaseContext приложения, когда
     // applicationContext ещё не существует
@@ -47,6 +48,7 @@ object AppSettings {
     private var hapticsState: MutableState<Boolean>? = null
     private var soundState: MutableState<Boolean>? = null
     private var codeFieldsState: MutableState<Boolean>? = null
+    private var scanCodeState: MutableState<Boolean>? = null
 
     fun themeState(context: Context): MutableState<ThemeChoice> =
         themeState ?: mutableStateOf(
@@ -122,6 +124,24 @@ object AppSettings {
     fun setCodeFields(context: Context, on: Boolean) {
         codeFieldsState(context).value = on
         prefs(context).edit { putBoolean(KEY_CODE_FIELDS, on) }
+    }
+
+    /**
+     * Показывать ли сам код в плашке с результатом сканирования.
+     *
+     * Включено по умолчанию: под кодом на коробке подпись печатают не всегда, и без неё
+     * человеку нечем свериться - глазами Data Matrix не читается. Особенно когда код
+     * оказался чужим: без строки на экране непонятно, что именно отсканировали.
+     */
+    fun scanCodeState(context: Context): MutableState<Boolean> =
+        scanCodeState ?: mutableStateOf(prefs(context).getBoolean(KEY_SCAN_CODE, true))
+            .also { scanCodeState = it }
+
+    fun scanCode(context: Context): Boolean = scanCodeState(context).value
+
+    fun setScanCode(context: Context, on: Boolean) {
+        scanCodeState(context).value = on
+        prefs(context).edit { putBoolean(KEY_SCAN_CODE, on) }
     }
 
     private inline fun <T> read(context: Context, key: String, fallback: T, parse: (String) -> T): T =

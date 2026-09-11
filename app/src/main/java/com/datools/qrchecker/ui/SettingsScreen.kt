@@ -85,6 +85,7 @@ fun SettingsScreen(navController: NavController) {
     val haptics by AppSettings.hapticsState(context)
     val sound by AppSettings.soundState(context)
     val codeDetails by AppSettings.codeFieldsState(context)
+    val scanCode by AppSettings.scanCodeState(context)
     val feel = rememberFeedback(withSound = true)
     var enabled by remember { mutableStateOf(SessionBackup.isEnabled(context)) }
     var restoring by remember { mutableStateOf(false) }
@@ -99,6 +100,8 @@ fun SettingsScreen(navController: NavController) {
     val soundLabel = stringResource(id = R.string.feedback_sound)
     val codeDetailsTitle = stringResource(id = R.string.code_details_title)
     val codeDetailsWhy = stringResource(id = R.string.code_details_why)
+    val scanCodeLabel = stringResource(id = R.string.code_details_on_scan)
+    val codeFieldsLabel = stringResource(id = R.string.code_details_in_lists)
     val themeOptions = listOf(
         ThemeChoice.SYSTEM to stringResource(id = R.string.theme_system),
         ThemeChoice.LIGHT to stringResource(id = R.string.theme_light),
@@ -241,22 +244,24 @@ fun SettingsScreen(navController: NavController) {
 
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = codeDetailsTitle,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Switch(
-                            checked = codeDetails,
-                            onCheckedChange = { AppSettings.setCodeFields(context, it) }
-                        )
-                    }
+                    Text(codeDetailsTitle, style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = codeDetailsWhy,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    SwitchRow(
+                        label = scanCodeLabel,
+                        checked = scanCode,
+                        onCheckedChange = { AppSettings.setScanCode(context, it) }
+                    )
+
+                    SwitchRow(
+                        label = codeFieldsLabel,
+                        checked = codeDetails,
+                        onCheckedChange = { AppSettings.setCodeFields(context, it) }
                     )
                 }
             }
@@ -502,7 +507,7 @@ private fun SwatchFace(
 /** Строка настройки со значком, подписью и тумблером. */
 @Composable
 private fun SwitchRow(
-    @DrawableRes icon: Int,
+    @DrawableRes icon: Int? = null,
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
@@ -514,13 +519,15 @@ private fun SwitchRow(
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            painter = painterResource(id = icon),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.width(14.dp))
+        icon?.let {
+            Icon(
+                painter = painterResource(id = it),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+        }
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,

@@ -203,9 +203,11 @@
 
     <!-- что записано в коде -->
     <string name="code_details_title">Code details</string>
-    <string name="code_details_why">Show the expiry date and the batch under an expanded code when the code itself carries them.</string>
+    <string name="code_details_why">A Data Matrix cannot be read by eye, and the line under it is not always printed.</string>
     <string name="field_expiry">Expires</string>
     <string name="field_batch">Batch</string>
     <string name="expiry_full">%1$02d.%2$02d.%3$d</string>
     <string name="expiry_month_only">%1$02d.%2$d</string>
+    <string name="code_details_on_scan">The code after a scan</string>
+    <string name="code_details_in_lists">Expiry date and batch</string>
 </resources>

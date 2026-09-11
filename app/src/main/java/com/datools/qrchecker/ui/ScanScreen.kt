@@ -82,6 +82,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.HorizontalDivider
 import com.datools.qrchecker.util.formatTimeAgo
 import com.datools.qrchecker.util.shortCode
+import com.datools.qrchecker.util.AppSettings
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Share
 import com.datools.qrchecker.util.shareSessionFile
@@ -202,6 +203,7 @@ fun ScanScreen(
     var feedback by remember { mutableStateOf<UiFeedback?>(null) }
     // какой код камера видит прямо сейчас и когда она его видела в последний раз
     var presentCode by remember { mutableStateOf<String?>(null) }
+    val showScanCode by AppSettings.scanCodeState(context)
     var presentSeenAt by remember { mutableLongStateOf(0L) }
 
     // a torn or smudged label is otherwise a dead end
@@ -797,14 +799,31 @@ fun ScanScreen(
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = f.message,
-                            color = f.color.content,
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = f.message,
+                                color = f.color.content,
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            // сам код под ответом: подпись под Data Matrix печатают не
+                            // всегда, а глазами он не читается - без строки на экране
+                            // сверить нечем, и особенно когда код оказался чужим
+                            if (showScanCode) {
+                                f.code?.let { scanned ->
+                                    Text(
+                                        text = shortCode(scanned),
+                                        color = f.color.content,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
