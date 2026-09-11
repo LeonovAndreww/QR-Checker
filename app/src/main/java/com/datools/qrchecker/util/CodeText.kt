@@ -23,19 +23,31 @@ private val GS1_WITHOUT_SEPARATORS = Regex("^(01\\d{14}21.+?)91.{4}92.+$")
 /**
  * (01)GTIN(21)серийник - ровно то, что напечатано под кодом на коробке.
  *
- * Дальше в коде маркировки идёт криптохвост (91)(92) на сотню знаков: на этикетку его не
- * выводят и человеку он ничего не говорит. В списках показывается только эта часть, чтобы
- * строка на экране совпадала со строкой на коробке.
+ * Всё остальное содержимое человеку на этикетке не показывают: у «Честного ЗНАКа» это
+ * криптохвост (91)(92) на сотню знаков, у лекарств - срок годности и партия. В списках
+ * остаётся только опознающая пара, чтобы строка на экране совпадала со строкой на
+ * коробке.
  *
- * Границу задаёт разделитель GS1. Если его не проставили, она считается по структуре.
+ * Пара берётся из разбора по GS1, а не по положению разделителя: порядок полей у разных
+ * систем прослеживаемости свой, и у европейского кода вида (01)(17)(10)(21) обрезка по
+ * первому разделителю оставила бы срок годности вместо серийника.
+ *
+ * Код без разделителей разбирается по структуре отдельно: поле переменной длины в такой
+ * строке не имеет границы, и разбор по стандарту утащил бы в серийник весь хвост.
+ *
  * Всё, что не разобралось, возвращается целиком: длинная строка лучше, чем обрезанная не
  * в том месте.
  */
 fun shortCode(raw: String): String {
     val code = normalizeCode(raw)
 
-    val head = code.substringBefore(GROUP_SEPARATOR)
-    if (head.length != code.length) return head
+    if (code.indexOf(GROUP_SEPARATOR) < 0) {
+        return GS1_WITHOUT_SEPARATORS.matchEntire(code)?.groupValues?.get(1) ?: code
+    }
 
-    return GS1_WITHOUT_SEPARATORS.matchEntire(code)?.groupValues?.get(1) ?: code
+    val parsed = parseGs1(code) ?: return code.substringBefore(GROUP_SEPARATOR)
+    val gtin = parsed.firstOrNull { it.first == "01" }?.second ?: return code.substringBefore(GROUP_SEPARATOR)
+    val serial = parsed.firstOrNull { it.first == "21" }?.second
+
+    return if (serial != null) "01$gtin" + "21$serial" else "01$gtin"
 }
