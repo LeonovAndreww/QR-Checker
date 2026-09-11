@@ -318,6 +318,7 @@ fun ScanScreen(
     val manualEntryHint = stringResource(id = R.string.manual_entry_hint)
     val manualEntryNoMatches = stringResource(id = R.string.manual_entry_no_matches)
     val manualEntryWillRecord = stringResource(id = R.string.manual_entry_will_record)
+    val manualEntryRecord = stringResource(id = R.string.manual_entry_record)
     val alreadyScannedLabel = stringResource(id = R.string.manual_entry_already_scanned)
     val cancelText = stringResource(id = R.string.delete_cancel)
     val shareFailedText = stringResource(id = R.string.session_share_failed)
@@ -823,13 +824,19 @@ fun ScanScreen(
                         }
                     },
                     confirmButton = {
+                        // Диалог - это поиск по кодам сессии, и набранное в нём обычно
+                        // кусок кода, а не код. В сверяющей сессии такой кусок безобиден:
+                        // ответом будет «нет в этой сессии». В собирающей он записался бы
+                        // в неё настоящим кодом, поэтому записать можно только то, что не
+                        // совпало ни с чем, - и кнопка тогда так и называется.
+                        val records = loaded.collecting && suggestions.isEmpty()
                         TextButton(
-                            enabled = typed.isNotBlank(),
+                            enabled = typed.isNotBlank() && (!loaded.collecting || records),
                             onClick = {
                                 manualCode = null
                                 onCodeScanned(typed, fromCamera = false)
                             }
-                        ) { Text(manualEntryConfirm) }
+                        ) { Text(if (records) manualEntryRecord else manualEntryConfirm) }
                     },
                     dismissButton = {
                         TextButton(onClick = { manualCode = null }) { Text(cancelText) }

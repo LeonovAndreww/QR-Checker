@@ -224,5 +224,6 @@
     <string name="codes_title_collected">Записанные (%1$d)</string>
     <string name="sessions_collected">записано %1$d</string>
     <string name="no_collected_codes">Пока ничего не отсканировано</string>
-    <string name="manual_entry_will_record">Такого кода в сессии нет. «Проверить» запишет его.</string>
+    <string name="manual_entry_will_record">Такого кода в сессии нет. «Записать» добавит его.</string>
+    <string name="manual_entry_record">Записать</string>
 </resources>
