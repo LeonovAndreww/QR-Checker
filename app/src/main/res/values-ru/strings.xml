@@ -206,12 +206,12 @@
     <string name="unmark_code_action">Снять</string>
 
     <!-- что записано в коде -->
-    <string name="code_details_title">Что записано в коде</string>
-    <string name="code_details_why">Data Matrix глазами не читается, а подпись под ним печатают не всегда.</string>
     <string name="field_expiry">Годен до</string>
     <string name="field_batch">Партия</string>
     <string name="expiry_full">%1$02d.%2$02d.%3$d</string>
     <string name="expiry_month_only">%1$02d.%2$d</string>
-    <string name="code_details_on_scan">Код после сканирования</string>
-    <string name="code_details_in_lists">Срок годности и партию</string>
+    <string name="show_scan_code">Код на экране сканирования</string>
+    <string name="show_scan_code_why">Показывать отсканированный код под ответом. Data Matrix глазами не читается, а подпись под ним печатают не всегда.</string>
+    <string name="show_code_fields">Срок годности и партия</string>
+    <string name="show_code_fields_why">Показывать их под развёрнутым кодом в списках, если они в нём записаны.</string>
 </resources>

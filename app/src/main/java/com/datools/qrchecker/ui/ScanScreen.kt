@@ -2,6 +2,8 @@ package com.datools.qrchecker.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.ClipData
+import android.os.Build
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -45,6 +47,9 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
@@ -217,6 +222,22 @@ fun ScanScreen(
     val suggestionScroll = rememberScrollState()
     var hasTorch by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val clipboard = LocalClipboard.current
+    val copyCodeCd = stringResource(id = R.string.cd_copy_code)
+    val codeCopiedText = stringResource(id = R.string.code_copied)
+
+    fun copyScanned(code: String) {
+        scope.launch {
+            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(copyCodeCd, code)))
+            // с Android 13 система показывает это сама, и своя плашка встаёт второй
+            // такой же поверх системной - как и на экране списка
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                snackbarHostState.showSnackbar(codeCopiedText)
+            }
+        }
+    }
+
     val feel = rememberFeedback(withSound = true)
 
     var hasPermission by remember {
@@ -813,14 +834,37 @@ fun ScanScreen(
                             // сверить нечем, и особенно когда код оказался чужим
                             if (showScanCode) {
                                 f.code?.let { scanned ->
-                                    Text(
-                                        text = shortCode(scanned),
-                                        color = f.color.content,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        textAlign = TextAlign.Center,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    // нажатие кладёт в буфер код целиком, а не
+                                    // укороченный: в учётную систему нужен весь.
+                                    // clickable съедает касание, и наводка фокуса,
+                                    // висящая на видоискателе, его не увидит
+                                    Row(
+                                        modifier = Modifier
+                                            .padding(top = 2.dp)
+                                            .clip(MaterialTheme.shapes.extraSmall)
+                                            .clickable { copyScanned(scanned) }
+                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = shortCode(scanned),
+                                            color = f.color.content,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Icon(
+                                            painter = painterResource(
+                                                id = R.drawable.ic_content_copy
+                                            ),
+                                            contentDescription = copyCodeCd,
+                                            tint = f.color.content,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
                                 }
                             }
                         }

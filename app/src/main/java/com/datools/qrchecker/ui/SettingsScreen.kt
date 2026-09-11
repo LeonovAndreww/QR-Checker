@@ -98,10 +98,10 @@ fun SettingsScreen(navController: NavController) {
     val feedbackWhy = stringResource(id = R.string.feedback_why)
     val hapticsLabel = stringResource(id = R.string.feedback_haptics)
     val soundLabel = stringResource(id = R.string.feedback_sound)
-    val codeDetailsTitle = stringResource(id = R.string.code_details_title)
-    val codeDetailsWhy = stringResource(id = R.string.code_details_why)
-    val scanCodeLabel = stringResource(id = R.string.code_details_on_scan)
-    val codeFieldsLabel = stringResource(id = R.string.code_details_in_lists)
+    val scanCodeLabel = stringResource(id = R.string.show_scan_code)
+    val scanCodeWhy = stringResource(id = R.string.show_scan_code_why)
+    val codeFieldsLabel = stringResource(id = R.string.show_code_fields)
+    val codeFieldsWhy = stringResource(id = R.string.show_code_fields_why)
     val themeOptions = listOf(
         ThemeChoice.SYSTEM to stringResource(id = R.string.theme_system),
         ThemeChoice.LIGHT to stringResource(id = R.string.theme_light),
@@ -200,6 +200,24 @@ fun SettingsScreen(navController: NavController) {
                         selected = clock,
                         onSelect = { AppSettings.setClock(context, it) }
                     )
+
+                    // тут же, а не отдельной карточкой: это о том, что видно на
+                    // экране, ровно как тема и формат времени
+                    Spacer(modifier = Modifier.height(14.dp))
+                    SwitchRow(
+                        label = scanCodeLabel,
+                        description = scanCodeWhy,
+                        checked = scanCode,
+                        onCheckedChange = { AppSettings.setScanCode(context, it) }
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    SwitchRow(
+                        label = codeFieldsLabel,
+                        description = codeFieldsWhy,
+                        checked = codeDetails,
+                        onCheckedChange = { AppSettings.setCodeFields(context, it) }
+                    )
                 }
             }
 
@@ -236,32 +254,6 @@ fun SettingsScreen(navController: NavController) {
                             AppSettings.setSound(context, it)
                             if (it) feel.playOnly(Outcome.SUCCESS)
                         }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(codeDetailsTitle, style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = codeDetailsWhy,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    SwitchRow(
-                        label = scanCodeLabel,
-                        checked = scanCode,
-                        onCheckedChange = { AppSettings.setScanCode(context, it) }
-                    )
-
-                    SwitchRow(
-                        label = codeFieldsLabel,
-                        checked = codeDetails,
-                        onCheckedChange = { AppSettings.setCodeFields(context, it) }
                     )
                 }
             }
@@ -510,6 +502,7 @@ private fun SwitchRow(
     @DrawableRes icon: Int? = null,
     label: String,
     checked: Boolean,
+    description: String? = null,
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
@@ -528,11 +521,21 @@ private fun SwitchRow(
             )
             Spacer(modifier = Modifier.width(14.dp))
         }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier
+            .weight(1f)
+            .padding(end = 8.dp)
+        ) {
+            Text(text = label, style = MaterialTheme.typography.bodyLarge)
+            // без пояснения строка вроде «Срок годности и партия» читается как
+            // отдельная сущность, а не как «показывать ли их»
+            description?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
