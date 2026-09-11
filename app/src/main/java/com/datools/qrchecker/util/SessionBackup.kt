@@ -91,8 +91,20 @@ object SessionBackup {
     private fun fileNameFor(session: SessionData) =
         "${sessionFileName(session.name)}__${session.id}.$SESSION_FILE_EXTENSION"
 
+    /**
+     * Файл принадлежит этой сессии.
+     *
+     * Проверяется вхождение, а не окончание: провайдер документов вправе дописать к
+     * имени своё расширение по MIME-типу, и «Имя__id.qrcheck» лежит в папке как
+     * «Имя__id.qrcheck.json». По точному окончанию такие файлы не находились - копии
+     * плодились вместо перезаписи, а восстановление не видело ни одной.
+     */
     private fun belongsTo(name: String?, sessionId: String) =
-        name != null && name.endsWith("__$sessionId.$SESSION_FILE_EXTENSION")
+        name != null && name.contains("__$sessionId.$SESSION_FILE_EXTENSION")
+
+    /** Похоже на копию сессии, чьё бы имя провайдер ни дописал. */
+    private fun looksLikeBackup(name: String?) =
+        name != null && name.contains(".$SESSION_FILE_EXTENSION")
 
     /**
      * Пишет копию сессии. Возвращает false, если папка не выбрана, отозвана или
@@ -109,14 +121,17 @@ object SessionBackup {
                 }
 
                 val wanted = fileNameFor(session)
-                // переименовали сессию - старый файл той же сессии больше не нужен
-                for (existing in dir.listFiles()) {
-                    if (belongsTo(existing.name, session.id) && existing.name != wanted) {
-                        existing.delete()
-                    }
-                }
+                val mine = dir.listFiles().filter { belongsTo(it.name, session.id) }
 
-                val file = dir.findFile(wanted)
+                // Ищется не по точному имени: провайдер мог дописать своё расширение,
+                // и findFile(wanted) промахивался бы каждый раз, создавая новый файл.
+                val reusable = mine.firstOrNull {
+                    it.name == wanted || it.name?.startsWith("$wanted.") == true
+                }
+                // переименовали сессию - файлы со старым именем больше не нужны
+                mine.filter { it.uri != reusable?.uri }.forEach { it.delete() }
+
+                val file = reusable
                     ?: dir.createFile(SESSION_FILE_MIME, wanted)
                     ?: return@withContext false
 
@@ -157,7 +172,7 @@ object SessionBackup {
         val dir = DocumentFile.fromTreeUri(context, folder) ?: return@withContext emptyList()
 
         dir.listFiles().mapNotNull { file ->
-            if (file.name?.endsWith(".$SESSION_FILE_EXTENSION") != true) return@mapNotNull null
+            if (!looksLikeBackup(file.name)) return@mapNotNull null
             try {
                 readSessionFile(readTextFromUri(context, file.uri)).session
             } catch (t: Throwable) {

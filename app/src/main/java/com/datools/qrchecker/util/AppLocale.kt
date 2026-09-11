@@ -18,6 +18,16 @@ import java.util.Locale
  * ViewModel по applicationContext, и разъехавшись они дали бы ровно ту мешанину языков,
  * от которой всё это и заводится.
  */
+/**
+ * Язык устройства, каким он был при запуске процесса.
+ *
+ * Запоминается один раз и до первой подмены. Дальше applyLanguage зовёт
+ * Locale.setDefault, и Locale.getDefault() начинает возвращать выбранный в настройках
+ * язык, а не системный - после чего «Системный» возвращал бы приложение к тому же
+ * русскому, который человек только что выключил.
+ */
+private val deviceLocale: Locale = Locale.getDefault()
+
 fun applyLanguage(base: Context): Context {
     val locale = chosenLocale(base) ?: return base
     Locale.setDefault(locale)
@@ -36,7 +46,7 @@ fun applyLanguage(base: Context): Context {
  */
 fun refreshAppLanguage(context: Context) {
     val app = context.applicationContext
-    val locale = chosenLocale(app) ?: Locale.getDefault()
+    val locale = chosenLocale(app) ?: deviceLocale
     Locale.setDefault(locale)
 
     val resources = app.resources

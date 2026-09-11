@@ -1,12 +1,12 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 1,
-    "identityHash": "29b6909f589928f616b74bcbf7894008",
+    "version": 10,
+    "identityHash": "febb7ec46b886d8dd329af59b468637c",
     "entities": [
       {
         "tableName": "sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `openedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `openedAt` INTEGER NOT NULL, `collecting` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -31,6 +31,12 @@
             "columnName": "openedAt",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "collecting",
+            "columnName": "collecting",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -42,7 +48,7 @@
       },
       {
         "tableName": "session_codes",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `code` TEXT NOT NULL, `scanned` INTEGER NOT NULL, `position` INTEGER NOT NULL, `scannedAt` INTEGER, PRIMARY KEY(`sessionId`, `code`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `code` TEXT NOT NULL, `scanned` INTEGER NOT NULL, `position` INTEGER NOT NULL, `scannedAt` INTEGER, `deletedAt` INTEGER, PRIMARY KEY(`sessionId`, `code`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "sessionId",
@@ -71,6 +77,11 @@
           {
             "fieldPath": "scannedAt",
             "columnName": "scannedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deletedAt",
             "affinity": "INTEGER"
           }
         ],
@@ -109,7 +120,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '29b6909f589928f616b74bcbf7894008')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'febb7ec46b886d8dd329af59b468637c')"
     ]
   }
 }
