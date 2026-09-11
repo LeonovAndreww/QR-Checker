@@ -93,6 +93,7 @@ fun HomeScreen(navController: NavController) {
     val deleteConfirm = stringResource(id = R.string.delete_confirm)
     val settingsCd = stringResource(id = R.string.cd_settings)
     val progressTemplate = stringResource(id = R.string.sessions_progress)
+    val collectedTemplate = stringResource(id = R.string.sessions_collected)
     val emptyText = stringResource(id = R.string.sessions_empty)
 
     Scaffold(
@@ -194,11 +195,17 @@ fun HomeScreen(navController: NavController) {
                                 )
                                 Text(
                                     text = buildString {
+                                        // «12 из 340» у собирающей сессии соврало бы:
+                                        // знаменателя у неё нет
                                         append(
-                                            progressTemplate.format(
-                                                session.scanned,
-                                                session.total
-                                            )
+                                            if (session.collecting) {
+                                                collectedTemplate.format(session.scanned)
+                                            } else {
+                                                progressTemplate.format(
+                                                    session.scanned,
+                                                    session.total
+                                                )
+                                            }
                                         )
                                         // у сессий, заведённых до появления этих полей,
                                         // времени нет, и выдумывать его нечего - строка

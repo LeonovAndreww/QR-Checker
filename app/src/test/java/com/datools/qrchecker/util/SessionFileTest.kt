@@ -3,6 +3,8 @@ package com.datools.qrchecker.util
 import com.datools.qrchecker.R
 import com.datools.qrchecker.model.SessionData
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
@@ -128,5 +130,47 @@ class SessionFileTest {
         val read = readSessionFile(text).session
         assertEquals(listOf("A1"), read.scannedCodes)
         assertEquals(emptyMap<String, Long>(), read.scanTimes)
+    }
+
+    @Test
+    fun `собирающая сессия переживает запись и чтение`() {
+        val session = SessionData(
+            id = "s1",
+            name = "Приёмка",
+            codes = listOf("A", "B"),
+            scannedCodes = listOf("A"),
+            scanTimes = mapOf("A" to 100L),
+            collecting = true
+        )
+        val back = readSessionFile(writeSessionFile(session, savedAt = 7L)).session
+        assertTrue(back.collecting)
+        assertEquals(listOf("A", "B"), back.codes)
+    }
+
+    @Test
+    fun `пустая собирающая сессия - законный файл`() {
+        val session = SessionData(
+            id = "s2",
+            name = "Пустая",
+            codes = emptyList(),
+            scannedCodes = emptyList(),
+            collecting = true
+        )
+        val back = readSessionFile(writeSessionFile(session, savedAt = 0L)).session
+        assertTrue(back.collecting)
+        assertTrue(back.codes.isEmpty())
+    }
+
+    @Test
+    fun `у обычной сессии флага в файле нет`() {
+        val session = SessionData(
+            id = "s3",
+            name = "Обычная",
+            codes = listOf("A"),
+            scannedCodes = emptyList()
+        )
+        val text = writeSessionFile(session, savedAt = 0L)
+        assertFalse(text.contains("collecting"))
+        assertFalse(readSessionFile(text).session.collecting)
     }
 }

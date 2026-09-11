@@ -210,4 +210,15 @@
     <string name="show_scan_code_why">Under the answer after a scan.</string>
     <string name="show_code_fields">Expiry date and batch</string>
     <string name="show_code_fields_why">Under an expanded code in the lists. EU medicines and German PPN carry them, Russian marking codes do not.</string>
+
+    <!-- сессия без файла -->
+    <string name="msg_recorded">Recorded</string>
+    <string name="btn_collected">Recorded</string>
+    <string name="progress_collected">Recorded:\n%1$d</string>
+    <string name="start_without_file">Start without a file</string>
+    <string name="start_without_file_why">The session starts empty and every scanned code goes into it. It catches repeats, nothing else.</string>
+    <string name="codes_title_collected">Recorded (%1$d)</string>
+    <string name="sessions_collected">%1$d recorded</string>
+    <string name="no_collected_codes">Nothing scanned yet</string>
+    <string name="manual_entry_will_record">The session has no such code. "Check" will record it.</string>
 </resources>

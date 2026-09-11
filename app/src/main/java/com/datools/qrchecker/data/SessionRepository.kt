@@ -23,7 +23,8 @@ class SessionRepository(context: Context) {
                 id = session.id,
                 name = session.name,
                 createdAt = now,
-                openedAt = now
+                openedAt = now,
+                collecting = session.collecting
             ),
             session.toCodeEntities()
         )
@@ -39,7 +40,8 @@ class SessionRepository(context: Context) {
             scannedCodes = codes.filter { it.scanned }.map { it.code },
             scanTimes = codes.mapNotNull { row ->
                 row.scannedAt?.let { row.code to it }
-            }.toMap()
+            }.toMap(),
+            collecting = session.collecting
         )
     }
 
@@ -60,6 +62,18 @@ class SessionRepository(context: Context) {
         code: String,
         at: Long = System.currentTimeMillis()
     ): Boolean = dao.markScanned(sessionId, code, at) > 0
+
+    /**
+     * Дописывает в собирающую сессию код, которого в ней ещё не было.
+     *
+     * Отдельно от markScanned: тот обновляет строку, которая уже есть, и для нового кода
+     * не делает ничего.
+     */
+    suspend fun recordScanned(
+        sessionId: String,
+        code: String,
+        at: Long = System.currentTimeMillis()
+    ) = dao.addScannedCode(sessionId, code, at)
 
     /** Returns the code to the unscanned list without removing it from the session. */
     suspend fun unmarkScanned(sessionId: String, code: String) {

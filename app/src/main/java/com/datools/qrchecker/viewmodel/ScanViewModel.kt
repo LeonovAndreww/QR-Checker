@@ -246,6 +246,47 @@ class ScanViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Заводит пустую сессию, которая будет собирать коды по мере сканирования.
+     *
+     * Отдельно от createSession: там вся работа - разложить уже разобранный файл, а здесь
+     * разбирать нечего, и половина проверок (совпадение кодов с существующей сессией,
+     * отбор форматов) смысла не имеет.
+     */
+    fun createCollectingSession(context: Context, name: String) {
+        if (_isLoading.value) return
+        val appContext = context.applicationContext
+
+        _isLoading.value = true
+        _errorMessage.value = null
+        _createdSessionId.value = null
+
+        viewModelScope.launch {
+            try {
+                val repo = SessionRepository(appContext)
+                val session = SessionData(
+                    id = UUID.randomUUID().toString(),
+                    name = repo.freeName(name),
+                    codes = emptyList(),
+                    scannedCodes = emptyList(),
+                    scanTimes = emptyMap(),
+                    collecting = true
+                )
+                repo.insert(session)
+                SessionBackup.autoSave(appContext, session)
+                _createdSessionId.value = session.id
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                Log.e(TAG, "Can't create a collecting session", t)
+                _errorMessage.value =
+                    appContext.getString(R.string.error_saving_session, t.message ?: "")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     /** Переносит отметки открытого файла в уже существующую сессию с теми же кодами. */
     fun mergeIntoExisting(context: Context) {
         val target = _conflict.value ?: return

@@ -24,6 +24,7 @@ private const val KEY_CODES = "codes"
 private const val KEY_CODE = "code"
 private const val KEY_SCANNED = "scanned"
 private const val KEY_SCANNED_AT = "scannedAt"
+private const val KEY_COLLECTING = "collecting"
 
 /**
  * Файл не является сессией или повреждён.
@@ -71,6 +72,9 @@ fun writeSessionFile(
         addProperty(KEY_ID, session.id)
         addProperty(KEY_NAME, session.name)
         addProperty(KEY_SAVED_AT, savedAt)
+        // пишется только когда есть: файл обычной сессии не должен обрастать полями,
+        // которые к ней не относятся
+        if (session.collecting) addProperty(KEY_COLLECTING, true)
         add(KEY_CODES, codes)
     }.toString()
 }
@@ -125,7 +129,11 @@ fun readSessionFile(text: String): SessionFileContent {
         }
     }
 
-    if (codes.isEmpty()) throw SessionFileException(R.string.session_file_empty)
+    val collecting =
+        obj.get(KEY_COLLECTING)?.takeIf { it.isJsonPrimitive }?.asBoolean == true
+
+    // пустая собирающая сессия - законный файл: её и заводят пустой
+    if (codes.isEmpty() && !collecting) throw SessionFileException(R.string.session_file_empty)
 
     val savedAt = obj.get(KEY_SAVED_AT)?.takeIf { it.isJsonPrimitive }?.asLong ?: 0L
 
@@ -135,7 +143,8 @@ fun readSessionFile(text: String): SessionFileContent {
             name = name,
             codes = codes,
             scannedCodes = scanned,
-            scanTimes = scanTimes
+            scanTimes = scanTimes,
+            collecting = collecting
         ),
         savedAt = savedAt
     )

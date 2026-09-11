@@ -155,6 +155,8 @@ fun CreateSessionScreen(navController: NavController) {
     val codesSummaryTemplate = stringResource(id = R.string.parsed_codes_summary)
     val sourceLineTemplate = stringResource(id = R.string.parsed_source_line)
     val continueText = stringResource(id = R.string.continue_button)
+    val startWithoutFileText = stringResource(id = R.string.start_without_file)
+    val startWithoutFileWhy = stringResource(id = R.string.start_without_file_why)
     val parsingText = stringResource(id = R.string.parsing_pdf)
     val cancelParsingText = stringResource(id = R.string.parsing_cancel)
     val sessionSummaryTemplate = stringResource(id = R.string.parsed_session_summary)
@@ -376,6 +378,28 @@ fun CreateSessionScreen(navController: NavController) {
             }
 
             Spacer(modifier = Modifier.weight(1f))
+
+            // Путь без файла живёт рядом с основным, а не в отдельном меню: это тот же
+            // экран создания сессии, только список приходит не из документа, а с камеры.
+            // Показывается, пока файл не выбран, - выбрав его, человек уже ответил.
+            if (parsed == null && !isLoading) {
+                TextButton(
+                    onClick = { scanViewModel.createCollectingSession(context, sessionName) },
+                    enabled = sessionName.isNotBlank(),
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                ) {
+                    Text(startWithoutFileText)
+                }
+                Text(
+                    text = startWithoutFileWhy,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 28.dp)
+                )
+            }
 
             Button(
                 onClick = { scanViewModel.createSession(context, sessionName, keepFormats = keptFormats) },

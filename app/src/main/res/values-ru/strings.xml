@@ -214,4 +214,15 @@
     <string name="show_scan_code_why">Под ответом после сканирования.</string>
     <string name="show_code_fields">Срок годности и партия</string>
     <string name="show_code_fields_why">Под развёрнутым кодом в списках. Есть у лекарств ЕС и немецкого PPN, в Честном ЗНАКе таких полей нет.</string>
+
+    <!-- сессия без файла -->
+    <string name="msg_recorded">Записан</string>
+    <string name="btn_collected">Записанные</string>
+    <string name="progress_collected">Записано:\n%1$d</string>
+    <string name="start_without_file">Начать без файла</string>
+    <string name="start_without_file_why">Сессия заводится пустой, и каждый отсканированный код попадает в неё. Ловит только повторы.</string>
+    <string name="codes_title_collected">Записанные (%1$d)</string>
+    <string name="sessions_collected">записано %1$d</string>
+    <string name="no_collected_codes">Пока ничего не отсканировано</string>
+    <string name="manual_entry_will_record">Такого кода в сессии нет. «Проверить» запишет его.</string>
 </resources>

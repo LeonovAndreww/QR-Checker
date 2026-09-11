@@ -12,5 +12,7 @@ data class SessionData(
      * версиями до появления времени: у них этого поля в JSON нет, и объект собирается
      * без вызова конструктора, так что умолчание Kotlin туда не подставится.
      */
-    val scanTimes: Map<String, Long>? = null
+    val scanTimes: Map<String, Long>? = null,
+    /** Сессия собирает коды, а не сверяет их со списком. */
+    val collecting: Boolean = false
 )

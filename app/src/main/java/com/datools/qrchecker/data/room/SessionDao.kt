@@ -159,14 +159,42 @@ abstract class SessionDao {
                COUNT(c.code) AS total,
                COALESCE(SUM(c.scanned), 0) AS scanned,
                s.createdAt AS createdAt,
-               s.openedAt AS openedAt
+               s.openedAt AS openedAt,
+               s.collecting AS collecting
         FROM sessions s
         LEFT JOIN session_codes c ON c.sessionId = s.id AND c.deletedAt IS NULL
-        GROUP BY s.id, s.name, s.createdAt, s.openedAt, s.rowid
+        GROUP BY s.id, s.name, s.createdAt, s.openedAt, s.collecting, s.rowid
         ORDER BY s.openedAt DESC, s.rowid DESC
         """
     )
     abstract fun getSummariesFlow(): Flow<List<SessionSummary>>
+
+    @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM session_codes WHERE sessionId = :sessionId")
+    abstract suspend fun nextPosition(sessionId: String): Int
+
+    /**
+     * Дописывает в сессию код, которого в ней не было, сразу отмеченным.
+     *
+     * Только для собирающей сессии: у сверяющей появление такого кода - это ответ «нет в
+     * этой поставке», а не повод менять список.
+     *
+     * Позиция берётся следующей за последней: порядок в списке - это порядок, в котором
+     * коды приходили, другого у собранной сессии нет.
+     */
+    @Transaction
+    open suspend fun addScannedCode(sessionId: String, code: String, at: Long) {
+        insertCodes(
+            listOf(
+                SessionCodeEntity(
+                    sessionId = sessionId,
+                    code = code,
+                    scanned = true,
+                    position = nextPosition(sessionId),
+                    scannedAt = at
+                )
+            )
+        )
+    }
 
     @Transaction
     open suspend fun replaceCodes(sessionId: String, codes: List<SessionCodeEntity>) {

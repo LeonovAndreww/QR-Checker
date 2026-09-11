@@ -10,5 +10,7 @@ data class SessionSummary(
     val total: Int,
     val scanned: Int,
     val createdAt: Long,
-    val openedAt: Long
+    val openedAt: Long,
+    /** Сессия собирает коды, а не сверяет их со списком. */
+    val collecting: Boolean = false
 )

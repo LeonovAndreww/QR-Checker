@@ -93,6 +93,8 @@ import androidx.compose.material.icons.filled.Share
 import com.datools.qrchecker.util.shareSessionFile
 import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.util.normalizeCode
+import com.datools.qrchecker.util.ScanVerdict
+import com.datools.qrchecker.util.verdictFor
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -300,6 +302,8 @@ fun ScanScreen(
     val alreadyScannedMsg = stringResource(id = R.string.msg_already_scanned)
     val alreadyScannedAgoTemplate = stringResource(id = R.string.msg_already_scanned_ago)
     val scannedMsg = stringResource(id = R.string.msg_scanned)
+    val recordedMsg = stringResource(id = R.string.msg_recorded)
+    val collectedButtonText = stringResource(id = R.string.btn_collected)
     val notFoundMsg = stringResource(id = R.string.msg_not_in_list)
     val scannedButtonText = stringResource(id = R.string.btn_scanned)
     val notScannedButtonText = stringResource(id = R.string.btn_not_scanned)
@@ -313,6 +317,7 @@ fun ScanScreen(
     val manualEntryConfirm = stringResource(id = R.string.manual_entry_confirm)
     val manualEntryHint = stringResource(id = R.string.manual_entry_hint)
     val manualEntryNoMatches = stringResource(id = R.string.manual_entry_no_matches)
+    val manualEntryWillRecord = stringResource(id = R.string.manual_entry_will_record)
     val alreadyScannedLabel = stringResource(id = R.string.manual_entry_already_scanned)
     val cancelText = stringResource(id = R.string.delete_cancel)
     val shareFailedText = stringResource(id = R.string.session_share_failed)
@@ -362,24 +367,40 @@ fun ScanScreen(
         presentSeenAt = now
         if (stillHere) return
 
-        when {
-            code !in current.codes ->
+        when (val verdict = verdictFor(current, code)) {
+            is ScanVerdict.Foreign ->
                 showFeedback(notFoundMsg, accents.danger, Outcome.FAILURE, code)
 
-            code in current.scannedCodes -> {
+            is ScanVerdict.Repeat -> {
                 // не просто «уже был», а когда именно: между «пять секунд назад» и
                 // «вчера в 17:55» разница в том, пересчитывает человек ту же коробку
                 // прямо сейчас или наткнулся на позавчерашнюю
-                val at = current.scanTimes?.get(code)
-                val message = if (at == null) {
-                    alreadyScannedMsg
-                } else {
-                    alreadyScannedAgoTemplate.format(formatTimeAgo(context, at))
-                }
+                val message = verdict.at?.let {
+                    alreadyScannedAgoTemplate.format(formatTimeAgo(context, it))
+                } ?: alreadyScannedMsg
                 showFeedback(message, accents.warning, Outcome.REPEAT, code)
             }
 
-            else -> {
+            is ScanVerdict.Recorded -> {
+                // код дописывается в сессию и сразу считается отмеченным: в собирающей
+                // сессии «отсканирован» и «есть в списке» - одно и то же событие
+                val at = System.currentTimeMillis()
+                session = current.copy(
+                    codes = current.codes + code,
+                    scannedCodes = current.scannedCodes + code,
+                    scanTimes = current.scanTimes.orEmpty() + (code to at)
+                )
+                showFeedback(recordedMsg, accents.success, Outcome.SUCCESS, code)
+                appScope.launch {
+                    try {
+                        repo.recordScanned(sessionId, code, at)
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "Can't record $code", t)
+                    }
+                }
+            }
+
+            is ScanVerdict.Marked -> {
                 // одно и то же время идёт и в базу, и в состояние экрана: с него потом
                 // снимается копия сессии, и разъехавшись они увезли бы в файл отметки
                 // без времени
@@ -414,11 +435,13 @@ fun ScanScreen(
         return
     }
 
-    val progressText = stringResource(
-        id = R.string.progress_format,
-        loaded.scannedCodes.size,
-        loaded.codes.size
-    )
+    // у собирающей сессии знаменателя не существует: сколько кодов будет, заранее
+    // не знает никто
+    val progressText = if (loaded.collecting) {
+        stringResource(id = R.string.progress_collected, loaded.scannedCodes.size)
+    } else {
+        stringResource(id = R.string.progress_format, loaded.scannedCodes.size, loaded.codes.size)
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
@@ -642,7 +665,7 @@ fun ScanScreen(
                     shape = MaterialTheme.shapes.small
                 ) {
                     Text(
-                        text = scannedButtonText,
+                        text = if (loaded.collecting) collectedButtonText else scannedButtonText,
                         maxLines = 1,
                         // подпись занимает столько, сколько влезло, а не обрезается:
                         // «Неотсканирован...» - это не название кнопки
@@ -661,26 +684,33 @@ fun ScanScreen(
                     modifier = Modifier.padding(horizontal = 8.dp)
                 )
 
-                Button(
-                    onClick = {
-                        navController.navigateOnce(
-                            Screen.CodesList.createRoute(sessionId, TYPE_NOT_SCANNED)
+                // у собирающей сессии второго списка не существует: неотсканированных
+                // в ней не бывает по определению. Место кнопки остаётся пустым, чтобы
+                // счётчик не прыгал к краю экрана
+                if (loaded.collecting) {
+                    Spacer(modifier = Modifier.weight(1f))
+                } else {
+                    Button(
+                        onClick = {
+                            navController.navigateOnce(
+                                Screen.CodesList.createRoute(sessionId, TYPE_NOT_SCANNED)
+                            )
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = notScannedButtonText,
+                            maxLines = 1,
+                            autoSize = BUTTON_TEXT_SIZE,
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text = notScannedButtonText,
-                        maxLines = 1,
-                        autoSize = BUTTON_TEXT_SIZE,
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    }
                 }
             }
 
@@ -734,7 +764,13 @@ fun ScanScreen(
 
                             if (suggestions.isEmpty()) {
                                 Text(
-                                    text = manualEntryNoMatches,
+                                    // в собирающей сессии отсутствие совпадений - не
+                                    // тупик: набранный код в неё запишется
+                                    text = if (loaded.collecting) {
+                                        manualEntryWillRecord
+                                    } else {
+                                        manualEntryNoMatches
+                                    },
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

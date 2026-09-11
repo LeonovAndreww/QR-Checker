@@ -113,14 +113,24 @@ fun CodesListScreen(
         }
     }
 
-    val titleScanned =
-        stringResource(id = R.string.codes_title_scanned, session?.scannedCodes?.size ?: 0)
+    val scannedCount = session?.scannedCodes?.size ?: 0
+    // у собирающей сессии список один, и слово «отсканированные» в нём лишнее:
+    // других кодов в ней не бывает
+    val titleScanned = if (session?.collecting == true) {
+        stringResource(id = R.string.codes_title_collected, scannedCount)
+    } else {
+        stringResource(id = R.string.codes_title_scanned, scannedCount)
+    }
     val titleNotScanned = stringResource(
         id = R.string.codes_title_not_scanned,
         session?.let { it.codes.size - it.scannedCodes.size } ?: 0
     )
     val loadingText = stringResource(id = R.string.loading_session)
-    val noScannedText = stringResource(id = R.string.no_scanned_codes)
+    val noScannedText = if (session?.collecting == true) {
+        stringResource(id = R.string.no_collected_codes)
+    } else {
+        stringResource(id = R.string.no_scanned_codes)
+    }
     val noNotScannedText = stringResource(id = R.string.no_not_scanned_codes)
     val binTitle = stringResource(id = R.string.bin_code_title)
     val binConfirm = stringResource(id = R.string.bin_code_confirm)
