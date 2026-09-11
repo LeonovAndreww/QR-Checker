@@ -49,10 +49,15 @@ suspend fun parseImageForCodes(context: Context, uri: Uri): List<ScannedCode> =
         // есть «не уменьшать», ровно наоборот тому, что написано в комментарии, - и
         // сама распаковка лежала вне обработчика нехватки памяти.
         val bitmap = try {
+            // Замерочный проход возвращает null по контракту - inJustDecodeBounds на то
+            // и нужен. Проверять тут надо поток, а не результат: на результате стояло
+            // "?: return emptyList()", и функция выходила всегда, ни разу не дойдя до
+            // самой картинки.
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            context.contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, bounds)
-            } ?: return@withContext emptyList()
+            val measured = context.contentResolver.openInputStream(uri)
+                ?: return@withContext emptyList()
+            measured.use { BitmapFactory.decodeStream(it, null, bounds) }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext emptyList()
 
             val options = BitmapFactory.Options().apply {
                 inSampleSize = sampleSizeFor(bounds.outWidth, bounds.outHeight)
@@ -83,6 +88,12 @@ suspend fun parseImageForCodes(context: Context, uri: Uri): List<ScannedCode> =
             }
         } catch (e: OutOfMemoryError) {
             Log.e(TAG, "Out of memory reading the codes", e)
+            emptyList()
+        } catch (e: Exception) {
+            // Истёкший срок и отказ распознавателя - обычный исход для картинки,
+            // снятой под углом или не в фокусе. Файл остаётся без кодов, разбор
+            // остальных выбранных файлов продолжается.
+            Log.e(TAG, "Could not read the codes", e)
             emptyList()
         } finally {
             bitmap.recycle()

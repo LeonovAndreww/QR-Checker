@@ -4,24 +4,10 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
-
-/**
- * Появился столбец «когда убрали в корзину».
- *
- * Одна строка вместо пересоздания базы: терять партию из-за обновления приложения
- * человеку незачем, а размен «немного кода против стёртой работы» тут очевидный.
- */
-private val MIGRATION_1_2 = object : Migration(1, 2) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE session_codes ADD COLUMN deletedAt INTEGER")
-    }
-}
 
 @Database(
     entities = [SessionEntity::class, SessionCodeEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -41,10 +27,17 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "sessions.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
-                    // Запасной путь на случай схемы, к которой перехода нет: база
-                    // пересоздаётся, а не роняет приложение при открытии.
+                    // Миграций нет намеренно. Версией 1 успели побывать две разные
+                    // схемы: опубликованная в 1.2.1, где коды лежали JSON-блобом в
+                    // строке сессии, и здешняя, где под них отдельная таблица. Room
+                    // различает базы только по номеру, так что любая миграция от
+                    // единицы для половины устройств выполнялась бы не над той схемой
+                    // и роняла приложение при открытии.
+                    //
+                    // Пересоздание ничего не стоит: 2.0.0 подписана другим ключом, и
+                    // поверх прежней установки она всё равно не встанет.
                     .fallbackToDestructiveMigration(dropAllTables = true)
+                    .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
                     .build().also { INSTANCE = it }
             }
         }

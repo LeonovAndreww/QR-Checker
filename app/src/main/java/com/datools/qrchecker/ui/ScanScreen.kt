@@ -488,7 +488,14 @@ fun ScanScreen(
                 )
 
                 IconButton(
-                    onClick = { navController.popBackStackOnce() },
+                    // то же, что и системная «назад»: на список сессий. Обычный
+                    // popBackStack возвращал на создание сессии, если пришли оттуда,
+                    // и два способа уйти с экрана вели в разные места
+                    onClick = {
+                        navController.navigateOnce(Screen.Home.route) {
+                            popUpTo(Screen.Home.route) { inclusive = true }
+                        }
+                    },
                     modifier = Modifier.align(Alignment.CenterStart)
                 ) {
                     Icon(

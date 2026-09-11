@@ -439,8 +439,7 @@ fun CodesListScreen(
 
                                             IconButton(
                                                 onClick = {
-                                                    codeToDelete = code
-                                                    codeToDeleteIsScanned = (type == TYPE_SCANNED)
+                                                    requestDelete(code, type == TYPE_SCANNED)
                                                 }
                                             ) {
                                                 Icon(

@@ -19,6 +19,8 @@ private const val BOM = "\uFEFF"
 
 private val FILE_STAMP = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US)
 
+private const val EXPORT_LIFETIME_MS = 24L * 60 * 60 * 1000
+
 /**
  * Отчёт из трёх колонок.
  *
@@ -74,7 +76,14 @@ private fun escapeCsv(value: String): String =
  */
 fun shareCsv(context: Context, baseName: String, content: String): Intent {
     val exportDir = File(context.cacheDir, "export").apply { mkdirs() }
-    // one file per session and list, so repeated exports do not pile up in the cache
+
+    // Время в имени нужно: в мессенджере видно, какая это выгрузка, а не один файл,
+    // молча перезаписывающий предыдущий. Но тогда файлы копятся в кеше, поэтому
+    // вчерашние удаляются. Сутки - чтобы не выдернуть файл из-под ещё не законченной
+    // отправки.
+    val stale = System.currentTimeMillis() - EXPORT_LIFETIME_MS
+    exportDir.listFiles()?.forEach { if (it.lastModified() < stale) it.delete() }
+
     val file = File(exportDir, "${sanitizeFileName(baseName)}_${FILE_STAMP.format(Date())}.csv")
     file.writeText(content)
 

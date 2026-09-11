@@ -142,6 +142,13 @@ suspend fun parsePdfForQRCodes(
                         }
                     } catch (e: OutOfMemoryError) {
                         Log.e(TAG, "Out of memory decoding page $pageIndex", e)
+                    } catch (e: Exception) {
+                        // Tasks.await бросает TimeoutException по истечении срока и
+                        // ExecutionException, когда распознаватель не справился. Ради
+                        // срока он здесь и стоит: страница пропускается, остальной
+                        // документ дочитывается. Без этого одна тяжёлая страница
+                        // выбрасывала весь разбор.
+                        Log.e(TAG, "Could not read page $pageIndex", e)
                     } finally {
                         bitmap.recycle()
                     }

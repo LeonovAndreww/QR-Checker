@@ -2,6 +2,7 @@ package com.datools.qrchecker.util
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -11,6 +12,8 @@ import kotlinx.coroutines.withContext
  * мессенджера приезжает и вовсе без имени.
  */
 private enum class FileKind { PDF, IMAGE, TEXT }
+
+private const val TAG = "QRChecker"
 
 private val PDF_MAGIC = "%PDF-".toByteArray()
 
@@ -62,40 +65,49 @@ suspend fun readCodesFromFiles(
         onProgress(index, files.size, name, 0, 0)
         val before = codes.size
 
-        when (kindOf(context, uri)) {
-            FileKind.PDF -> {
-                val result = parsePdfForQRCodes(context, uri, scale) { done, total ->
-                    onProgress(index, files.size, name, done, total)
+        // Файл, который не открылся или оказался битым, не должен уносить с собой
+        // остальные выбранные: он просто попадёт в сводку с нулём кодов, и будет
+        // видно, какой именно приехал пустым.
+        try {
+            when (kindOf(context, uri)) {
+                FileKind.PDF -> {
+                    val result = parsePdfForQRCodes(context, uri, scale) { done, total ->
+                        onProgress(index, files.size, name, done, total)
+                    }
+                    for (found in result.codes) {
+                        codes += found.value
+                        formats.putIfAbsent(found.value, found.format)
+                    }
                 }
-                for (found in result.codes) {
+
+                FileKind.IMAGE -> for (found in parseImageForCodes(context, uri)) {
                     codes += found.value
                     formats.putIfAbsent(found.value, found.format)
                 }
-            }
 
-            FileKind.IMAGE -> for (found in parseImageForCodes(context, uri)) {
-                codes += found.value
-                formats.putIfAbsent(found.value, found.format)
-            }
-
-            FileKind.TEXT -> {
-                // файл сессии отдаёт и коды, и отметки: разобранный как обычный список,
-                // он терял бы их молча
-                val session = readSessionOrNull(context, uri)
-                if (session != null) {
-                    codes += session.codes
-                    session.codes.forEach { formats.putIfAbsent(it, CodeFormat.TEXT) }
-                    scanned += session.scannedCodes
-                    session.scanTimes?.let { scanTimes.putAll(it) }
-                    if (files.size == 1) sessionName = session.name
-                } else {
-                    val listed = withContext(Dispatchers.IO) {
-                        parseCodeList(readTextFromUri(context, uri))
+                FileKind.TEXT -> {
+                    // файл сессии отдаёт и коды, и отметки: разобранный как обычный список,
+                    // он терял бы их молча
+                    val session = readSessionOrNull(context, uri)
+                    if (session != null) {
+                        codes += session.codes
+                        session.codes.forEach { formats.putIfAbsent(it, CodeFormat.TEXT) }
+                        scanned += session.scannedCodes
+                        session.scanTimes?.let { scanTimes.putAll(it) }
+                        if (files.size == 1) sessionName = session.name
+                    } else {
+                        val listed = withContext(Dispatchers.IO) {
+                            parseCodeList(readTextFromUri(context, uri))
+                        }
+                        codes += listed
+                        listed.forEach { formats.putIfAbsent(it, CodeFormat.TEXT) }
                     }
-                    codes += listed
-                    listed.forEach { formats.putIfAbsent(it, CodeFormat.TEXT) }
                 }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not read $name", e)
+        } catch (e: OutOfMemoryError) {
+            Log.e(TAG, "Out of memory reading $name", e)
         }
 
         sources += SourceSummary(name, codes.size - before)
@@ -113,9 +125,17 @@ suspend fun readCodesFromFiles(
 
 private suspend fun kindOf(context: Context, uri: Uri): FileKind = withContext(Dispatchers.IO) {
     val head = context.contentResolver.openInputStream(uri)?.use { input ->
+        // Дочитывать надо в цикле: одно чтение вправе вернуть меньше запрошенного, и
+        // у файла из облачного хранилища оно так и делает. Одного короткого чтения
+        // хватало, чтобы PDF не опознался по сигнатуре и ушёл разбираться как текст.
         val buffer = ByteArray(8)
-        val read = input.read(buffer)
-        if (read <= 0) ByteArray(0) else buffer.copyOf(read)
+        var filled = 0
+        while (filled < buffer.size) {
+            val read = input.read(buffer, filled, buffer.size - filled)
+            if (read <= 0) break
+            filled += read
+        }
+        buffer.copyOf(filled)
     } ?: ByteArray(0)
 
     when {
