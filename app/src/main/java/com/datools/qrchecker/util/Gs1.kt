@@ -70,7 +70,7 @@ fun parseGs1(code: String): List<Pair<String, String>>? {
         val length: Int?
         when {
             fourFixed != null -> {
-                ai = four!!
+                ai = four
                 length = fourFixed
             }
 
