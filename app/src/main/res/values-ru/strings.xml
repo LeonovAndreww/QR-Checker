@@ -216,14 +216,19 @@
     <string name="show_scan_code">Код на экране сканирования</string>
     <string name="show_scan_code_why">Под ответом после сканирования.</string>
     <string name="show_code_fields">Срок годности и партия</string>
-    <string name="show_code_fields_why">Под развёрнутым кодом в списках. Есть у лекарств ЕС и немецкого PPN, в Честном ЗНАКе таких полей нет.</string>
+    <string name="show_code_fields_why">Под развёрнутым кодом в списках, если код их содержит (лекарства ЕС, немецкий PPN).</string>
 
     <!-- сессия без файла -->
     <string name="msg_recorded">Записан</string>
     <string name="btn_collected">Записанные</string>
-    <string name="progress_collected">Записано:\n%1$d</string>
-    <string name="start_without_file">Начать без файла</string>
-    <string name="start_without_file_why">Сессия заводится пустой, и каждый отсканированный код попадает в неё. Ловит только повторы.</string>
+    <string name="untitled_session">Без названия</string>
+    <string name="file_still_reading">Файл ещё читается</string>
+    <string name="name_missing_title">У сессии нет названия</string>
+    <string name="name_enter">Ввести</string>
+    <string name="name_use_untitled">Назвать «%1$s»</string>
+    <string name="no_file_title">Файл не выбран</string>
+    <string name="no_file_text">Сессия будет записывать все отсканированные коды.</string>
+    <string name="no_file_confirm">Создать</string>
     <string name="codes_title_collected">Записанные (%1$d)</string>
     <string name="sessions_collected">записано %1$d</string>
     <string name="no_collected_codes">Пока ничего не отсканировано</string>

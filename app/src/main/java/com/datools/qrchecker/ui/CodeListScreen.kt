@@ -92,9 +92,8 @@ fun CodesListScreen(
 
     // dialog state for delete confirmation
     var query by rememberSaveable { mutableStateOf("") }
-    // раскрыта всегда не больше одной плашки: две длинных строки рядом снова
-    // превращают список в стену текста, от которой всё это и уводит
-    var expandedCode by rememberSaveable { mutableStateOf<String?>(null) }
+    // раскрытые коды: их сравнивают между собой, поэтому раскрыть можно сколько угодно
+    var expandedCodes by rememberSaveable { mutableStateOf(setOf<String>()) }
     var codeToDelete by remember { mutableStateOf<String?>(null) }
     // порядок списка. Один переключатель вместо меню: вариантов ровно два
     var newestFirst by rememberSaveable { mutableStateOf(true) }
@@ -385,7 +384,7 @@ fun CodesListScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(items = visibleCodes, key = { it }) { code ->
-                                val expanded = code == expandedCode
+                                val expanded = code in expandedCodes
                                 val isScanned = type == TYPE_SCANNED
 
                                 SwipeActionRow(
@@ -422,7 +421,8 @@ fun CodesListScreen(
                                 ) {
                                 Card(
                                     onClick = {
-                                        expandedCode = if (expanded) null else code
+                                        expandedCodes =
+                                            if (expanded) expandedCodes - code else expandedCodes + code
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()

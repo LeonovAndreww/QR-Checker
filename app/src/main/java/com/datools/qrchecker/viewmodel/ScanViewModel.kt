@@ -61,6 +61,13 @@ class ScanViewModel : ViewModel() {
     private val _isLoading = mutableStateOf(false)
     val isLoading: State<Boolean> get() = _isLoading
 
+    /**
+     * Идёт именно разбор файлов. isLoading горит и пока сессия пишется в базу, и по нему
+     * одному нажатие во время сохранения отвечало «файл ещё читается».
+     */
+    private val _isParsing = mutableStateOf(false)
+    val isParsing: State<Boolean> get() = _isParsing
+
     private val _progress = mutableStateOf<ParseProgress?>(null)
     val progress: State<ParseProgress?> get() = _progress
 
@@ -102,6 +109,7 @@ class ScanViewModel : ViewModel() {
         // выбрали новую пачку, пока разбиралась прежняя - прежняя больше не нужна
         parseJob?.cancel()
         _isLoading.value = true
+        _isParsing.value = true
         _errorMessage.value = null
         _parsed.value = null
         _progress.value = null
@@ -154,6 +162,7 @@ class ScanViewModel : ViewModel() {
                 // кнопку «Отмена» нового посреди работы.
                 if (isActive) {
                     _isLoading.value = false
+                    _isParsing.value = false
                     _progress.value = null
                 }
             }
@@ -183,6 +192,7 @@ class ScanViewModel : ViewModel() {
         parseJob?.cancel()
         parseJob = null
         _isLoading.value = false
+        _isParsing.value = false
         _progress.value = null
     }
 

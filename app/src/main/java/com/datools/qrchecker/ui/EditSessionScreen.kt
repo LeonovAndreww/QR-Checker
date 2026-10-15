@@ -127,9 +127,8 @@ fun EditSessionScreen(
     // корзина: что убрали из сессии и когда
     var binned by remember { mutableStateOf<List<Pair<String, Long>>>(emptyList()) }
     var showEmptyBinConfirm by remember { mutableStateOf(false) }
-    // раскрыт всегда не больше одного кода: две длинных строки рядом снова превращают
-    // корзину в стену текста
-    var expandedBinCode by remember { mutableStateOf<String?>(null) }
+    // раскрытые коды корзины, сколько угодно сразу
+    var expandedBinCodes by remember { mutableStateOf(setOf<String>()) }
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboard = LocalClipboard.current
     val feel = rememberFeedback()
@@ -283,14 +282,7 @@ fun EditSessionScreen(
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .padding(16.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        FullHeightColumn(modifier = Modifier.padding(innerPadding).padding(16.dp)) {
             TextField(
                 value = name,
                 onValueChange = { v -> name = v.filterNot { it == '\n' } },
@@ -419,7 +411,7 @@ fun EditSessionScreen(
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             items(binned, key = { it.first }) { (code, at) ->
-                                val expanded = code == expandedBinCode
+                                val expanded = code in expandedBinCodes
 
                                 // Те же жесты, что и в списках кодов: вправо -
                                 // скопировать, влево - удалить. В корзине «удалить»
@@ -482,7 +474,8 @@ fun EditSessionScreen(
                                 ) {
                                     Card(
                                         onClick = {
-                                            expandedBinCode = if (expanded) null else code
+                                            expandedBinCodes =
+                                                if (expanded) expandedBinCodes - code else expandedBinCodes + code
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()

@@ -54,6 +54,8 @@ import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.DeleteConfirmation
+import com.datools.qrchecker.util.Outcome
+import com.datools.qrchecker.util.rememberFeedback
 import com.datools.qrchecker.util.formatTimeAgo
 import com.datools.qrchecker.ui.theme.accents
 import com.datools.qrchecker.model.SessionSummary
@@ -75,6 +77,7 @@ fun HomeScreen(navController: NavController) {
     var sessionToDelete by remember { mutableStateOf<SessionSummary?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val accents = MaterialTheme.accents
+    val feel = rememberFeedback()
     val buttonHeight = 82.dp
     val groupCorner = 12.dp
     val groupStartShape = RoundedCornerShape(
@@ -153,90 +156,120 @@ fun HomeScreen(navController: NavController) {
                 // сверху зазор: без него первая сессия прилипала к панели
                 contentPadding = PaddingValues(top = 12.dp, bottom = 80.dp)
             ) {
-                items(loaded) { session ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                        // Кнопки сессии - одна группа: скругления только снаружи, зазоров
-                        // внутри нет. Три отдельно стоящих прямоугольника читались как три
-                        // разных элемента, хотя относятся к одной строке
-                        horizontalArrangement = Arrangement.spacedBy(0.dp)
-                    ) {
-                        FilledIconButton(
-                            onClick = {
+                items(loaded, key = { it.id }) { session ->
+                    // Те же жесты, что в списках кодов: вправо - правка, влево - удаление.
+                    // Кнопки по краям остаются: жест быстрее, но его ещё надо знать.
+                    SwipeActionRow(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        onThresholdCrossed = { feel(Outcome.THRESHOLD) },
+                        start = SwipeAction(
+                            background = accents.edit.container,
+                            onTrigger = {
+                                feel(Outcome.ACTION)
                                 navController.navigateOnce(Screen.EditSession.createRoute(session.id))
                             },
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = accents.edit.container,
-                                contentColor = accents.edit.content
-                            ),
-                            modifier = Modifier.height(buttonHeight),
-                            shape = groupStartShape
-                        ) {
-                            Icon(Icons.Default.Edit, contentDescription = editCd)
-                        }
-                        Button(
-                            onClick = { navController.navigateOnce(Screen.Scan.createRoute(session.id)) },
-                            modifier = Modifier
-                                .height(buttonHeight)
-                                .weight(1f),
-                            shape = RectangleShape
-                        ) {
-                            // счёт уже считался запросом для списка, но на экран не
-                            // выводился: приложение открывалось и не отвечало на
-                            // единственный вопрос, ради которого его открывают
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = session.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = buildString {
-                                        // «12 из 340» у собирающей сессии соврало бы:
-                                        // знаменателя у неё нет
-                                        append(
-                                            if (session.collecting) {
-                                                collectedTemplate.format(session.scanned)
-                                            } else {
-                                                progressTemplate.format(
-                                                    session.scanned,
-                                                    session.total
-                                                )
-                                            }
-                                        )
-                                        // у сессий, заведённых до появления этих полей,
-                                        // времени нет, и выдумывать его нечего - строка
-                                        // просто короче
-                                        val at = maxOf(session.openedAt, session.createdAt)
-                                        if (at > 0) {
-                                            append("  ·  ")
-                                            append(formatTimeAgo(context, at))
-                                        }
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                            icon = {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = editCd,
+                                    tint = accents.edit.content
                                 )
                             }
-                        }
-
-                        FilledIconButton(
-                            onClick = {
-                                sessionToDelete = session
-                            },
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = accents.delete.container,
-                                contentColor = accents.delete.content
-                            ),
-                            modifier = Modifier.height(buttonHeight),
-                            shape = groupEndShape
+                        ),
+                        end = SwipeAction(
+                            background = accents.delete.container,
+                            onTrigger = { sessionToDelete = session },
+                            icon = {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = deleteCd,
+                                    tint = accents.delete.content
+                                )
+                            }
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            // Кнопки сессии - одна группа: скругления только снаружи, зазоров
+                            // внутри нет. Три отдельно стоящих прямоугольника читались как три
+                            // разных элемента, хотя относятся к одной строке
+                            horizontalArrangement = Arrangement.spacedBy(0.dp)
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = deleteCd)
-                        }
+                            FilledIconButton(
+                                onClick = {
+                                    navController.navigateOnce(Screen.EditSession.createRoute(session.id))
+                                },
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = accents.edit.container,
+                                    contentColor = accents.edit.content
+                                ),
+                                modifier = Modifier.height(buttonHeight),
+                                shape = groupStartShape
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = editCd)
+                            }
+                            Button(
+                                onClick = { navController.navigateOnce(Screen.Scan.createRoute(session.id)) },
+                                modifier = Modifier
+                                    .height(buttonHeight)
+                                    .weight(1f),
+                                shape = RectangleShape
+                            ) {
+                                // счёт уже считался запросом для списка, но на экран не
+                                // выводился: приложение открывалось и не отвечало на
+                                // единственный вопрос, ради которого его открывают
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = session.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = buildString {
+                                            // «12 из 340» у собирающей сессии соврало бы:
+                                            // знаменателя у неё нет
+                                            append(
+                                                if (session.collecting) {
+                                                    collectedTemplate.format(session.scanned)
+                                                } else {
+                                                    progressTemplate.format(
+                                                        session.scanned,
+                                                        session.total
+                                                    )
+                                                }
+                                            )
+                                            // у сессий, заведённых до появления этих полей,
+                                            // времени нет, и выдумывать его нечего - строка
+                                            // просто короче
+                                            val at = maxOf(session.openedAt, session.createdAt)
+                                            if (at > 0) {
+                                                append("  ·  ")
+                                                append(formatTimeAgo(context, at))
+                                            }
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
 
+                            FilledIconButton(
+                                onClick = {
+                                    sessionToDelete = session
+                                },
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = accents.delete.container,
+                                    contentColor = accents.delete.content
+                                ),
+                                modifier = Modifier.height(buttonHeight),
+                                shape = groupEndShape
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = deleteCd)
+                            }
+
+                        }
                     }
 
                 }

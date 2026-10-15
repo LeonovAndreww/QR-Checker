@@ -39,6 +39,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -105,6 +115,7 @@ fun CreateSessionScreen(navController: NavController) {
     )
 
     val isLoading by scanViewModel.isLoading
+    val isParsing by scanViewModel.isParsing
     val progress by scanViewModel.progress
     val parsed by scanViewModel.parsed
     val createdSessionId by scanViewModel.createdSessionId
@@ -160,8 +171,9 @@ fun CreateSessionScreen(navController: NavController) {
     val codesSummaryTemplate = stringResource(id = R.string.parsed_codes_summary)
     val sourceLineTemplate = stringResource(id = R.string.parsed_source_line)
     val continueText = stringResource(id = R.string.continue_button)
-    val startWithoutFileText = stringResource(id = R.string.start_without_file)
-    val startWithoutFileWhy = stringResource(id = R.string.start_without_file_why)
+    val untitledName = stringResource(id = R.string.untitled_session)
+    val stillReadingText = stringResource(id = R.string.file_still_reading)
+    val noCodesText = stringResource(id = R.string.error_no_codes_in_files)
     val parsingText = stringResource(id = R.string.parsing_pdf)
     val cancelParsingText = stringResource(id = R.string.parsing_cancel)
     val sessionSummaryTemplate = stringResource(id = R.string.parsed_session_summary)
@@ -171,7 +183,53 @@ fun CreateSessionScreen(navController: NavController) {
     val mergeText = stringResource(id = R.string.session_merge)
     val addNewText = stringResource(id = R.string.session_add_new)
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val nameFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    // что мешает создать сессию: спрашивается по одному, по нажатию «Продолжить»
+    var askName by remember { mutableStateOf(false) }
+    var askNoFile by remember { mutableStateOf<String?>(null) }
+    // имя, с которым создаётся сессия: им же пользуется «создать новую» в окне совпадения,
+    // а поле ввода при «Без названия» так и остаётся пустым
+    var chosenName by remember { mutableStateOf("") }
+    // фокус в поле имени ставится, когда окно уже закрылось и фокус вернулся экрану:
+    // пока окно держит фокус, запрос из него уходит впустую
+    var focusName by remember { mutableStateOf(false) }
+    val windowInfo = LocalWindowInfo.current
+    LaunchedEffect(focusName) {
+        if (!focusName) return@LaunchedEffect
+        snapshotFlow { windowInfo.isWindowFocused }.first { it }
+        nameFocus.requestFocus()
+        keyboard?.show()
+        focusName = false
+    }
+
+    fun say(text: String) {
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(text)
+        }
+    }
+
+    // Кнопка нажимается всегда, а не гаснет: погасшая не говорит, чего ей не хватает.
+    fun proceed(name: String) {
+        when {
+            isParsing -> say(stillReadingText)
+            // сессия уже пишется - второе нажатие ничего не добавит
+            isLoading -> Unit
+            parsed != null -> {
+                chosenName = name
+                scanViewModel.createSession(context, name, keepFormats = keptFormats)
+            }
+            // файл выбран, но кодов из него не вышло: это не «файл не выбран»
+            selectedNames.isNotEmpty() -> say(errorMessage ?: noCodesText)
+            else -> askNoFile = name
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(titleText) },
@@ -186,13 +244,7 @@ fun CreateSessionScreen(navController: NavController) {
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        FullHeightColumn(modifier = Modifier.padding(innerPadding)) {
             Spacer(Modifier.height(16.dp))
 
             TextField(
@@ -208,6 +260,7 @@ fun CreateSessionScreen(navController: NavController) {
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
                     .height(72.dp)
+                    .focusRequester(nameFocus)
             )
 
             Spacer(Modifier.height(20.dp))
@@ -277,7 +330,11 @@ fun CreateSessionScreen(navController: NavController) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    TextButton(onClick = { scanViewModel.cancelParsing() }) {
+                    TextButton(onClick = {
+                        scanViewModel.cancelParsing()
+                        // отменённый выбор - это не выбранный файл
+                        selectedNames = emptyList()
+                    }) {
                         Text(cancelParsingText)
                     }
                 }
@@ -342,31 +399,11 @@ fun CreateSessionScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Путь без файла живёт рядом с основным, а не в отдельном меню: это тот же
-            // экран создания сессии, только список приходит не из документа, а с камеры.
-            // Показывается, пока файл не выбран, - выбрав его, человек уже ответил.
-            if (parsed == null && !isLoading) {
-                TextButton(
-                    onClick = { scanViewModel.createCollectingSession(context, sessionName) },
-                    enabled = sessionName.isNotBlank(),
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                ) {
-                    Text(startWithoutFileText)
-                }
-                Text(
-                    text = startWithoutFileWhy,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 28.dp)
-                )
-            }
-
             Button(
-                onClick = { scanViewModel.createSession(context, sessionName, keepFormats = keptFormats) },
-                enabled = (sessionName.isNotBlank() && parsed != null && !isLoading),
+                onClick = {
+                    if (sessionName.isBlank() && !isLoading) askName = true
+                    else proceed(sessionName.trim())
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
@@ -374,15 +411,63 @@ fun CreateSessionScreen(navController: NavController) {
                     .height(72.dp),
                 shape = MaterialTheme.shapes.small
             ) {
-                if (isLoading) {
+                if (isParsing) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
                     Text(parsingText)
+                } else if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 } else {
                     Text(continueText, style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
+    }
+
+    if (askName) {
+        AlertDialog(
+            onDismissRequest = { askName = false },
+            title = { Text(stringResource(id = R.string.name_missing_title)) },
+            confirmButton = {
+                // имя как у безымянного файла: «Без названия», а если занято -
+                // с номером, это делает createSession
+                TextButton(onClick = {
+                    askName = false
+                    proceed(untitledName)
+                }) {
+                    Text(stringResource(id = R.string.name_use_untitled, untitledName))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    askName = false
+                    focusName = true
+                }) {
+                    Text(stringResource(id = R.string.name_enter))
+                }
+            }
+        )
+    }
+
+    askNoFile?.let { name ->
+        AlertDialog(
+            onDismissRequest = { askNoFile = null },
+            title = { Text(stringResource(id = R.string.no_file_title)) },
+            text = { Text(stringResource(id = R.string.no_file_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    askNoFile = null
+                    scanViewModel.createCollectingSession(context, name)
+                }) {
+                    Text(stringResource(id = R.string.no_file_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { askNoFile = null }) {
+                    Text(cancelText)
+                }
+            }
+        )
     }
 
     mergedMarks?.let { count ->
@@ -420,7 +505,7 @@ fun CreateSessionScreen(navController: NavController) {
                         scanViewModel.dismissConflict()
                         scanViewModel.createSession(
                             context,
-                            sessionName,
+                            chosenName,
                             force = true,
                             keepFormats = keptFormats
                         )

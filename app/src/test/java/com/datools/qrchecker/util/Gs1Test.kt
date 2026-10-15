@@ -135,4 +135,37 @@ class Gs1Test {
     fun `у обычного QR полей нет`() {
         assertNull(codeFields("https://example.com/01234"))
     }
+
+    // Ровно те строки, что зашиты в тестовый лист Data Matrix: что сканер отдаёт с
+    // листа, то здесь и разбирается. Ведущий GS - это FNC1, который часть сканеров
+    // возвращает в начале кода; приложение срезает его ещё до разбора.
+
+    @Test
+    fun `тестовый лист - лекарство ес`() {
+        val raw = "${gs}01095060001343521727063010ABC123${gs}21SN7Q2K9X4P"
+        assertEquals(
+            CodeFields(product = "09506000134352", serial = "SN7Q2K9X4P", batch = "ABC123", expiry = "270630"),
+            codeFields(normalizeCode(raw))
+        )
+        assertEquals("010950600013435221SN7Q2K9X4P", shortCode(normalizeCode(raw)))
+    }
+
+    @Test
+    fun `тестовый лист - немецкий ppn`() {
+        val raw = "[)>\u001E06${gs}9N111234567842${gs}1TCH42B${gs}D270630${gs}SRX5TT8Q3MZ\u001E\u0004"
+        assertEquals(
+            CodeFields(product = "111234567842", serial = "RX5TT8Q3MZ", batch = "CH42B", expiry = "270630"),
+            codeFields(normalizeCode(raw))
+        )
+    }
+
+    @Test
+    fun `тестовый лист - честный знак без срока и партии`() {
+        val raw = "${gs}0104600439931256215'Lk3xFq&Ndps${gs}91EE11${gs}92dGVzdGtleXRlc3RrZXl0ZXN0a2V5dGVzdGtleXRlc3Q="
+        val fields = codeFields(normalizeCode(raw))
+        assertEquals("04600439931256", fields?.product)
+        assertEquals("5'Lk3xFq&Ndps", fields?.serial)
+        assertNull(fields?.expiry)
+        assertNull(fields?.batch)
+    }
 }

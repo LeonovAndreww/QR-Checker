@@ -1,0 +1,41 @@
+package com.datools.qrchecker.util
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class LinearReadVoteTest {
+
+    private fun run(vote: LinearReadVote, vararg reads: Pair<String, Long>) =
+        reads.map { (value, at) -> vote.offer(value, at) }
+
+    @Test
+    fun `код принимается с третьего чтения`() {
+        assertEquals(listOf(false, false, true), run(LinearReadVote(), "A" to 0, "A" to 80, "A" to 160))
+    }
+
+    @Test
+    fun `проскочившая через кадр ошибка не мешает принять настоящий код`() {
+        // так читается наклонённая этикетка: настоящий код, настоящий, ошибка, настоящий
+        assertEquals(
+            listOf(false, false, false, true),
+            run(LinearReadVote(), "B" to 0, "B" to 80, "X" to 160, "B" to 240)
+        )
+    }
+
+    @Test
+    fun `одиночные ошибки не принимаются никогда`() {
+        assertEquals(
+            listOf(false, false, false, false),
+            run(LinearReadVote(), "X1" to 0, "X2" to 80, "X3" to 160, "X4" to 240)
+        )
+    }
+
+    @Test
+    fun `старые чтения не засчитываются`() {
+        // ошибка прочиталась дважды, коробку убрали, через две секунды - ещё раз
+        assertEquals(
+            listOf(false, false, false),
+            run(LinearReadVote(), "X" to 0, "X" to 80, "X" to 2_100)
+        )
+    }
+}

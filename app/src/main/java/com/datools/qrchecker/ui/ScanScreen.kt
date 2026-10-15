@@ -93,8 +93,15 @@ import androidx.compose.material.icons.filled.Share
 import com.datools.qrchecker.util.shareSessionFile
 import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.util.normalizeCode
+import com.datools.qrchecker.util.CodeFormat
+import com.datools.qrchecker.util.LinearReadVote
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.material3.CircularProgressIndicator
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
+import androidx.lifecycle.Lifecycle
 import com.datools.qrchecker.util.ScanVerdict
 import com.datools.qrchecker.util.verdictFor
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
@@ -213,6 +220,9 @@ fun ScanScreen(
     // ----- feedback state (declared before any early return so the composition
     // ----- keeps a stable set of remembered slots) -----
     var feedback by remember { mutableStateOf<UiFeedback?>(null) }
+    // каким цветом ответили на каждый код за время на этом экране: рамка держит его,
+    // когда плашка уже погасла
+    val answeredColors = remember { mutableStateMapOf<String, Color>() }
     // какой код камера видит прямо сейчас и когда она его видела в последний раз
     var presentCode by remember { mutableStateOf<String?>(null) }
     val showScanCode by AppSettings.scanCodeState(context)
@@ -269,9 +279,6 @@ fun ScanScreen(
     LaunchedEffect(sessionId) {
         try {
             session = repo.getById(sessionId)
-            // по времени открытия упорядочен список на главной: то, чем заняты сейчас,
-            // должно быть сверху, а не то, что завели раньше всех
-            repo.touchOpened(sessionId)
         } catch (c: CancellationException) {
             throw c
         } catch (t: Throwable) {
@@ -279,6 +286,32 @@ fun ScanScreen(
         } finally {
             loadFinished = true
         }
+    }
+
+    // По времени открытия упорядочен список на главной: то, чем заняты сейчас, должно
+    // быть сверху. Отмечается, только когда переход на этот экран закончился: пока
+    // главная ещё видна, сессия на глазах уезжала в начало списка.
+    //
+    // Ушли раньше, чем переход закончился, - отмечается при уходе, на области
+    // приложения: открытие было, и сессия всё равно должна подняться наверх.
+    var touched by remember { mutableStateOf(false) }
+    fun touch() {
+        if (touched) return
+        touched = true
+        appScope.launch {
+            try {
+                repo.touchOpened(sessionId)
+            } catch (t: Throwable) {
+                Log.w(TAG, "Can't mark session $sessionId as opened", t)
+            }
+        }
+    }
+    LaunchedEffect(sessionId) {
+        lifecycleOwner.lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
+        touch()
+    }
+    DisposableEffect(Unit) {
+        onDispose { touch() }
     }
 
     // Копия пишется через паузу после последней отметки, а не на каждую: партия бывает
@@ -343,6 +376,7 @@ fun ScanScreen(
         // новая плашка вытесняет прежнюю, и её таймер отменяется вместе с ней
         hideFeedbackJob?.cancel()
         feedback = UiFeedback(message, color, code)
+        if (code != null) answeredColors[code] = color.container
         feel(outcome)
 
         hideFeedbackJob = scope.launch {
@@ -483,30 +517,36 @@ fun ScanScreen(
         return
     }
 
-    // у собирающей сессии знаменателя не существует: сколько кодов будет, заранее
-    // не знает никто
-    val progressText = if (loaded.collecting) {
-        stringResource(id = R.string.progress_collected, loaded.scannedCodes.size)
-    } else {
+    val progressText =
         stringResource(id = R.string.progress_format, loaded.scannedCodes.size, loaded.codes.size)
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
+        // Камера идёт под системные панели во весь экран, а управление - нет. Сверху и
+        // снизу отступы учитывались всегда, а по бокам нет: в альбомной ориентации
+        // кнопки навигации телефона встают сбоку и закрывали собой кнопки приложения.
+        val layoutDirection = LocalLayoutDirection.current
+        val sides = Modifier.padding(
+            start = padding.calculateStartPadding(layoutDirection),
+            end = padding.calculateEndPadding(layoutDirection)
+        )
         Box(modifier = Modifier.fillMaxSize()) {
             if (hasPermission) {
                 CameraPreview(
                     highlightColor = feedback?.color?.container,
-                    // состояние кода, а не ответ на действие: отмеченный - зелёный,
-                    // чужой - красный, а тот, что в списке и ещё не отмечен, цвета
-                    // не имеет, потому что сказать о нём пока нечего
+                    // Цвет последнего ответа на этот код, а не его состояние.
+                    //
+                    // По состоянию отмеченный код был зелёным всегда - и коробка,
+                    // отсканированная вчера, после того как погасла оранжевая плашка
+                    // «уже отсканирован», обводилась зелёным, будто её отметили только
+                    // что. Без ответа на этом экране отмеченный код - это «уже был».
                     colorOf = { code ->
                         val current = session
-                        when {
+                        answeredColors[code] ?: when {
                             current == null -> null
                             code !in current.codes -> accents.danger.container
-                            code in current.scannedCodes -> accents.success.container
+                            code in current.scannedCodes -> accents.warning.container
                             else -> null
                         }
                     },
@@ -565,6 +605,7 @@ fun ScanScreen(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
+                    .then(sides)
                     .fillMaxWidth()
                     .padding(top = padding.calculateTopPadding() + 4.dp)
                     .padding(horizontal = 4.dp)
@@ -675,6 +716,7 @@ fun ScanScreen(
                 exit = fadeOut(),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .then(sides)
                     .padding(bottom = padding.calculateBottomPadding() + 88.dp)
             ) {
                 Box(
@@ -693,10 +735,41 @@ fun ScanScreen(
                 }
             }
 
-            // bottom row: two buttons + progress in center
-            Row(
+            // У собирающей сессии список один, и кнопка одна - посередине, со счётчиком
+            // второй строкой. Отдельная подпись «записано» рядом с кнопкой «записанные»
+            // говорила одно и то же дважды и перекашивала низ экрана.
+            if (loaded.collecting) {
+                Button(
+                    onClick = {
+                        navController.navigateOnce(Screen.CodesList.createRoute(sessionId, TYPE_SCANNED))
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .then(sides)
+                        .padding(bottom = padding.calculateBottomPadding() + 8.dp)
+                        .fillMaxWidth(0.6f)
+                        .height(64.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = collectedButtonText,
+                            maxLines = 1,
+                            autoSize = BUTTON_TEXT_SIZE,
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = loaded.scannedCodes.size.toString(),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+            } else Row(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .then(sides)
                     .padding(
                         start = 4.dp,
                         end = 4.dp,
@@ -717,7 +790,7 @@ fun ScanScreen(
                     shape = MaterialTheme.shapes.small
                 ) {
                     Text(
-                        text = if (loaded.collecting) collectedButtonText else scannedButtonText,
+                        text = scannedButtonText,
                         maxLines = 1,
                         // подпись занимает столько, сколько влезло, а не обрезается:
                         // «Неотсканирован...» - это не название кнопки
@@ -736,33 +809,26 @@ fun ScanScreen(
                     modifier = Modifier.padding(horizontal = 8.dp)
                 )
 
-                // у собирающей сессии второго списка не существует: неотсканированных
-                // в ней не бывает по определению. Место кнопки остаётся пустым, чтобы
-                // счётчик не прыгал к краю экрана
-                if (loaded.collecting) {
-                    Spacer(modifier = Modifier.weight(1f))
-                } else {
-                    Button(
-                        onClick = {
-                            navController.navigateOnce(
-                                Screen.CodesList.createRoute(sessionId, TYPE_NOT_SCANNED)
-                            )
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp),
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Text(
-                            text = notScannedButtonText,
-                            maxLines = 1,
-                            autoSize = BUTTON_TEXT_SIZE,
-                            style = MaterialTheme.typography.titleMedium,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
+                Button(
+                    onClick = {
+                        navController.navigateOnce(
+                            Screen.CodesList.createRoute(sessionId, TYPE_NOT_SCANNED)
                         )
-                    }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(
+                        text = notScannedButtonText,
+                        maxLines = 1,
+                        autoSize = BUTTON_TEXT_SIZE,
+                        style = MaterialTheme.typography.titleMedium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
@@ -771,6 +837,7 @@ fun ScanScreen(
                     text = noCameraPermissionText,
                     modifier = Modifier
                         .align(Alignment.Center)
+                        .then(sides)
                         .padding(bottom = padding.calculateBottomPadding() + 4.dp),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.displayMedium
@@ -902,6 +969,7 @@ fun ScanScreen(
                 exit = fadeOut(),
                 modifier = Modifier
                     .align(Alignment.TopCenter)
+                    .then(sides)
                     .padding(top = padding.calculateTopPadding() + 64.dp)
             ) {
                 val f = feedback
@@ -980,7 +1048,9 @@ data class DetectedCode(
     val value: String,
     val box: Rect,
     val imageWidth: Int,
-    val imageHeight: Int
+    val imageHeight: Int,
+    /** Линейный штрихкод: у него нет исправления ошибок, и он бывает прочитан неверно. */
+    val linear: Boolean = false
 )
 
 /** Доля короткой стороны экрана, которую занимает сторона рамки видоискателя. */
@@ -1075,6 +1145,8 @@ private fun CameraPreview(
     var acceptedBox by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var acceptedSeenAt by remember { mutableLongStateOf(0L) }
     var acceptedColor by remember { mutableStateOf<Color?>(null) }
+    // линейный штрихкод отвечает, только набрав несколько одинаковых чтений
+    val linearVote = remember { LinearReadVote() }
 
     // рамка видоискателя: одно анимируемое значение на все четыре стороны, чтобы она
     // переезжала к коду целиком, а не рывками по каждой границе отдельно
@@ -1121,6 +1193,10 @@ private fun CameraPreview(
                 }
 
                 if (!target.contains(onScreen.center)) return@execute
+
+                if (detected.linear && detected.value != acceptedCode &&
+                    !linearVote.offer(detected.value, System.currentTimeMillis())
+                ) return@execute
 
                 acceptedCode = detected.value
                 acceptedBox = onScreen
@@ -1484,7 +1560,8 @@ class MlKitQrCodeAnalyzer(
                         val value = barcode.rawValue?.let(::normalizeCode)
                             ?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
                         val box = barcode.boundingBox ?: return@mapNotNull null
-                        DetectedCode(value, box, width, height)
+                        val linear = CodeFormat.of(barcode.format) == CodeFormat.LINEAR
+                        DetectedCode(value, box, width, height, linear)
                     }
                     .minByOrNull { detected ->
                         val dx = detected.box.exactCenterX() - width / 2f
