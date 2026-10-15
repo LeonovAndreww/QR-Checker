@@ -26,6 +26,9 @@ abstract class SessionDao {
     @Query("UPDATE sessions SET name = :name WHERE id = :id")
     abstract suspend fun renameSession(id: String, name: String)
 
+    @Query("UPDATE sessions SET collecting = 0 WHERE id = :id")
+    abstract suspend fun stopCollecting(id: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertCodes(codes: List<SessionCodeEntity>)
 
@@ -116,11 +119,7 @@ abstract class SessionDao {
     abstract suspend fun markUnscanned(sessionId: String, code: String): Int
 
     /**
-     * Убирает код в корзину. Отметка при этом снимается: код вернётся неотсканированным,
-     * потому что убирали его именно из списка неотсканированных.
-     */
-    /**
-     * Отметка при этом не гасится.
+     * Убирает код в корзину. Отметка при этом не гасится.
      *
      * Корзина обязана возвращать ровно то, что в неё положили: гашение отметки делало
      * восстановление не отменой удаления, а отменой ещё и сканирования - с потерей
@@ -206,6 +205,16 @@ abstract class SessionDao {
         )
     }
 
+    /**
+     * Отмечает коды, у каждого из которых своё время, одной транзакцией.
+     *
+     * По отдельности каждая отметка была своей транзакцией со своим сбросом на диск, и
+     * слияние файла на несколько тысяч отметок шло секундами.
+     */
+    @Transaction
+    open suspend fun markScannedEach(sessionId: String, times: Map<String, Long>): Int =
+        times.entries.sumOf { (code, at) -> markScanned(sessionId, code, at) }
+
     @Transaction
     open suspend fun replaceCodes(sessionId: String, codes: List<SessionCodeEntity>) {
         deleteAllCodes(sessionId)
@@ -228,7 +237,14 @@ abstract class SessionDao {
         replaceCodes(session.id, codes)
     }
 
-    /** То же для замены документа: имя и новый список кодов - одна правка. */
+    /**
+     * То же для замены документа: имя и новый список кодов - одна правка.
+     *
+     * Собирающая сессия, получив документ, становится сверяющей. Собирать её
+     * заводили, потому что списка не было; теперь он есть, и код не из него - это
+     * ответ «нет в этой сессии», а не новая строка. Показывать её дальше как
+     * собирающую значило прятать недостающие коды: у собирающей их списка нет.
+     */
     @Transaction
     open suspend fun renameAndReplaceCodes(
         sessionId: String,
@@ -237,5 +253,6 @@ abstract class SessionDao {
     ) {
         renameSession(sessionId, name)
         replaceCodes(sessionId, codes)
+        stopCollecting(sessionId)
     }
 }

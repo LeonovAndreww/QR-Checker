@@ -136,10 +136,10 @@ const val TYPE_NOT_SCANNED = "not_scanned"
  * приложение уезжает в пустой белый экран. Экран, с которого уходят, в этот момент уже не
  * в состоянии RESUMED - по нему второй тап и отсеивается. То же и для возврата.
  */
-fun NavController.navigateOnce(route: String) {
-    if (currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
-        navigate(route)
-    }
+fun NavController.navigateOnce(route: String): Boolean {
+    if (currentBackStackEntry?.lifecycle?.currentState != Lifecycle.State.RESUMED) return false
+    navigate(route)
+    return true
 }
 
 fun NavController.navigateOnce(route: String, builder: NavOptionsBuilder.() -> Unit) {

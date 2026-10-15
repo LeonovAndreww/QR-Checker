@@ -79,6 +79,33 @@ class CsvRoundTripTest {
     }
 
     @Test
+    fun `код со знаком формулы уходит в отчёт обезвреженным`() {
+        // Excel вычисляет формулу и в кавычках - спасает только апостроф впереди
+        val code = "=HYPERLINK(\"https://x/\",\"Open\")"
+        val csv = buildCsv("t", "a", "b", "c", listOf(code))
+        val row = csv.lines().first { it.contains("HYPERLINK") }
+        row.split(';').take(2).forEach { cell ->
+            assertEquals("ячейка: $cell", true, cell.trimStart('"').startsWith("'="))
+        }
+    }
+
+    @Test
+    fun `код со знаком формулы возвращается без апострофа`() {
+        for (code in listOf("=1+2;HYPERLINK", "+79991234567", "-abcdefgh", "@SUM(A1:A9)")) {
+            assertEquals(listOf(code), roundTrip(listOf(code)))
+        }
+    }
+
+    @Test
+    fun `код, который сам начинается с апострофа, возвращается с ним`() {
+        // апостроф впереди прикрывается так же, как формула: иначе чтение принимало
+        // его за наш и срезало
+        for (code in listOf("'+380501234567", "'abcdefgh", "''=SUM(A1)")) {
+            assertEquals(listOf(code), roundTrip(listOf(code)))
+        }
+    }
+
+    @Test
     fun `значение с экранированной кавычкой теряет только обрамление`() {
         assertEquals(listOf("ABC\"DEF12345"), parseCodeList("\"ABC\"\"DEF12345\""))
     }

@@ -51,8 +51,8 @@ private fun codeFromLine(line: String): String? {
     //    с кода маркировки, и без этой ветки она целиком уходила в сессию кодом вида
     //    «код;код;время», после чего камера переставала находить совпадение.
     if (fields.size == 3) {
-        val full = normalizeCode(fields[1])
-        if (full.isNotEmpty() && normalizeCode(fields[0]) == shortCode(full)) {
+        val full = normalizeCode(fields[1]).withoutFormulaGuard()
+        if (full.isNotEmpty() && normalizeCode(fields[0]).withoutFormulaGuard() == shortCode(full)) {
             return full.asCode()
         }
     }
@@ -75,6 +75,10 @@ private fun codeFromLine(line: String): String? {
     return values.filter { MARKING_CODE.matches(it) }.maxByOrNull { it.length }
         ?: values.maxByOrNull { it.length }
 }
+
+/** Апостроф, которым выгрузка прикрывает ячейку со знаком формулы, - не часть кода. */
+private fun String.withoutFormulaGuard(): String =
+    if (startsWith('\'') && needsFormulaGuard(substring(1))) substring(1) else this
 
 private fun String.asCode(): String? =
     takeIf { it.length >= SHORTEST_CODE && !it.contains(' ') }

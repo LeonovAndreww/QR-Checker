@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.datools.qrchecker.R
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.model.SessionData
+import com.datools.qrchecker.util.keepFormats
 import com.datools.qrchecker.util.CodeFormat
 import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.util.SessionFileException
@@ -18,6 +19,7 @@ import com.datools.qrchecker.util.readCodesFromFiles
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -107,7 +109,7 @@ class ScanViewModel : ViewModel() {
         parseJob = viewModelScope.launch {
             try {
                 val result = readCodesFromFiles(appContext, files, scale) { i, n, name, page, pages ->
-                    _progress.value = ParseProgress(i, n, name, page, pages)
+                    if (isActive) _progress.value = ParseProgress(i, n, name, page, pages)
                 }
 
                 when {
@@ -147,8 +149,13 @@ class ScanViewModel : ViewModel() {
                 _errorMessage.value =
                     appContext.getString(R.string.error_parsing_pdf, t.message ?: "")
             } finally {
-                _isLoading.value = false
-                _progress.value = null
+                // Сменённый разбор всегда отменён раньше, чем запущен новый, и доходит
+                // до finally уже после его старта. Без этой проверки он гасил прогресс и
+                // кнопку «Отмена» нового посреди работы.
+                if (isActive) {
+                    _isLoading.value = false
+                    _progress.value = null
+                }
             }
         }
     }
@@ -161,12 +168,13 @@ class ScanViewModel : ViewModel() {
      */
     private fun keep(source: ParsedFile, formats: Set<CodeFormat>): ParsedFile {
         if (formats.isEmpty() || source !is ParsedFile.Codes) return source
-        val codes = source.codes.filter { source.formats[it] in formats }
+        val codes = keepFormats(source.codes, source.formats, formats)
         if (codes.size == source.codes.size) return source
+        val kept = codes.toHashSet()
         return source.copy(
             codes = codes,
-            scanned = source.scanned.filter { it in codes },
-            scanTimes = source.scanTimes.filterKeys { it in codes }
+            scanned = source.scanned.filter { it in kept },
+            scanTimes = source.scanTimes.filterKeys { it in kept }
         )
     }
 

@@ -50,12 +50,13 @@ import com.datools.qrchecker.navigateOnce
 import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
+import com.datools.qrchecker.util.countFormats
 import com.datools.qrchecker.util.getFileNameFromUri
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.FilterChip
-import com.datools.qrchecker.util.CodeFormat
 import com.datools.qrchecker.viewmodel.ScanViewModel
 
 private const val TAG = "QRChecker"
@@ -116,12 +117,9 @@ fun CreateSessionScreen(navController: NavController) {
     // Отмечено всё найденное: сводка выше говорит «найдено N кодов», и если часть из них
     // молча не попадёт в сессию, эти два числа разойдутся без объяснения. Когда видов
     // несколько, они перечислены с количествами - и лишний снимается одним нажатием.
-    val formatCounts = (parsed as? ParsedFile.Codes)?.let { source ->
-        source.codes.groupingBy { source.formats[it] ?: CodeFormat.OTHER }.eachCount()
-            .toList()
-            .sortedWith(compareByDescending<Pair<CodeFormat, Int>> { it.second }
-                .thenBy { it.first.ordinal })
-    }.orEmpty()
+    val formatCounts = remember(parsed) {
+        (parsed as? ParsedFile.Codes)?.let { countFormats(it.codes, it.formats) }.orEmpty()
+    }
     var keptFormats by remember(parsed) {
         mutableStateOf(formatCounts.map { it.first }.toSet())
     }
@@ -138,11 +136,18 @@ fun CreateSessionScreen(navController: NavController) {
 
     // Переход ждёт, пока прочитают, сколько отметок перенеслось: иначе экран уезжает
     // на сканирование, и единственный ответ на «объединить» человек не видит вовсе.
-    LaunchedEffect(createdSessionId, mergedMarks) {
+    //
+    // Он же ждёт, пока экран снова станет активным. Сессия могла дописаться, пока
+    // приложение было свёрнуто: переход тогда не выполняется, и id, сброшенный без
+    // перехода, оставлял человека на экране создания перед уже созданной сессией.
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val resumed = lifecycleState == Lifecycle.State.RESUMED
+    LaunchedEffect(createdSessionId, mergedMarks, resumed) {
         val id = createdSessionId ?: return@LaunchedEffect
-        if (mergedMarks != null) return@LaunchedEffect
-        navController.navigateOnce(Screen.Scan.createRoute(id))
-        scanViewModel.clearCreatedSessionId()
+        if (mergedMarks != null || !resumed) return@LaunchedEffect
+        if (navController.navigateOnce(Screen.Scan.createRoute(id))) {
+            scanViewModel.clearCreatedSessionId()
+        }
     }
 
     val titleText = stringResource(id = R.string.setup_session_title)
@@ -160,8 +165,6 @@ fun CreateSessionScreen(navController: NavController) {
     val parsingText = stringResource(id = R.string.parsing_pdf)
     val cancelParsingText = stringResource(id = R.string.parsing_cancel)
     val sessionSummaryTemplate = stringResource(id = R.string.parsed_session_summary)
-    val formatHint = stringResource(id = R.string.format_filter_hint)
-    val formatCountTemplate = stringResource(id = R.string.format_filter_count)
     val existsTitle = stringResource(id = R.string.session_exists_title)
     val mergedTitle = stringResource(id = R.string.session_merged_title)
     val cancelText = stringResource(id = R.string.delete_cancel)
@@ -309,47 +312,7 @@ fun CreateSessionScreen(navController: NavController) {
                                 }
                             }
 
-                            // Выбор появляется, только когда выбирать есть из чего.
-                            // На обычном листе маркировки вид один, и лишний ряд
-                            // галочек там был бы вопросом без содержания.
-                            if (formatCounts.size > 1) {
-                                Spacer(Modifier.height(10.dp))
-                                Text(
-                                    text = formatHint,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(Modifier.height(6.dp))
-                                FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    for ((format, count) in formatCounts) {
-                                        val on = format in keptFormats
-                                        FilterChip(
-                                            selected = on,
-                                            onClick = {
-                                                // последний вид снять нельзя: сессия
-                                                // без кодов - это не сессия
-                                                keptFormats = when {
-                                                    !on -> keptFormats + format
-                                                    keptFormats.size > 1 -> keptFormats - format
-                                                    else -> keptFormats
-                                                }
-                                            },
-                                            label = {
-                                                Text(
-                                                    formatCountTemplate.format(
-                                                        stringResource(id = format.label),
-                                                        count
-                                                    )
-                                                )
-                                            }
-                                        )
-                                    }
-                                }
-                            }
+                            FormatFilter(formatCounts, keptFormats) { keptFormats = it }
                         }
 
                         is ParsedFile.Session -> Text(

@@ -93,6 +93,8 @@ import androidx.compose.material.icons.filled.Share
 import com.datools.qrchecker.util.shareSessionFile
 import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.util.normalizeCode
+import androidx.compose.material3.CircularProgressIndicator
+import kotlinx.coroutines.CancellationException
 import com.datools.qrchecker.util.ScanVerdict
 import com.datools.qrchecker.util.verdictFor
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
@@ -204,6 +206,9 @@ fun ScanScreen(
     val view = LocalView.current
 
     var session by remember { mutableStateOf<SessionData?>(null) }
+    // «ещё читается» и «такой сессии нет» - разные ответы: пока их не различали, каждое
+    // открытие большой партии начиналось с надписи «Сессия не найдена»
+    var loadFinished by remember { mutableStateOf(false) }
 
     // ----- feedback state (declared before any early return so the composition
     // ----- keeps a stable set of remembered slots) -----
@@ -262,10 +267,18 @@ fun ScanScreen(
     }
 
     LaunchedEffect(sessionId) {
-        session = repo.getById(sessionId)
-        // по времени открытия упорядочен список на главной: то, чем заняты сейчас,
-        // должно быть сверху, а не то, что завели раньше всех
-        repo.touchOpened(sessionId)
+        try {
+            session = repo.getById(sessionId)
+            // по времени открытия упорядочен список на главной: то, чем заняты сейчас,
+            // должно быть сверху, а не то, что завели раньше всех
+            repo.touchOpened(sessionId)
+        } catch (c: CancellationException) {
+            throw c
+        } catch (t: Throwable) {
+            Log.e(TAG, "Can't load session $sessionId", t)
+        } finally {
+            loadFinished = true
+        }
     }
 
     // Копия пишется через паузу после последней отметки, а не на каждую: партия бывает
@@ -356,15 +369,18 @@ fun ScanScreen(
      * без этого отката неудачная запись оставалась ложью - человек видел «Отсканирован»,
      * отставлял коробку, а в сессии отметки не было, и узнать об этом было неоткуда.
      *
-     * Снимается ровно то, что добавили, и только если с тех пор ничего не менялось:
-     * пересканировали тот же код или сессия перечиталась - откат уже не его дело.
+     * Снимается ровно то, что добавили, и только если с тех пор ничего не менялось: у
+     * кода всё ещё та отметка, что ставили. Вызывается на главном потоке и на области
+     * экрана - если человек уже ушёл, откатывать нечего, а пищать и вибрировать не перед
+     * кем.
      */
-    fun undoFailedWrite(code: String, wasCollected: Boolean, failure: String) {
+    fun undoFailedWrite(code: String, at: Long, wasCollected: Boolean, failure: String) {
         val current = session ?: return
+        if (current.scanTimes?.get(code) != at) return
         session = current.copy(
             codes = if (wasCollected) current.codes - code else current.codes,
             scannedCodes = current.scannedCodes - code,
-            scanTimes = current.scanTimes?.minus(code)
+            scanTimes = current.scanTimes - code
         )
         showFeedback(failure, accents.danger, Outcome.FAILURE, code)
     }
@@ -418,7 +434,9 @@ fun ScanScreen(
                         repo.recordScanned(sessionId, code, at)
                     } catch (t: Throwable) {
                         Log.e(TAG, "Can't record $code", t)
-                        undoFailedWrite(code, wasCollected = true, failure = saveFailedMsg)
+                        scope.launch {
+                            undoFailedWrite(code, at, wasCollected = true, failure = saveFailedMsg)
+                        }
                     }
                 }
             }
@@ -444,7 +462,9 @@ fun ScanScreen(
                         repo.markScanned(sessionId, code, at)
                     } catch (t: Throwable) {
                         Log.e(TAG, "Can't save the scanned code", t)
-                        undoFailedWrite(code, wasCollected = false, failure = saveFailedMsg)
+                        scope.launch {
+                            undoFailedWrite(code, at, wasCollected = false, failure = saveFailedMsg)
+                        }
                     }
                 }
             }
@@ -454,7 +474,11 @@ fun ScanScreen(
     val loaded = session
     if (loaded == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(stringResource(id = R.string.session_not_found))
+            if (loadFinished) {
+                Text(stringResource(id = R.string.session_not_found))
+            } else {
+                CircularProgressIndicator()
+            }
         }
         return
     }
@@ -600,13 +624,17 @@ fun ScanScreen(
                     // той сессией, с которой человек сейчас работает, и искать его в
                     // настройках никто не станет
                     IconButton(onClick = {
-                        try {
-                            context.startActivity(shareSessionFile(context, loaded))
-                        } catch (t: Throwable) {
-                            // молчать нельзя: нажатие без единого следа читается как
-                            // сломанная кнопка
-                            Log.e(TAG, "Can't share the session", t)
-                            scope.launch { snackbarHostState.showSnackbar(shareFailedText) }
+                        scope.launch {
+                            try {
+                                context.startActivity(shareSessionFile(context, loaded))
+                            } catch (c: CancellationException) {
+                                throw c
+                            } catch (t: Throwable) {
+                                // молчать нельзя: нажатие без единого следа читается как
+                                // сломанная кнопка
+                                Log.e(TAG, "Can't share the session", t)
+                                snackbarHostState.showSnackbar(shareFailedText)
+                            }
                         }
                     }) {
                         Icon(
@@ -1449,7 +1477,12 @@ class MlKitQrCodeAnalyzer(
                 // целится серединой экрана, а не краем
                 barcodes
                     .mapNotNull { barcode ->
-                        val value = barcode.rawValue ?: return@mapNotNull null
+                        // Нормализуется здесь, а не только при отметке: с этим значением
+                        // сравниваются и код в кадре, и цвет рамки. Код с GS или переводом
+                        // строки по краям иначе не совпадал с уже отмеченным - рамка
+                        // краснела, а возврат коробки в рамку давал повторный ответ.
+                        val value = barcode.rawValue?.let(::normalizeCode)
+                            ?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
                         val box = barcode.boundingBox ?: return@mapNotNull null
                         DetectedCode(value, box, width, height)
                     }

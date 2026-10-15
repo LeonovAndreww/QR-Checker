@@ -6,6 +6,8 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import com.datools.qrchecker.R
 import com.datools.qrchecker.model.SessionData
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -15,10 +17,14 @@ import java.io.File
  * Файл пишется в тот же каталог export, что и отчёты, и точно так же раздаётся через
  * FileProvider: каталог кэша целиком наружу не открывается.
  */
-fun shareSessionFile(context: Context, session: SessionData): Intent {
-    val exportDir = File(context.cacheDir, "export").apply { mkdirs() }
-    val file = File(exportDir, "${sessionFileName(session.name)}.$SESSION_FILE_EXTENSION")
-    file.writeText(writeSessionFile(session))
+suspend fun shareSessionFile(context: Context, session: SessionData): Intent {
+    // партия на тысячи кодов - это заметная запись, и на главном потоке она подвешивала
+    // нажатие «Поделиться»
+    val file = withContext(Dispatchers.IO) {
+        val exportDir = File(context.cacheDir, "export").apply { mkdirs() }
+        File(exportDir, "${sessionFileName(session.name)}.$SESSION_FILE_EXTENSION")
+            .apply { writeText(writeSessionFile(session)) }
+    }
 
     val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 

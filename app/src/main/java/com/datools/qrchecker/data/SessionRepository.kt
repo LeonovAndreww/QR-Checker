@@ -7,6 +7,7 @@ import com.datools.qrchecker.data.room.SessionCodeEntity
 import com.datools.qrchecker.data.room.SessionEntity
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.model.SessionSummary
+import com.datools.qrchecker.util.SessionBackup
 import kotlinx.coroutines.flow.Flow
 
 private const val TAG = "QRChecker"
@@ -15,6 +16,7 @@ private const val TAG = "QRChecker"
 private const val BIN_LIFETIME_MS = 7L * 24 * 60 * 60 * 1000
 
 class SessionRepository(context: Context) {
+    private val appContext = context.applicationContext
     private val dao = AppDatabase.getInstance(context).sessionDao()
 
     suspend fun insert(session: SessionData, now: Long = System.currentTimeMillis()) {
@@ -51,7 +53,18 @@ class SessionRepository(context: Context) {
 
     fun getSummariesFlow(): Flow<List<SessionSummary>> = dao.getSummariesFlow()
 
-    suspend fun delete(sessionId: String) = dao.deleteSession(sessionId)
+    /**
+     * Удаляет сессию вместе с её копией в папке бэкапа.
+     *
+     * Копия убирается здесь, а не на экране: удаление - это одно действие, откуда бы его
+     * ни вызвали, и копия, пережившая сессию, возвращала её при каждом восстановлении.
+     */
+    suspend fun delete(sessionId: String) {
+        dao.deleteSession(sessionId)
+        SessionBackup.scheduleDelete(appContext, sessionId)
+    }
+
+    suspend fun exists(sessionId: String): Boolean = dao.getSession(sessionId) != null
 
     /**
      * Marks one code as scanned, touching a single row. Returns false when the code is not
@@ -158,18 +171,15 @@ class SessionRepository(context: Context) {
     }
 
     /**
-     * Переносит отметки из другой копии той же сессии. Возвращает, сколько отметок
-     * добавилось - только их и стоит показывать пользователю, «объединено 0» это ответ.
-     *
-     * Пачка режется на куски: в списке IN у SQLite ограничение на число параметров, а
-     * партия бывает и на несколько тысяч коробок.
-     */
-    /**
-     * Переносит отметки из открытого файла в уже существующую сессию.
+     * Переносит отметки из открытого файла в уже существующую сессию. Возвращает, сколько
+     * отметок добавилось - только их и стоит показывать пользователю.
      *
      * Время у каждой отметки своё, из файла. Единое «сейчас» на всех приписывало
      * вчерашней приёмке сегодняшний час: и «уже отсканирован час назад» на экране, и
      * колонка времени в отчёте после такого слияния врали.
+     *
+     * Коды без времени идут пачками по 500: в списке IN у SQLite ограничение на число
+     * параметров.
      */
     suspend fun mergeScanned(
         sessionId: String,
@@ -177,14 +187,9 @@ class SessionRepository(context: Context) {
         times: Map<String, Long> = emptyMap(),
         at: Long = System.currentTimeMillis()
     ): Int {
-        // Коды без известного времени идут пачками, с известным - по одному: пачкой их
-        // не отметить, у каждого своя отметка времени.
         val (timed, untimed) = scanned.partition { it in times }
-        var changed = untimed.chunked(500).sumOf { dao.markScannedIn(sessionId, it, at) }
-        for (code in timed) {
-            changed += dao.markScanned(sessionId, code, times.getValue(code))
-        }
-        return changed
+        val changed = untimed.chunked(500).sumOf { dao.markScannedIn(sessionId, it, at) }
+        return changed + dao.markScannedEach(sessionId, timed.associateWith { times.getValue(it) })
     }
 
     /** Идентификаторы всех сессий - чтобы при восстановлении не заводить дубликаты. */

@@ -8,10 +8,14 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.datools.qrchecker.QrCheckerApp
+import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.model.SessionData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 private const val TAG = "QRChecker"
 
@@ -29,6 +33,18 @@ private const val KEY_ENABLED = "enabled"
  * Это единственный способ пережить переустановку, который зависит только от нас.
  */
 object SessionBackup {
+
+    /**
+     * Запись и удаление копий одной сессии идут по очереди. Копия пишется в фоне при
+     * уходе с экрана сканирования, и удаление сессии сразу после этого могло проскочить
+     * раньше записи - тогда запись возвращала файл удалённой сессии обратно.
+     *
+     * Очередь своя у каждой сессии: копия большой партии в облачную папку пишется
+     * секундами, и создание новой сессии не должно стоять за ней.
+     */
+    private val locks = ConcurrentHashMap<String, Mutex>()
+
+    private fun lockFor(sessionId: String): Mutex = locks.getOrPut(sessionId) { Mutex() }
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -102,10 +118,6 @@ object SessionBackup {
     private fun belongsTo(name: String?, sessionId: String) =
         name != null && name.contains("__$sessionId.$SESSION_FILE_EXTENSION")
 
-    /** Похоже на копию сессии, чьё бы имя провайдер ни дописал. */
-    private fun looksLikeBackup(name: String?) =
-        name != null && name.contains(".$SESSION_FILE_EXTENSION")
-
     /**
      * Пишет копию сессии. Возвращает false, если папка не выбрана, отозвана или
      * недоступна - вызывающий решает, шуметь ему об этом или нет.
@@ -113,37 +125,43 @@ object SessionBackup {
     suspend fun save(context: Context, session: SessionData): Boolean =
         withContext(Dispatchers.IO) {
             val folder = folder(context) ?: return@withContext false
-            try {
-                val dir = DocumentFile.fromTreeUri(context, folder)
-                if (dir == null || !dir.canWrite()) {
-                    Log.w(TAG, "The backup folder is not writable any more")
-                    return@withContext false
+            lockFor(session.id).withLock {
+                try {
+                    // удалённую сессию не воскрешать: запись могла встать в очередь
+                    // раньше удаления, а дойти до файлов позже
+                    if (!SessionRepository(context).exists(session.id)) return@withContext false
+
+                    val dir = DocumentFile.fromTreeUri(context, folder)
+                    if (dir == null || !dir.canWrite()) {
+                        Log.w(TAG, "The backup folder is not writable any more")
+                        return@withContext false
+                    }
+
+                    val wanted = fileNameFor(session)
+                    val mine = dir.listFiles().filter { belongsTo(it.name, session.id) }
+
+                    // Ищется не по точному имени: провайдер мог дописать своё расширение,
+                    // и findFile(wanted) промахивался бы каждый раз, создавая новый файл.
+                    val reusable = mine.firstOrNull {
+                        it.name == wanted || it.name?.startsWith("$wanted.") == true
+                    }
+                    // переименовали сессию - файлы со старым именем больше не нужны
+                    mine.filter { it.uri != reusable?.uri }.forEach { it.delete() }
+
+                    val file = reusable
+                        ?: dir.createFile(SESSION_FILE_MIME, wanted)
+                        ?: return@withContext false
+
+                    // "wt" обрезает файл: без этого копия короче прежней оставила бы хвост
+                    context.contentResolver.openOutputStream(file.uri, "wt")?.use {
+                        it.write(writeSessionFile(session).toByteArray())
+                    } ?: return@withContext false
+
+                    true
+                } catch (t: Throwable) {
+                    Log.e(TAG, "Can't write the backup", t)
+                    false
                 }
-
-                val wanted = fileNameFor(session)
-                val mine = dir.listFiles().filter { belongsTo(it.name, session.id) }
-
-                // Ищется не по точному имени: провайдер мог дописать своё расширение,
-                // и findFile(wanted) промахивался бы каждый раз, создавая новый файл.
-                val reusable = mine.firstOrNull {
-                    it.name == wanted || it.name?.startsWith("$wanted.") == true
-                }
-                // переименовали сессию - файлы со старым именем больше не нужны
-                mine.filter { it.uri != reusable?.uri }.forEach { it.delete() }
-
-                val file = reusable
-                    ?: dir.createFile(SESSION_FILE_MIME, wanted)
-                    ?: return@withContext false
-
-                // "wt" обрезает файл: без этого копия короче прежней оставила бы хвост
-                context.contentResolver.openOutputStream(file.uri, "wt")?.use {
-                    it.write(writeSessionFile(session).toByteArray())
-                } ?: return@withContext false
-
-                true
-            } catch (t: Throwable) {
-                Log.e(TAG, "Can't write the backup", t)
-                false
             }
         }
 
@@ -164,21 +182,57 @@ object SessionBackup {
     }
 
     /**
+     * Убирает копию удалённой сессии.
+     *
+     * Без этого восстановление возвращало всё, что человек когда-либо удалял: копия
+     * переживала сессию, и после переустановки удалённые партии появлялись снова.
+     */
+    fun scheduleDelete(context: Context, sessionId: String) {
+        val app = context.applicationContext as? QrCheckerApp ?: return
+        val folder = folder(app) ?: return
+        app.backgroundScope.launch {
+            lockFor(sessionId).withLock {
+                try {
+                    DocumentFile.fromTreeUri(app, folder)?.listFiles()
+                        ?.filter { belongsTo(it.name, sessionId) }
+                        ?.forEach { it.delete() }
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Can't remove the backup of a deleted session", t)
+                }
+            }
+            // сессии больше нет, и её очередь не нужна: запись, если ещё придёт, увидит,
+            // что сессии нет, и ничего не напишет
+            locks.remove(sessionId)
+        }
+    }
+
+    /**
      * Читает все копии из папки. Файлы, которые не разобрались, пропускаются: одна
      * испорченная копия не должна отменять восстановление остальных.
+     *
+     * Копией считается только файл, в имени которого стоит идентификатор той самой
+     * сессии, что внутри. Папкой бэкапа часто выбирают «Загрузки», а туда же ложатся
+     * присланные сессии: по одному расширению они восстанавливались как свои, и рядом с
+     * партией появлялась её чужая копия. Если у одной сессии копий несколько, берётся
+     * самая свежая - иначе выигрывала та, что попалась последней.
      */
     suspend fun readAll(context: Context): List<SessionData> = withContext(Dispatchers.IO) {
         val folder = folder(context) ?: return@withContext emptyList()
         val dir = DocumentFile.fromTreeUri(context, folder) ?: return@withContext emptyList()
 
-        dir.listFiles().mapNotNull { file ->
-            if (!looksLikeBackup(file.name)) return@mapNotNull null
-            try {
-                readSessionFile(readTextFromUri(context, file.uri)).session
-            } catch (t: Throwable) {
-                Log.w(TAG, "Skipping an unreadable backup: ${file.name}", t)
-                null
+        dir.listFiles()
+            .mapNotNull { file ->
+                val name = file.name ?: return@mapNotNull null
+                if (!name.contains(".$SESSION_FILE_EXTENSION")) return@mapNotNull null
+                try {
+                    readSessionFile(readTextFromUri(context, file.uri))
+                        .takeIf { belongsTo(name, it.session.id) }
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Skipping an unreadable backup: $name", t)
+                    null
+                }
             }
-        }
+            .groupBy { it.session.id }
+            .map { (_, copies) -> copies.maxBy { it.savedAt }.session }
     }
 }

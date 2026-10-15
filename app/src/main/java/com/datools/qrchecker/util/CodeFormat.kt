@@ -36,6 +36,19 @@ enum class CodeFormat(@get:StringRes val label: Int) {
     }
 }
 
+/** Сколько кодов каждого вида, самые многочисленные первыми. */
+fun countFormats(codes: List<String>, formats: Map<String, CodeFormat>): List<Pair<CodeFormat, Int>> =
+    codes.groupingBy { formats[it] ?: CodeFormat.OTHER }.eachCount()
+        .toList()
+        .sortedWith(compareByDescending<Pair<CodeFormat, Int>> { it.second }.thenBy { it.first.ordinal })
+
+/** Коды только тех видов, что оставлены. Код без известного вида считается «другим». */
+fun keepFormats(
+    codes: List<String>,
+    formats: Map<String, CodeFormat>,
+    kept: Set<CodeFormat>
+): List<String> = codes.filter { (formats[it] ?: CodeFormat.OTHER) in kept }
+
 /** Код вместе с тем, чем он записан. */
 data class ScannedCode(
     val value: String,

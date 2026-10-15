@@ -43,8 +43,11 @@ import com.datools.qrchecker.util.formatExpiry
 import com.datools.qrchecker.util.AppSettings
 import com.datools.qrchecker.util.shareCsv
 import com.datools.qrchecker.model.SessionData
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -116,7 +119,10 @@ fun CodesListScreen(
     val scannedCount = session?.scannedCodes?.size ?: 0
     // у собирающей сессии список один, и слово «отсканированные» в нём лишнее:
     // других кодов в ней не бывает
-    val titleScanned = if (session?.collecting == true) {
+    // у собирающей сессии и список и слова свои: снимать отметку там некуда,
+    // неотсканированных у неё нет
+    val collecting = session?.collecting == true
+    val titleScanned = if (collecting) {
         stringResource(id = R.string.codes_title_collected, scannedCount)
     } else {
         stringResource(id = R.string.codes_title_scanned, scannedCount)
@@ -126,7 +132,7 @@ fun CodesListScreen(
         session?.let { it.codes.size - it.scannedCodes.size } ?: 0
     )
     val loadingText = stringResource(id = R.string.loading_session)
-    val noScannedText = if (session?.collecting == true) {
+    val noScannedText = if (collecting) {
         stringResource(id = R.string.no_collected_codes)
     } else {
         stringResource(id = R.string.no_scanned_codes)
@@ -217,7 +223,7 @@ fun CodesListScreen(
         // В собирающей сессии снимать отметку некуда: списка неотсканированных у неё
         // нет, и код просто пропал бы из единственного видимого списка и из счётчика,
         // оставшись в сессии и в выгрузке. Поэтому оттуда - сразу в корзину.
-        val unmark = isScanned && session?.collecting != true
+        val unmark = isScanned && !collecting
         scope.launch {
             try {
                 // в списке отсканированных код возвращается в неотсканированные;
@@ -293,10 +299,8 @@ fun CodesListScreen(
                             val current = session ?: return@IconButton
                             scope.launch {
                                 try {
-                                    val intent = shareCsv(
-                                        context = context,
-                                        baseName = "${current.name}_$type",
-                                        content = buildCsv(
+                                    val content = withContext(Dispatchers.Default) {
+                                        buildCsv(
                                             title = exportHeader,
                                             columnOnBox = csvColumnOnBox,
                                             columnFull = csvColumnFull,
@@ -304,8 +308,15 @@ fun CodesListScreen(
                                             codes = exportableCodes,
                                             scanTimes = current.scanTimes
                                         )
+                                    }
+                                    val intent = shareCsv(
+                                        context = context,
+                                        baseName = "${current.name}_$type",
+                                        content = content
                                     )
                                     context.startActivity(intent)
+                                } catch (c: CancellationException) {
+                                    throw c
                                 } catch (t: Throwable) {
                                     Log.e(TAG, "Can't export the code list", t)
                                     say("$exportFailed: ${t.message}")
@@ -550,7 +561,7 @@ fun CodesListScreen(
                         Text(
                             // спрашивается ровно про то, что произойдёт: в собирающей
                             // сессии отметку снимать неоткуда, там код уезжает в корзину
-                            text = if (codeToDeleteIsScanned && session?.collecting != true) {
+                            text = if (codeToDeleteIsScanned && !collecting) {
                                 unmarkTitle
                             } else {
                                 binTitle
@@ -561,7 +572,7 @@ fun CodesListScreen(
                     text = {
                         Column {
                             Text(
-                                text = if (codeToDeleteIsScanned && session?.collecting != true) {
+                                text = if (codeToDeleteIsScanned && !collecting) {
                                     unmarkConfirm
                                 } else {
                                     binConfirm
@@ -604,7 +615,7 @@ fun CodesListScreen(
                             performDelete(code, isScanned)
                         }) {
                             Text(
-                                if (codeToDeleteIsScanned && session?.collecting != true) {
+                                if (codeToDeleteIsScanned && !collecting) {
                                     unmarkAction
                                 } else {
                                     binAction

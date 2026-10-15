@@ -7,6 +7,16 @@ import android.content.res.Resources
 import java.util.Locale
 
 /**
+ * Язык устройства, каким он был при запуске процесса.
+ *
+ * Запоминается один раз и до первой подмены. Дальше applyLanguage зовёт
+ * Locale.setDefault, и Locale.getDefault() начинает возвращать выбранный в настройках
+ * язык, а не системный - после чего «Системный» возвращал бы приложение к тому же
+ * русскому, который человек только что выключил.
+ */
+private val deviceLocale: Locale = Locale.getDefault()
+
+/**
  * Подменяет язык интерфейса на выбранный в настройках.
  *
  * Делается своими руками, а не через AppCompatDelegate.setApplicationLocales: тот на
@@ -18,16 +28,6 @@ import java.util.Locale
  * ViewModel по applicationContext, и разъехавшись они дали бы ровно ту мешанину языков,
  * от которой всё это и заводится.
  */
-/**
- * Язык устройства, каким он был при запуске процесса.
- *
- * Запоминается один раз и до первой подмены. Дальше applyLanguage зовёт
- * Locale.setDefault, и Locale.getDefault() начинает возвращать выбранный в настройках
- * язык, а не системный - после чего «Системный» возвращал бы приложение к тому же
- * русскому, который человек только что выключил.
- */
-private val deviceLocale: Locale = Locale.getDefault()
-
 fun applyLanguage(base: Context): Context {
     val locale = chosenLocale(base) ?: return base
     Locale.setDefault(locale)

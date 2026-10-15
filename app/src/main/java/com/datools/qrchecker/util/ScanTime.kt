@@ -14,10 +14,20 @@ import java.util.concurrent.TimeUnit
  * текст и одинаково читается в любой стране. Локаль фиксирована по той же причине - файл
  * уходит из телефона и попадает к человеку с другими настройками.
  */
-private val EXPORT_FORMAT = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+private val EXPORT_FORMAT = threadLocalFormat("yyyy-MM-dd HH:mm:ss")
 
 fun formatScanTimeForExport(millis: Long?): String =
-    if (millis == null) "" else EXPORT_FORMAT.format(Date(millis))
+    if (millis == null) "" else EXPORT_FORMAT.get()!!.format(Date(millis))
+
+/**
+ * Свой форматтер на каждый поток. SimpleDateFormat хранит разбираемую дату в себе, и две
+ * выгрузки, собираемые параллельно вне главного потока, путали время соседних строк, а то
+ * и падали.
+ */
+internal fun threadLocalFormat(pattern: String): ThreadLocal<SimpleDateFormat> =
+    object : ThreadLocal<SimpleDateFormat>() {
+        override fun initialValue() = SimpleDateFormat(pattern, Locale.US)
+    }
 
 /** Круглосуточные часы или с половинами дня - по настройке, иначе как в телефоне. */
 private fun is24Hour(context: Context): Boolean = when (AppSettings.clock(context)) {
@@ -93,11 +103,15 @@ private fun onDate(millis: Long): String {
 private fun yearOf(millis: Long): Int =
     Calendar.getInstance().apply { timeInMillis = millis }.get(Calendar.YEAR)
 
-/** Сколько календарных суток между двумя моментами - по местному времени. */
-private fun daysBetween(from: Long, to: Long): Int {
-    val start = midnightOf(from)
-    val end = midnightOf(to)
-    return TimeUnit.MILLISECONDS.toDays(end - start).toInt()
+/**
+ * Сколько календарных суток между двумя моментами - по местному времени.
+ *
+ * Разница полуночей округляется, а не отбрасывается: в сутках перевода часов 23 или 25
+ * часов, и при отбрасывании весенние «вчера» становились «сегодня» со временем из будущего.
+ */
+internal fun daysBetween(from: Long, to: Long): Int {
+    val day = TimeUnit.DAYS.toMillis(1)
+    return Math.floorDiv(midnightOf(to) - midnightOf(from) + day / 2, day).toInt()
 }
 
 private fun midnightOf(millis: Long): Long = Calendar.getInstance().apply {

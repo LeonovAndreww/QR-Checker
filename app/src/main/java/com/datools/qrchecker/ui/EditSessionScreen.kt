@@ -69,8 +69,13 @@ import com.datools.qrchecker.util.formatTimeAgo
 import com.datools.qrchecker.util.rememberFeedback
 import com.datools.qrchecker.util.getFileNameFromUri
 import com.datools.qrchecker.util.readCodesFromFiles
+import com.datools.qrchecker.util.CodeFormat
+import com.datools.qrchecker.util.countFormats
+import com.datools.qrchecker.util.keepFormats
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -104,6 +109,16 @@ fun EditSessionScreen(
 
     // parsed codes from newly selected PDF (null = nothing selected, empty list = parsed but no codes)
     var parsedCodes by remember { mutableStateOf<List<String>?>(null) }
+    // чем записан каждый разобранный код и какие виды человек оставил - как при создании
+    var parsedFormats by remember { mutableStateOf<Map<String, CodeFormat>>(emptyMap()) }
+    var keptFormats by remember { mutableStateOf<Set<CodeFormat>>(emptySet()) }
+    val formatCounts = remember(parsedCodes, parsedFormats) {
+        parsedCodes?.let { countFormats(it, parsedFormats) }.orEmpty()
+    }
+    // то, что реально ляжет в сессию: разобранное минус снятые виды
+    val keptCodes = remember(parsedCodes, parsedFormats, keptFormats) {
+        parsedCodes?.let { keepFormats(it, parsedFormats, keptFormats) }
+    }
 
     // loading / error
     var isLoading by remember { mutableStateOf(false) }
@@ -216,19 +231,28 @@ fun EditSessionScreen(
                 //
                 // Пока сюда клался пустой список, «Сохранить» предлагало заменить им всю
                 // сессию: один нечитаемый файл стирал партию вместе с отметками.
-                val found = readCodesFromFiles(context, files).codes
-                if (found.isEmpty()) {
+                val result = readCodesFromFiles(context, files)
+                if (result.codes.isEmpty()) {
                     parsedCodes = null
                     errorMessage = ScreenError(R.string.error_no_codes_in_files, "")
                 } else {
-                    parsedCodes = found
+                    parsedFormats = result.formats
+                    keptFormats = result.codes.mapTo(HashSet()) {
+                        result.formats[it] ?: CodeFormat.OTHER
+                    }
+                    parsedCodes = result.codes
                 }
+            } catch (c: CancellationException) {
+                // Отмена - не ошибка разбора. Пойманная общим catch, она затирала коды
+                // следующего выбора ошибкой «отменено», и «Сохранить» сохраняло одно имя.
+                throw c
             } catch (t: Throwable) {
                 Log.e(TAG, "Can't read the selected files", t)
                 parsedCodes = null
                 errorMessage = ScreenError(R.string.error_parsing_pdf, t.message ?: "")
             } finally {
-                isLoading = false
+                // сменённый разбор уже отменён и не трогает спиннер нового
+                if (isActive) isLoading = false
             }
         }
     }
@@ -322,7 +346,7 @@ fun EditSessionScreen(
             ) {
                 val origCount = original?.codes?.size ?: 0
                 val selectedCountText = when {
-                    parsedCodes != null -> parsedCodes!!.size.toString()
+                    keptCodes != null -> keptCodes.size.toString()
                     selectedNames.isNotEmpty() && isLoading -> parsingText
                     selectedNames.isNotEmpty() -> "..."
                     else -> "—"
@@ -338,6 +362,10 @@ fun EditSessionScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.End
                 )
+            }
+
+            if (!isLoading) {
+                FormatFilter(formatCounts, keptFormats) { keptFormats = it }
             }
 
             if (isLoading) {
@@ -530,7 +558,7 @@ fun EditSessionScreen(
                 Button(
                     onClick = {
                         val origCodes = original?.codes ?: emptyList()
-                        val newCodes = parsedCodes
+                        val newCodes = keptCodes
                         val willReplace = (newCodes != null) && (newCodes != origCodes)
 
                         if (willReplace) {
@@ -583,7 +611,7 @@ fun EditSessionScreen(
     original?.let { current ->
         if (!showReplaceConfirm) return@let
 
-        val picked = parsedCodes ?: current.codes
+        val picked = keptCodes ?: current.codes
         val previousCodesForMode = current.codes.toHashSet()
         // «Заменить» - список становится тем, что в PDF. «Добавить» - к тому, что уже
         // есть, дописываются только незнакомые коды: партию догружают по частям, и
@@ -656,6 +684,14 @@ fun EditSessionScreen(
                         text = stringResource(R.string.replace_diff_total, finalCodes.size),
                         style = MaterialTheme.typography.bodyLarge
                     )
+                    if (current.collecting) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.collecting_becomes_checking),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
                     // Пропавшая отметка - это потерянная работа, поэтому её показываем
                     // поимённо, а не числом. Новые коды перечислять незачем: их и так

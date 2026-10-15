@@ -101,6 +101,7 @@
     <string name="codes_mode_replace">Replace</string>
     <string name="codes_mode_append">Add</string>
     <string name="codes_already_present">Already in the session: %1$d</string>
+    <string name="collecting_becomes_checking">The session will check codes against this list: a code that is not in it will be answered “Not in this session” instead of being recorded.</string>
     <string name="save_codes">Save</string>
     <string name="csv_column_scanned_at">Scanned at</string>
     <string name="sessions_progress">%1$d of %2$d</string>

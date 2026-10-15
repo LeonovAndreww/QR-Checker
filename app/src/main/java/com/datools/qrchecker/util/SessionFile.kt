@@ -114,13 +114,14 @@ fun readSessionFile(text: String): SessionFileContent {
         ?: throw SessionFileException(R.string.session_file_no_codes_field)
 
     val codes = ArrayList<String>(codesJson.size())
+    val seen = HashSet<String>(codesJson.size())
     val scanned = ArrayList<String>()
     val scanTimes = HashMap<String, Long>()
     for (element in codesJson) {
         if (!element.isJsonObject) continue
         val entry = element.asJsonObject
         val code = entry.get(KEY_CODE)?.takeIf { it.isJsonPrimitive }?.asString ?: continue
-        if (code.isEmpty() || code in codes) continue
+        if (code.isEmpty() || !seen.add(code)) continue
         codes += code
         if (entry.get(KEY_SCANNED)?.takeIf { it.isJsonPrimitive }?.asBoolean == true) {
             scanned += code
