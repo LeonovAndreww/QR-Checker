@@ -100,6 +100,8 @@
     <string name="codes_from_pdf_title">Codes from the files</string>
     <string name="codes_mode_replace">Replace</string>
     <string name="codes_mode_append">Add</string>
+    <string name="codes_mode_replace_hint">Only the codes from the file stay in the session. Codes in the file keep their marks; the rest are removed along with theirs.</string>
+    <string name="codes_mode_append_hint">Codes from the file are added to those already in the session. All earlier codes keep their marks, and repeats are not added twice.</string>
     <string name="codes_already_present">Already in the session: %1$d</string>
     <string name="collecting_becomes_checking">The session will check codes against this list: a code that is not in it will be answered “Not in this session” instead of being recorded.</string>
     <string name="save_codes">Save</string>

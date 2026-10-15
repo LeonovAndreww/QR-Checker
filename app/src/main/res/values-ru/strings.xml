@@ -98,6 +98,8 @@
     <string name="codes_from_pdf_title">Коды из файлов</string>
     <string name="codes_mode_replace">Заменить</string>
     <string name="codes_mode_append">Добавить</string>
+    <string name="codes_mode_replace_hint">В сессии останутся только коды из файла. Отметки сохранятся у тех, что есть в файле; остальные коды пропадут вместе с отметками.</string>
+    <string name="codes_mode_append_hint">Коды из файла допишутся к тем, что уже есть в сессии. Все прежние коды и их отметки сохранятся, повторы не задвоятся.</string>
     <string name="codes_already_present">Уже в сессии: %1$d</string>
     <string name="collecting_becomes_checking">Сессия начнёт сверять коды с этим списком: на код не из него ответит «Нет в этой сессии», а не запишет его.</string>
     <string name="save_codes">Сохранить</string>

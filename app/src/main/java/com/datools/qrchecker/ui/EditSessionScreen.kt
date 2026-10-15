@@ -651,6 +651,19 @@ fun EditSessionScreen(
                             label = { Text(modeAppendText) }
                         )
                     }
+                    // по одному слову не понять, что станет с уже отмеченным, а именно
+                    // это и решается выбором режима
+                    Text(
+                        text = stringResource(
+                            if (replaceCodesMode) {
+                                R.string.codes_mode_replace_hint
+                            } else {
+                                R.string.codes_mode_append_hint
+                            }
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
