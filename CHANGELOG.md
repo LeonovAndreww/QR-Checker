@@ -6,51 +6,39 @@ All notable changes to this project are documented here. The format follows
 
 ## [2.0.0] - Unreleased
 
-"Any File, Any Code": sessions are read from any document, and the camera reads every
-common code format.
-
 ### Added
-- Codes are read from PDF, images, text lists and CSV, several files at once, with
-  progress per file and page. Code kinds can be unticked before a session is created.
-- Every barcode format ML Kit supports. Fields are parsed for GS1 (Chestny ZNAK, EU FMD
-  and other traceability systems), GS1 Digital Link, German IFA PPN and HIBC; expiry and
-  batch are shown under each code and in the scan banner.
-- Sessions that collect codes without a document; adding a document later turns them
-  into checking sessions.
-- Answers say how long ago a repeated code was scanned.
-- Viewfinder with a smoothed outline around the accepted code, tap to focus, pinch to
-  zoom, a torch, and an optional scan-on-tap mode.
-- Manual entry that searches the session's codes.
-- Bin for removed codes, kept for a week.
-- Search, sort and swipe actions in code lists; a scrollbar in long lists.
-- Session files: share a session and merge its marks on another phone.
-- Automatic backup of sessions to a folder of the user's choice.
-- Settings for theme, language (switched in the app), clock, vibration, sound and what
-  is shown under codes.
-- Dark theme, landscape layout, English and Russian.
+- Codes from PDF, images, text and CSV files, several at once.
+- All barcode formats ML Kit reads. Unwanted kinds can be unticked when creating a session.
+- Expiry and batch for GS1 codes (Chestny ZNAK, EU medicines and others), GS1 Digital
+  Link, German PPN and HIBC.
+- Sessions without a document that record new codes.
+- "Already scanned" shows how long ago.
+- Viewfinder, tap to focus, pinch to zoom, torch, optional scan on tap.
+- Manual entry with search over the session's codes.
+- Bin for removed codes, emptied after a week.
+- Search, sorting and swipe actions in code lists, scrollbar.
+- Sharing a session as a file and merging marks from it.
+- Automatic backup of sessions to a chosen folder.
+- Settings: theme, language, clock format, vibration, sound, what is shown under codes.
+- Dark theme, landscape layout.
 - Privacy policy page.
 
 ### Changed
-- Sessions are ordered by when they were last opened, and show their progress.
-- Screens use view models with dependency injection (Hilt); scan decisions moved out of
-  the screen into tested classes.
-- The screen may sleep after five minutes without a code in view.
-- Licensed under Apache 2.0.
+- Sessions are sorted by last opened and show progress.
+- Screens moved to ViewModels with Hilt.
+- The screen can turn off after five minutes without codes in view.
+- License changed to Apache 2.0.
 
 ### Fixed
-- With two codes in the viewfinder the answer jumped between them and the phone buzzed
-  several times a second; each code is now answered once while it stays in view.
-- Misreads of linear barcodes from a tilted label: a new linear code needs several equal
-  reads.
-- A code held in front of the camera is answered once instead of repeatedly.
-- The last mark is no longer lost when leaving the scan screen right after a scan, and a
-  failed write takes the shown answer back.
-- Rotation no longer blacks out the camera.
+- With two codes in view the app switched between them and vibrated nonstop.
+- Wrong reads of linear barcodes on tilted labels.
+- The same code was answered again while still in view.
+- The last mark could be lost when leaving the scan screen right after a scan.
+- Black flash on rotation.
 
 ### Removed
-- Internet and network state permissions pulled in by ML Kit telemetry.
-- The session database is excluded from Android cloud backup, which could restore it
-  corrupted; the folder backup replaces it.
+- Internet permissions added by ML Kit.
+- Session database from Android cloud backup.
 
 ## [1.2.1] - 2025-09-02
 

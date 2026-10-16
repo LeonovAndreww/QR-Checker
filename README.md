@@ -40,8 +40,8 @@ and a whole session can be sent as a file - the other phone merges the marks int
 session it already has. Sessions are also backed up to a folder of your choice and survive
 uninstalling the app.
 
-A session can also start without a document: it then collects every new code it sees and
-only catches repeats. Adding a document later turns it into a checking session.
+There are also sessions without a document. They record every new code and warn about
+repeats. If a document is added later, the session starts checking against it.
 
 ### Supported codes
 
@@ -58,28 +58,24 @@ only catches repeats. Adding a document later turns it into a checking session.
 
 ## Architecture
 
-A single-activity Compose app with one view model per screen.
+One activity, Jetpack Compose, one ViewModel per screen.
 
 ```
-ui/<feature>/   Screen (stateless rendering) + ViewModel (StateFlow<UiState>, one-off events)
-data/           SessionRepository over Room (DAO, entities), SessionBackup to a user folder
-codes/          What a code is and what it carries: GS1, HIBC, PPN, Digital Link, CSV lists
-files/          Reading PDFs, images and lists; session files; CSV export
-scan/           Scan decisions: verdict, presence of codes in view, linear read vote, smoothing
-settings/       App settings, in-app language switching
-di/             Hilt module: database, DAO, application scope
+ui/<screen>/   screen and its ViewModel
+data/          Room database, SessionRepository, backup to a folder
+codes/         parsing: GS1, HIBC, PPN, Digital Link, CSV lists
+files/         reading PDF and images, session files, CSV export
+scan/          what to answer when a code is scanned
+settings/      app settings and language
+di/            Hilt module
 ```
 
-- Dependencies are injected with Hilt; view models get the repository and read navigation
-  arguments from `SavedStateHandle`.
-- The parsing and scan decision code is plain Kotlin with no Android types, so it is
-  covered by fast JVM tests. The Room layer and the scan view model are tested against an
-  in-memory database under Robolectric.
-- Camera frames are decoded by ML Kit on a background executor; the screen receives every
-  code in the frame and `CodePresence` decides whether to answer, so a code held in view is
-  answered once, even with several codes in the viewfinder.
-- Marks are written on an application-wide scope: leaving the screen right after a scan
-  does not lose the write, and a failed write takes the shown answer back.
+Each ViewModel keeps the screen state in a `StateFlow`; the screen only draws it.
+Dependencies come through Hilt.
+
+Code parsing and scan logic don't touch Android classes and are tested with plain JUnit.
+The database and the scan ViewModel are tested with Robolectric on an in-memory Room
+database. CI builds the app, runs the tests and lint on every push.
 
 ## Technologies used
 [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org/) 
