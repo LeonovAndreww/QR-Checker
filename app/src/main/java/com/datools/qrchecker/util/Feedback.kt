@@ -18,46 +18,41 @@ private const val TONE_SILENT = -1
 private const val TONE_VOLUME = 90
 
 /**
- * Что именно случилось.
+ * What happened, with its own vibration pattern and tone.
  *
- * Узор задаётся здесь, а не берётся у системы.
+ * Patterns are set here rather than taken from the system: performHapticFeedback obeys
+ * the phone's "touch vibration" setting and stays silent with it off, even though the
+ * app's own switch is on, and it returns true anyway, so there is no fallback to build
+ * on its result. The app has the VIBRATE permission and its own switch.
  *
- * Через performHapticFeedback это не работало: тот подчиняется общей настройке телефона
- * «вибрация при нажатии», и с ней выключенной молчал вообще весь отклик - хотя свой
- * тумблер в настройках включён. Хуже того, метод возвращает true и в этом случае, так
- * что и запасного пути по его ответу не построить. У приложения есть разрешение VIBRATE
- * и собственный выключатель; им и пользуемся.
- *
- * Длительности и силы подобраны так, чтобы события различались вслепую: короткий уверенный
- * толчок на отмеченный код, лёгкий двойной на повтор, тяжёлый двойной на чужой.
+ * Durations and strengths differ enough to tell events apart blind: a short firm pulse
+ * for a marked code, a light double for a repeat, a heavy double for a foreign code.
  */
 enum class Outcome(
     internal val timings: LongArray,
     internal val amplitudes: IntArray,
     internal val tone: Int
 ) {
-    /** Код найден и отмечен. */
+    /** The code was found and marked. */
     SUCCESS(longArrayOf(0, 40), intArrayOf(0, 180), ToneGenerator.TONE_PROP_BEEP),
 
-    /** Код уже был отмечен: ничего плохого, но и делать нечего. */
+    /** The code was already marked: nothing wrong, nothing to do. */
     REPEAT(longArrayOf(0, 18, 70, 18), intArrayOf(0, 120, 0, 120), ToneGenerator.TONE_PROP_ACK),
 
-    /** Кода нет в этой сессии - чужая коробка. */
+    /** The code is not in this session: a foreign box. */
     FAILURE(longArrayOf(0, 70, 60, 70), intArrayOf(0, 255, 0, 255), ToneGenerator.TONE_PROP_NACK),
 
-    /** Свайп дотянут до порога: можно отпускать. */
+    /** A swipe reached its threshold: it can be released. */
     THRESHOLD(longArrayOf(0, 22), intArrayOf(0, 170), TONE_SILENT),
 
-    /** Мелкое действие получилось: скопировали, переключили. */
+    /** A small action worked: copied, toggled. */
     ACTION(longArrayOf(0, 20), intArrayOf(0, 140), TONE_SILENT)
 }
 
 /**
- * Генератор тонов, открываемый при первом звуке.
- *
- * Лениво, а не вместе с экраном: звук чаще выключен, а открытие занимает десятки
- * миллисекунд. И не по состоянию Compose - тумблер в настройках отвечает звуком сразу
- * в обработчике нажатия, до того как экран пересоберётся.
+ * A tone generator opened on the first sound. Lazily, since sound is usually off and
+ * opening takes tens of milliseconds; and not from Compose state, because the settings
+ * switch plays its sound in the click handler, before recomposition.
  */
 internal class Tones : AutoCloseable {
     private var generator: ToneGenerator? = null
@@ -78,36 +73,34 @@ internal class Tones : AutoCloseable {
     }
 }
 
-/** Отклик на действие: вибрация и, если включён, звук. */
+/** Feedback for an action: vibration and, if enabled, sound. */
 class Feedback internal constructor(
     private val vibrator: Vibrator?,
     private val hapticsOn: () -> Boolean,
     private val soundOn: () -> Boolean,
     private val tones: Tones
 ) {
-    /** Обычный отклик: и вибрация, и звук - смотря что включено. */
+    /** Vibration and sound, whichever is enabled. */
     operator fun invoke(outcome: Outcome) {
         if (hapticsOn()) vibrate(outcome)
         if (soundOn()) play(outcome)
     }
 
     /**
-     * Только вибрация и только звук - для тумблеров в настройках.
-     *
-     * Общий отклик там не годится: включаешь вибрацию, а телефон пищит, потому что звук
-     * был включён раньше. Тумблер должен показывать себя, а не соседа.
+     * Vibration only, for the settings switch: turning vibration on must not beep just
+     * because sound was on already.
      */
     fun vibrateOnly(outcome: Outcome) = vibrate(outcome)
 
-    /** Звук в ответ на свой тумблер играется и тогда, когда общий звук ещё выключен. */
+    /** Sound only, played for its own switch even while sound is still off. */
     fun playOnly(outcome: Outcome) = play(outcome)
 
     private fun vibrate(outcome: Outcome) {
         try {
             val device = vibrator?.takeIf { it.hasVibrator() } ?: return
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                // с амплитудами - там, где мотор их умеет; иначе система сама сведёт
-                // узор к включено/выключено по тем же длительностям
+                // with amplitudes where the motor supports them; elsewhere the system
+                // reduces the pattern to on/off with the same timings
                 val effect = if (device.hasAmplitudeControl()) {
                     VibrationEffect.createWaveform(outcome.timings, outcome.amplitudes, -1)
                 } else {
@@ -134,10 +127,8 @@ class Feedback internal constructor(
 }
 
 /**
- * Готовит отклик для экрана.
- *
- * Значения настроек читаются в момент события, а не при входе на экран: тумблер
- * переключают и тут же ждут, что он подействует, - в том числе на самом экране настроек.
+ * Feedback for a screen. Settings are read at the moment of the event, so a switch
+ * takes effect immediately, on the settings screen too.
  */
 @Composable
 fun rememberFeedback(withSound: Boolean = false): Feedback {
@@ -163,7 +154,7 @@ fun rememberFeedback(withSound: Boolean = false): Feedback {
 private fun openToneGenerator(): ToneGenerator? = try {
     ToneGenerator(AudioManager.STREAM_MUSIC, TONE_VOLUME)
 } catch (t: Throwable) {
-    // на части устройств пул тонов занят целиком: тогда экран работает молча, а не падает
+    // on some devices the tone pool is exhausted: then the screen stays silent, not crashed
     Log.w(TAG, "Can't open the tone generator", t)
     null
 }

@@ -8,9 +8,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Вид файла определяется по первым байтам, а не по имени и не по типу от системы: своё
- * расширение .qrcheck система не знает и отдаёт файл как octet-stream, а документ из
- * мессенджера приезжает и вовсе без имени.
+ * The file kind is told by its first bytes, not by name or system type: the system does
+ * not know .qrcheck and reports octet-stream, and a document from a messenger may have
+ * no name at all.
  */
 private enum class FileKind { PDF, IMAGE, TEXT }
 
@@ -23,32 +23,29 @@ private val IMAGE_MAGICS = listOf(
     byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()),   // JPEG
     byteArrayOf(0x47, 0x49, 0x46, 0x38),                        // GIF
     byteArrayOf(0x42, 0x4D),                                    // BMP
-    byteArrayOf(0x52, 0x49, 0x46, 0x46)                         // RIFF, он же WebP
+    byteArrayOf(0x52, 0x49, 0x46, 0x46)                         // RIFF, used by WebP
 )
 
-/** Сколько кодов дал каждый выбранный файл - чтобы было видно, какой приехал пустым. */
+/** How many codes each picked file gave, so an empty one is visible. */
 data class SourceSummary(val name: String, val codes: Int)
 
-/** Всё, что удалось вычитать из выбранных файлов. */
+/** Everything read from the picked files. */
 data class ParsedFiles(
     val codes: List<String>,
     val sources: List<SourceSummary>,
     val scanned: List<String>,
     val scanTimes: Map<String, Long>,
-    /** Имя сессии - только когда выбран ровно один файл сессии и придумывать нечего. */
+    /** The session name, only when exactly one session file was picked. */
     val sessionName: String?,
-    /** Файл сессии сказал, что она собирающая. */
+    /** The session file says the session is collecting. */
     val collecting: Boolean = false,
-    /** Чем записан каждый код: по этому его можно отсеять перед созданием сессии. */
+    /** How each code was printed, so a kind can be filtered out before saving. */
     val formats: Map<String, CodeFormat> = emptyMap()
 )
 
 /**
- * Читает коды из выбранных файлов - документов, картинок и списков вперемешку.
- *
- * Живёт отдельно от экранов, потому что читают их двое: создание сессии и её правка. Пока
- * разбор был вписан в создание, правка умела только PDF, и одно и то же действие в двух
- * местах приложения работало по-разному.
+ * Reads codes from the picked files: documents, images and lists, mixed. Shared by the
+ * create and edit screens, so both accept the same files.
  */
 suspend fun readCodesFromFiles(
     context: Context,
@@ -69,9 +66,8 @@ suspend fun readCodesFromFiles(
         onProgress(index, files.size, name, 0, 0)
         val before = codes.size
 
-        // Файл, который не открылся или оказался битым, не должен уносить с собой
-        // остальные выбранные: он просто попадёт в сводку с нулём кодов, и будет
-        // видно, какой именно приехал пустым.
+        // A file that fails to open must not take the others with it: it shows up in the
+        // summary with zero codes.
         try {
             when (kindOf(context, uri)) {
                 FileKind.PDF -> {
@@ -90,8 +86,8 @@ suspend fun readCodesFromFiles(
                 }
 
                 FileKind.TEXT -> {
-                    // файл сессии отдаёт и коды, и отметки: разобранный как обычный список,
-                    // он терял бы их молча
+                    // a session file carries codes and marks; read as a plain list it
+                    // would lose the marks silently
                     val session = readSessionOrNull(context, uri)
                     if (session != null) {
                         codes += session.codes
@@ -112,10 +108,8 @@ suspend fun readCodesFromFiles(
                 }
             }
         } catch (c: CancellationException) {
-            // Отмена - не «файл не прочитался». Проглотив её здесь, функция досчитывала
-            // остальные файлы и возвращала прочитанное как готовый результат: нажатая
-            // «Отмена» показывала коды, а брошенная задача успевала переписать состояние
-            // следующего выбора.
+            // Cancellation is not a failed file: swallowed here, the loop would go on and
+            // return a result for a pick the user already cancelled.
             throw c
         } catch (e: Exception) {
             Log.e(TAG, "Could not read $name", e)
@@ -139,9 +133,8 @@ suspend fun readCodesFromFiles(
 
 private suspend fun kindOf(context: Context, uri: Uri): FileKind = withContext(Dispatchers.IO) {
     val head = context.contentResolver.openInputStream(uri)?.use { input ->
-        // Дочитывать надо в цикле: одно чтение вправе вернуть меньше запрошенного, и
-        // у файла из облачного хранилища оно так и делает. Одного короткого чтения
-        // хватало, чтобы PDF не опознался по сигнатуре и ушёл разбираться как текст.
+        // Read in a loop: one read may return fewer bytes, as files from cloud storage
+        // do, and a short read made a PDF fail its signature and parse as text.
         val buffer = ByteArray(8)
         var filled = 0
         while (filled < buffer.size) {
@@ -159,7 +152,7 @@ private suspend fun kindOf(context: Context, uri: Uri): FileKind = withContext(D
     }
 }
 
-/** Пробует прочитать файл как сессию. null - значит это что-то другое. */
+/** Tries to read the file as a session; null when it is something else. */
 private suspend fun readSessionOrNull(context: Context, uri: Uri) = withContext(Dispatchers.IO) {
     try {
         readSessionFile(readTextFromUri(context, uri)).session

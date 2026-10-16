@@ -8,7 +8,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.JsonSyntaxException
 
-/** Расширение и тип файла сессии. Своё расширение, чтобы файл не путали с отчётом. */
+/** Session file extension and type; its own extension so it is not confused with a report. */
 const val SESSION_FILE_EXTENSION = "qrcheck"
 const val SESSION_FILE_MIME = "application/json"
 
@@ -27,25 +27,23 @@ private const val KEY_SCANNED_AT = "scannedAt"
 private const val KEY_COLLECTING = "collecting"
 
 /**
- * Файл не является сессией или повреждён.
- *
- * Несёт идентификатор строки, а не готовый текст: сообщение показывается пользователю, и
- * зашитое здесь по-русски вылезало бы русским и в английской локали.
+ * The file is not a session or is damaged. Carries a string resource rather than text,
+ * so the message follows the app language.
  */
 class SessionFileException(@get:StringRes val messageRes: Int) : Exception()
 
-/** Прочитанная сессия вместе с временем, когда её сохранили. */
+/** A session read from a file, with the time it was saved. */
 data class SessionFileContent(
     val session: SessionData,
     val savedAt: Long
 )
 
 /**
- * Пишет сессию целиком: имя, все коды в исходном порядке и отметки.
+ * Writes the whole session: name, all codes in their original order, and marks.
  *
- * Дерево собирается вручную, а не отражением по классу: имена полей здесь - формат
- * обмена между устройствами, и переименование поля в коде не должно ломать файлы,
- * сохранённые прошлой версией. Заодно это переживает обфускацию без keep-правил.
+ * The JSON tree is built by hand rather than by reflection: field names are an exchange
+ * format between devices and must not change with a rename in code. It also survives
+ * obfuscation without keep rules.
  */
 fun writeSessionFile(
     session: SessionData,
@@ -59,8 +57,7 @@ fun writeSessionFile(
             JsonObject().apply {
                 addProperty(KEY_CODE, code)
                 addProperty(KEY_SCANNED, code in scanned)
-                // отсутствует, а не ноль: «время неизвестно» и «отмечен в начале эпохи» -
-                // разные утверждения, и второе неверно
+                // absent, not zero: "time unknown" and "scanned at the epoch" differ
                 session.scanTimes?.get(code)?.let { addProperty(KEY_SCANNED_AT, it) }
             }
         )
@@ -72,19 +69,16 @@ fun writeSessionFile(
         addProperty(KEY_ID, session.id)
         addProperty(KEY_NAME, session.name)
         addProperty(KEY_SAVED_AT, savedAt)
-        // пишется только когда есть: файл обычной сессии не должен обрастать полями,
-        // которые к ней не относятся
+        // only when set, so a regular session's file carries no unrelated fields
         if (session.collecting) addProperty(KEY_COLLECTING, true)
         add(KEY_CODES, codes)
     }.toString()
 }
 
 /**
- * Разбирает файл сессии.
- *
- * Всё, что не разобралось, поднимается как SessionFileException с внятным текстом: файл
- * приходит извне, и «ничего не произошло» - худший из возможных ответов. Незнакомые поля
- * игнорируются, чтобы файл от будущей версии всё ещё открывался.
+ * Parses a session file. Anything wrong raises SessionFileException with a readable
+ * message, since the file comes from outside and silence is the worst answer. Unknown
+ * fields are ignored, so files from a newer version still open.
  */
 fun readSessionFile(text: String): SessionFileContent {
     val root = try {
@@ -133,7 +127,7 @@ fun readSessionFile(text: String): SessionFileContent {
     val collecting =
         obj.get(KEY_COLLECTING)?.takeIf { it.isJsonPrimitive }?.asBoolean == true
 
-    // пустая собирающая сессия - законный файл: её и заводят пустой
+    // an empty collecting session is a valid file: that is how they start
     if (codes.isEmpty() && !collecting) throw SessionFileException(R.string.session_file_empty)
 
     val savedAt = obj.get(KEY_SAVED_AT)?.takeIf { it.isJsonPrimitive }?.asLong ?: 0L

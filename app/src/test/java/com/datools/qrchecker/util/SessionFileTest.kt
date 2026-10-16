@@ -27,7 +27,7 @@ class SessionFileTest {
     }
 
     @Test
-    fun `сессия переживает запись и чтение без потерь`() {
+    fun `a session survives writing and reading intact`() {
         val read = readSessionFile(writeSessionFile(session, savedAt = 1_700_000_000_000)).session
         assertEquals(session.id, read.id)
         assertEquals(session.name, read.name)
@@ -36,32 +36,32 @@ class SessionFileTest {
     }
 
     @Test
-    fun `порядок кодов сохраняется`() {
+    fun `code order is kept`() {
         val reversed = session.copy(codes = listOf("A3", "A1", "A2"))
         assertEquals(listOf("A3", "A1", "A2"), readSessionFile(writeSessionFile(reversed)).session.codes)
     }
 
     @Test
-    fun `время сохранения возвращается как записано`() {
+    fun `save time reads back as written`() {
         assertEquals(1_700_000_000_000, readSessionFile(writeSessionFile(session, 1_700_000_000_000)).savedAt)
     }
 
     @Test
-    fun `разделитель GS1 внутри кода не теряется`() {
+    fun `a GS1 separator inside a code is kept`() {
         val marked = "0104680577333570215,'OfIXCFmCGl${GROUP_SEPARATOR}9180C3"
         val one = SessionData("s", "n", listOf(marked), emptyList())
         assertEquals(marked, readSessionFile(writeSessionFile(one)).session.codes.single())
     }
 
     @Test
-    fun `чужой файл отвергается с внятным текстом`() {
+    fun `a foreign file is rejected with a readable message`() {
         failsWith(R.string.session_file_not_json, "не json вовсе {")
         failsWith(R.string.session_file_not_object, "[1, 2, 3]")
         failsWith(R.string.session_file_foreign, """{"format":"something.else","version":1}""")
     }
 
     @Test
-    fun `файл из будущей версии не молчит`() {
+    fun `a file from a newer version is not silent`() {
         failsWith(
             R.string.session_file_future,
             """{"format":"qrchecker.session","version":99,"id":"s","codes":[{"code":"A"}]}"""
@@ -69,7 +69,7 @@ class SessionFileTest {
     }
 
     @Test
-    fun `пустой список кодов - ошибка, а не пустая сессия`() {
+    fun `an empty code list is an error, not an empty session`() {
         failsWith(
             R.string.session_file_empty,
             """{"format":"qrchecker.session","version":1,"id":"s","codes":[]}"""
@@ -77,7 +77,7 @@ class SessionFileTest {
     }
 
     @Test
-    fun `незнакомые поля не мешают открыть файл`() {
+    fun `unknown fields do not prevent opening`() {
         val text = """
             {"format":"qrchecker.session","version":1,"id":"s","name":"n",
              "somethingNew":{"a":1},
@@ -89,7 +89,7 @@ class SessionFileTest {
     }
 
     @Test
-    fun `битые записи пропускаются, целые остаются`() {
+    fun `broken entries are skipped, intact ones kept`() {
         val text = """
             {"format":"qrchecker.session","version":1,"id":"s",
              "codes":[{"code":"A1"},{"noCode":true},"строка",{"code":""},{"code":"A2","scanned":true}]}
@@ -100,7 +100,7 @@ class SessionFileTest {
     }
 
     @Test
-    fun `повтор кода не задваивается`() {
+    fun `a repeated code is not duplicated`() {
         val text = """
             {"format":"qrchecker.session","version":1,"id":"s",
              "codes":[{"code":"A1"},{"code":"A1","scanned":true}]}
@@ -109,20 +109,20 @@ class SessionFileTest {
     }
 
     @Test
-    fun `время отметки переживает запись и чтение`() {
+    fun `scan time survives writing and reading`() {
         val withTimes = session.copy(scanTimes = mapOf("A2" to 1_700_000_000_000L))
         val read = readSessionFile(writeSessionFile(withTimes)).session
         assertEquals(mapOf("A2" to 1_700_000_000_000L), read.scanTimes)
     }
 
     @Test
-    fun `у неотмеченного кода времени нет, а не ноль`() {
+    fun `an unscanned code has no time rather than zero`() {
         val read = readSessionFile(writeSessionFile(session)).session
         assertEquals(emptyMap<String, Long>(), read.scanTimes)
     }
 
     @Test
-    fun `файл прошлой версии без времени открывается`() {
+    fun `a file without scan times opens`() {
         val text = """
             {"format":"qrchecker.session","version":1,"id":"s","name":"n",
              "codes":[{"code":"A1","scanned":true}]}
@@ -133,7 +133,7 @@ class SessionFileTest {
     }
 
     @Test
-    fun `собирающая сессия переживает запись и чтение`() {
+    fun `a collecting session survives writing and reading`() {
         val session = SessionData(
             id = "s1",
             name = "Приёмка",
@@ -148,7 +148,7 @@ class SessionFileTest {
     }
 
     @Test
-    fun `пустая собирающая сессия - законный файл`() {
+    fun `an empty collecting session is a valid file`() {
         val session = SessionData(
             id = "s2",
             name = "Пустая",
@@ -162,7 +162,7 @@ class SessionFileTest {
     }
 
     @Test
-    fun `у обычной сессии флага в файле нет`() {
+    fun `a regular session file has no collecting flag`() {
         val session = SessionData(
             id = "s3",
             name = "Обычная",

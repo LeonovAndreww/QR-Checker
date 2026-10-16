@@ -203,7 +203,7 @@
     <string name="unmark_code_confirm">The code goes back to the not scanned list:</string>
     <string name="unmark_code_action">Remove</string>
 
-    <!-- что записано в коде -->
+    <!-- fields in the code -->
     <string name="field_expiry">Expires</string>
     <string name="field_batch">Batch</string>
     <string name="expiry_full">%1$02d.%2$02d.%3$d</string>
@@ -213,7 +213,7 @@
     <string name="show_code_fields">Expiry date and batch</string>
     <string name="show_code_fields_why">Under a code in the lists and on the scanning screen, when the code carries them (EU medicines, German PPN, HIBC medical devices).</string>
 
-    <!-- сессия без файла -->
+    <!-- session without a file -->
     <string name="msg_recorded">Recorded</string>
     <string name="btn_collected">Recorded</string>
     <string name="untitled_session">Untitled</string>

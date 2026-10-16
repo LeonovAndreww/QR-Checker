@@ -36,18 +36,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-/** Сколько полоса остаётся на виду после того, как список остановился. */
+/** How long the scrollbar stays visible after the list stops. */
 private const val SCROLLBAR_LINGER_MS = 1_500L
 
 /**
- * Список с полосой прокрутки у правого края.
+ * A list with a scrollbar at the right edge.
  *
- * В Compose своей полосы у списков нет, а без неё в партии на тысячи коробок не видно ни
- * где ты, ни какой длины список. Длина ползунка - доля видимого, положение - где ты в
- * списке. Ползунок можно тянуть: так до середины партии добираются за одно движение.
+ * Compose lists have none, and in a batch of thousands there is no telling where you
+ * are or how long the list is. The thumb's length is the visible share, its position
+ * the place in the list, and it can be dragged to cross a batch in one move.
  *
- * Пока список стоит, полоса прячется и ничего под собой не перекрывает: справа в строках
- * стоят кнопки, и невидимый ползунок съедал бы нажатия на них.
+ * At rest the bar hides and takes no touches: rows have buttons on the right that an
+ * invisible thumb would swallow.
  */
 @Composable
 fun ScrollbarBox(
@@ -74,7 +74,7 @@ private fun BoxScope.Scrollbar(state: LazyListState) {
             val total = info.totalItemsCount
             val visible = info.visibleItemsInfo
             if (total == 0 || visible.isEmpty()) return@derivedStateOf null
-            // доля видимого: целые строки плюс видимая часть первой
+            // visible share: whole rows plus the visible part of the first one
             val first = visible.first()
             val firstFraction = if (first.size > 0) {
                 (-first.offset).coerceAtLeast(0).toFloat() / first.size
@@ -83,8 +83,7 @@ private fun BoxScope.Scrollbar(state: LazyListState) {
             if (shown >= total && !state.canScrollForward && !state.canScrollBackward) {
                 return@derivedStateOf null
             }
-            // в самом конце - ровно внизу, а не «почти»: иначе по полосе не видно, что
-            // список кончился
+            // exactly at the bottom at the end, so the bar shows the list is over
             val position = if (!state.canScrollForward) 1f
             else (first.index + firstFraction) / (total - shown).coerceAtLeast(1f)
             Metrics(
@@ -96,7 +95,7 @@ private fun BoxScope.Scrollbar(state: LazyListState) {
     }
     val m = metrics ?: return
 
-    // полоса видна, пока список движется, и ещё немного после
+    // visible while the list moves, and a little after
     LaunchedEffect(state.isScrollInProgress, dragging) {
         if (state.isScrollInProgress || dragging) {
             lingering = true
@@ -125,8 +124,8 @@ private fun BoxScope.Scrollbar(state: LazyListState) {
         val thumbPx = (trackPx * m.size).coerceAtLeast(minThumbPx).coerceAtMost(trackPx)
         val travel = (trackPx - thumbPx).coerceAtLeast(0f)
         val top = travel * m.position
-        // размер ползунка меняется на ходу - строки разной высоты, - и перезапуск жеста
-        // от каждого такого изменения обрывал бы перетаскивание
+        // the thumb size changes on the fly with row heights; restarting the gesture on
+        // each change would break the drag
         val currentTop by rememberUpdatedState(top)
         val currentTravel by rememberUpdatedState(travel)
         val currentScrollable by rememberUpdatedState(m.scrollable)
@@ -154,8 +153,7 @@ private fun BoxScope.Scrollbar(state: LazyListState) {
                             val travelNow = currentTravel
                             val fraction =
                                 if (travelNow > 0f) ((startTop + moved) / travelNow).coerceIn(0f, 1f) else 0f
-                            // та же шкала, по которой ползунок рисуется: иначе список
-                            // прыгал в первое же мгновение захвата
+                            // the same scale the thumb is drawn with, or the list jumps on grab
                             val index = (fraction * currentScrollable).roundToInt()
                             scope.launch { state.scrollToItem(index) }
                         }
@@ -180,6 +178,6 @@ private fun BoxScope.Scrollbar(state: LazyListState) {
 private data class Metrics(
     val size: Float,
     val position: Float,
-    /** Сколько строк можно прокрутить: всего минус видимые. */
+    /** Rows that can be scrolled: total minus visible. */
     val scrollable: Float
 )

@@ -18,14 +18,9 @@ import com.datools.qrchecker.R
 import com.datools.qrchecker.util.CodeFormat
 
 /**
- * Галочки по видам кодов.
- *
- * Общие для создания сессии и для её правки: розничный штрихкод рядом с Data Matrix
- * одинаково лишний в обоих случаях, а снять его можно было только при создании, и
- * догруженный документ приносил его в сессию навсегда.
- *
- * Показывается, только когда выбирать есть из чего, а последний вид снять нельзя:
- * документ без кодов - это не документ.
+ * Checkboxes per code kind, shared by the create and edit screens: a retail barcode next
+ * to a Data Matrix is unwanted in both. Shown only when there is a choice, and the last
+ * kind cannot be unticked.
  */
 @Composable
 fun FormatFilter(

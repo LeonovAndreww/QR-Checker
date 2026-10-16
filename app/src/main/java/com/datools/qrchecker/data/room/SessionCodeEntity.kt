@@ -31,18 +31,12 @@ data class SessionCodeEntity(
     val code: String,
     val scanned: Boolean,
     val position: Int,
-    /**
-     * Когда код отметили, в миллисекундах. null у неотсканированных и у тех, что были
-     * отмечены до появления этого столбца - «неизвестно» и «не отсканирован» это разные
-     * вещи, и различать их приходится.
-     */
+    /** When the code was scanned, in ms; null when unscanned or when the time is unknown. */
     val scannedAt: Long? = null,
     /**
-     * Когда код убрали из сессии. null - код в сессии.
-     *
-     * Строка не удаляется, а помечается: удалённый код лежит в корзине на экране правки
-     * и возвращается оттуда одним нажатием. Списки, счётчики и выгрузки удалённое не
-     * видят - для них его нет.
+     * When the code was moved to the bin; null while it is in the session. The row is
+     * kept so the code can be restored from the edit screen; lists, counters and exports
+     * do not see it.
      */
     val deletedAt: Long? = null
 )

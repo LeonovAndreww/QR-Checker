@@ -1,6 +1,6 @@
 <!--
-  Одна иконка вместо material-icons-extended: полный набор добавлял 23 529 классов в dex
-  ради четырёх используемых значков. Путь - стандартный content_copy из Material Symbols.
+  A single icon instead of material-icons-extended, which added 23,529 classes to dex for
+  four icons. The path is content_copy from Material Symbols.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"

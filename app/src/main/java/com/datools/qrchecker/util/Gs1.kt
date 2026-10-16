@@ -1,58 +1,55 @@
 package com.datools.qrchecker.util
 
 /**
- * Разбор содержимого кода на составляющие.
+ * Splits a code's content into its fields.
  *
- * Национальные системы прослеживаемости - российский «Честный ЗНАК», европейская
- * маркировка лекарств, турецкая İTS, бразильская SNCM - пишут в Data Matrix одно и то
- * же: цепочку «идентификатор применения + значение» по правилам GS1. Отличается только
- * набор идентификаторов и их порядок, поэтому разбирать надо по стандарту, а не по
- * приметам конкретной страны.
+ * National traceability systems (Russia's Chestny ZNAK, EU medicines verification,
+ * Turkey's İTS, Brazil's SNCM) all write the same thing into a Data Matrix: a chain of
+ * GS1 application identifiers and values. Only the set and order of identifiers differ,
+ * so parsing follows the standard rather than one country's habits.
  *
- * Особняком стоит немецкая аптечная маркировка IFA PPN: она пользуется другим словарём
- * идентификаторов и своим конвертом, поэтому разбирается отдельно.
+ * German IFA PPN uses another identifier dictionary and its own envelope, so it has a
+ * parser of its own.
  *
- * У части идентификаторов длина значения задана стандартом, остальные тянутся до
- * разделителя или до конца строки. Неизвестный идентификатор обрывает разбор: лучше
- * вернуть «не разобралось» и показать код целиком, чем отрезать не в том месте.
+ * Some identifiers have a length fixed by the standard; the rest run to a separator or
+ * the end. An unknown identifier stops the parse: showing the whole code beats cutting
+ * it in the wrong place.
  */
 
-/** Длина значения у идентификаторов GS1 с предопределённой длиной. */
+/** Value lengths of GS1 identifiers with a predefined length. */
 private val FIXED: Map<String, Int> = buildMap {
     put("00", 18)
     put("01", 14)
     put("02", 14)
     put("20", 2)
-    // даты и им подобные: ггммдд
+    // dates: YYMMDD
     for (ai in listOf("11", "12", "13", "15", "16", "17")) put(ai, 6)
 }
 
-/** Идентификаторы GS1 переменной длины, которые встречаются в кодах прослеживаемости. */
+/** Variable-length GS1 identifiers that occur in traceability codes. */
 private val VARIABLE = setOf(
-    "10", // партия
-    "21", // серийный номер
+    "10", // batch
+    "21", // serial number
     "22", "30", "37", "240", "241", "242", "243",
-    "710", "711", "712", "713", "714", // национальные номера лекарств
-    "91", "92", "93", "94", "95", "96", "97", "98", "99" // внутренние данные компании
+    "710", "711", "712", "713", "714", // national drug numbers
+    "91", "92", "93", "94", "95", "96", "97", "98", "99" // company internal data
 )
 
 /**
- * Четырёхзначные идентификаторы с длиной, заданной стандартом.
- *
- * 7003 - срок годности с часами и минутами (ггммддччмм): им Честный ЗНАК пишет срок у
- * молочной продукции с коротким сроком. 8005 - цена за единицу: максимальная розничная
- * цена на блоке сигарет. Без них разбор таких кодов обрывался на первом же поле.
+ * Four-digit identifiers with a length fixed by the standard: 7003 is expiry with time
+ * (YYMMDDhhmm), used by Chestny ZNAK for short-life dairy; 8005 is the price per unit,
+ * the maximum retail price on a carton of cigarettes.
  */
 private val FOUR_DIGIT_FIXED = mapOf("7003" to 10, "8005" to 6)
 
-/** Длина значения у четырёхзначного идентификатора: вес, объём, размеры - шесть цифр. */
+/** Value length of a four-digit identifier: weights, volumes and dimensions take six. */
 private fun fixedLengthOfFourDigitAi(ai: String): Int? =
     FOUR_DIGIT_FIXED[ai]
         ?: if (ai.length == 4 && ai.take(2) in setOf("31", "32", "33", "34", "35", "36")) 6 else null
 
 /**
- * Возвращает пары «идентификатор - значение» в том порядке, в каком они записаны, либо
- * null, если строка не разбирается как GS1.
+ * Returns identifier and value pairs in the order they are written, or null when the
+ * string does not parse as GS1.
  */
 fun parseGs1(code: String): List<Pair<String, String>>? {
     if (code.isEmpty()) return null
@@ -61,7 +58,7 @@ fun parseGs1(code: String): List<Pair<String, String>>? {
     var pos = 0
 
     while (pos < code.length) {
-        // разделитель между полями переменной длины
+        // separator after a variable-length field
         if (code[pos] == GROUP_SEPARATOR) {
             pos++
             continue
@@ -94,7 +91,7 @@ fun parseGs1(code: String): List<Pair<String, String>>? {
                 length = null
             }
 
-            // трёхзначные идентификаторы переменной длины
+            // three-digit variable-length identifiers
             pos + 3 <= code.length && code.substring(pos, pos + 3) in VARIABLE -> {
                 ai = code.substring(pos, pos + 3)
                 length = null
@@ -106,8 +103,8 @@ fun parseGs1(code: String): List<Pair<String, String>>? {
         pos += ai.length
         val value = if (length != null) {
             if (pos + length > code.length) return null
-            // все поля фиксированной длины, что знает разбор, - числовые: номер, дата,
-            // вес, цена. Буква в таком поле значит, что это вовсе не GS1
+            // every fixed-length field known here is numeric (number, date, weight,
+            // price), so a letter means this is not GS1 at all
             code.substring(pos, pos + length).also { pos += length }
                 .takeIf { v -> v.all { it.isDigit() } } ?: return null
         } else {
@@ -122,31 +119,27 @@ fun parseGs1(code: String): List<Pair<String, String>>? {
     return parsed.ifEmpty { null }
 }
 
-/** Разделитель записей ISO/IEC 15434, с него начинается конверт PPN. */
+/** ISO/IEC 15434 record separator; the PPN envelope starts with it. */
 private const val RECORD_SEPARATOR = '\u001E'
 
-/** Конец передачи, им конверт закрывается. */
+/** End of transmission; closes the envelope. */
 private const val END_OF_TRANSMISSION = '\u0004'
 
 /**
- * Идентификаторы данных ASC MH10, которыми пользуется IFA PPN.
- *
- * Порядок важен: проверяются по очереди на совпадение начала, и короткий «D» перехватил
- * бы поле «16D», если бы стоял раньше него.
+ * ASC MH10 data identifiers used by IFA PPN. Matched by prefix in this order, so the
+ * short "D" must come after "16D".
  */
 private val PPN_IDS = listOf("16D", "9N", "1T", "8P", "D", "S")
 
 /**
- * То, что записано в коде помимо самого номера.
- *
- * Собирается одинаково и из GS1, и из немецкого PPN: складу нужны одни и те же факты, а
- * каким словарём они записаны - его дело десятое.
+ * What a code carries besides its number, whether written with GS1 or PPN identifiers:
+ * a warehouse needs the same facts either way.
  */
 data class CodeFields(
     val product: String? = null,
     val serial: String? = null,
     val batch: String? = null,
-    /** Срок годности в том виде, в каком записан: ггммдд, где дд может быть нулевым. */
+    /** Expiry as written: YYMMDD, where DD may be 00. */
     val expiry: String? = null
 ) {
     val isEmpty: Boolean
@@ -154,11 +147,9 @@ data class CodeFields(
 }
 
 /**
- * Немецкая аптечная маркировка IFA PPN.
- *
- * Единственная из встреченных, которая не пользуется словарём GS1: поля помечены
- * идентификаторами ASC MH10 (ISO/IEC 15418) и завёрнуты в конверт ISO/IEC 15434 формата
- * 06. Разбор намеренно строгий - что не сошлось, то не PPN, и код показывается целиком.
+ * German IFA PPN: ASC MH10 identifiers (ISO/IEC 15418) in an ISO/IEC 15434 format 06
+ * envelope. Deliberately strict: anything that does not fit is not PPN, and the code
+ * is shown whole.
  */
 private fun parsePpn(code: String): CodeFields? {
     var body = code
@@ -182,7 +173,7 @@ private fun parsePpn(code: String): CodeFields? {
             "1T" -> fields.copy(batch = value)
             "S" -> fields.copy(serial = value)
             "D" -> fields.copy(expiry = value)
-            // GTIN и дата изготовления в коде встречаются, но на этикетке не нужны
+            // GTIN and production date occur but are not needed on the label
             else -> fields
         }
     }
@@ -190,43 +181,40 @@ private fun parsePpn(code: String): CodeFields? {
 }
 
 /**
- * Короткие имена, которыми ранние версии GS1 Digital Link называли идентификаторы в
- * адресе вместо цифр: /gtin/.../lot/.../ser/...
+ * Short names that early GS1 Digital Link used in the path instead of digits:
+ * /gtin/.../lot/.../ser/...
  */
 private val DIGITAL_LINK_ALIASES = mapOf(
     "gtin" to "01", "cpv" to "22", "lot" to "10", "ser" to "21",
     "exp" to "17", "bestBefore" to "15", "prodDate" to "11"
 )
 
-/** Длины GTIN, которые допускает Digital Link: короче 14 знаков - добивается нулями. */
+/** GTIN lengths Digital Link allows; shorter ones are padded with zeros to 14. */
 private val GTIN_LENGTHS = setOf(8, 12, 13, 14)
 
-/** Идентификатор GS1 из тех, что разбор знает. */
 private fun isKnownAi(ai: String): Boolean =
     ai in FIXED || ai in VARIABLE || fixedLengthOfFourDigitAi(ai) != null
 
-/** Ссылка http или https. */
 internal fun isHttpUrl(code: String): Boolean =
     code.startsWith("https://", ignoreCase = true) || code.startsWith("http://", ignoreCase = true)
 
 /**
- * GS1 Digital Link: те же идентификаторы GS1, записанные адресом.
+ * GS1 Digital Link: the same GS1 identifiers written as a URL.
  *
- * https://example.com/01/09506000134376/10/ABC/21/123456?17=221231 - путь несёт номер
- * товара и уточнения к нему (партию, серийник), а параметры запроса - прочие атрибуты,
- * срок годности в том числе. Такой адрес кладут в QR на розничную упаковку, чтобы один
- * код читался и кассой, и телефоном покупателя, поэтому встречается он всё чаще.
+ * In https://example.com/01/09506000134376/10/ABC/21/123456?17=221231 the path carries
+ * the item number and its qualifiers (batch, serial) and the query the other attributes,
+ * expiry among them. Retail packs use it so one QR serves both the till and a shopper's
+ * phone.
  *
- * Возвращает пары «идентификатор - значение», как parseGs1, либо null, если это не
- * Digital Link. Проверка строгая: номер товара обязан сойтись по контрольной цифре, а
- * всё после него в пути - быть известными идентификаторами. Иначе обычная ссылка с
- * «/01/» в адресе показывалась бы выдуманным номером товара вместо себя самой.
+ * Returns pairs like [parseGs1], or null when this is not a Digital Link. Strict on
+ * purpose: the GTIN must pass its check digit and every later path segment must be a
+ * known identifier, or an ordinary link with "/01/" in it would show a made-up GTIN.
  */
 fun parseDigitalLink(code: String): List<Pair<String, String>>? {
     if (!isHttpUrl(code)) return null
 
     val afterScheme = code.substringAfter("://")
-    // якорь после «#» к адресу не относится, и «?» внутри него - не параметры
+    // a fragment is not part of the address, and a "?" inside it is no query
     val pathAndQuery = afterScheme.substringAfter('/', "").substringBefore('#')
     val path = pathAndQuery.substringBefore('?')
     val query = pathAndQuery.substringAfter('?', "")
@@ -243,7 +231,7 @@ fun parseDigitalLink(code: String): List<Pair<String, String>>? {
     val parsed = ArrayList<Pair<String, String>>(4)
     parsed += "01" to gtin.padStart(14, '0')
 
-    // после номера товара путь идёт парами «идентификатор / значение»
+    // after the GTIN the path goes in identifier / value pairs
     var i = start + 2
     while (i + 1 < segments.size) {
         val ai = DIGITAL_LINK_ALIASES[segments[i]] ?: segments[i]
@@ -257,15 +245,15 @@ fun parseDigitalLink(code: String): List<Pair<String, String>>? {
         val key = decodeUrlPart(param.substringBefore('=', ""), plusAsSpace = true)
         val value = decodeUrlPart(param.substringAfter('=', ""), plusAsSpace = true)
         val ai = DIGITAL_LINK_ALIASES[key] ?: key
-        // прочие параметры адреса к коду отношения не имеют и пропускаются
+        // other query parameters have nothing to do with the code
         if (isKnownAi(ai) && value.isNotEmpty()) parsed += ai to value
     }
     return parsed
 }
 
 /**
- * Снимает %XX - это байты UTF-8. Подряд идущие экранирования собираются вместе: один
- * символ бывает закодирован несколькими байтами. В параметрах запроса плюс - это пробел.
+ * Decodes %XX escapes as UTF-8 bytes; consecutive escapes are decoded together, since one
+ * character may take several bytes. In a query a plus is a space.
  */
 private fun decodeUrlPart(part: String, plusAsSpace: Boolean = false): String {
     if ('%' !in part && !(plusAsSpace && '+' in part)) return part
@@ -295,17 +283,17 @@ private fun decodeUrlPart(part: String, plusAsSpace: Boolean = false): String {
     return out.toString()
 }
 
-/** Идентификаторы, которыми код GS1 называет предмет: SSCC, GTIN, GTIN содержимого. */
+/** Identifiers that name the item itself: SSCC, GTIN, GTIN of contained items. */
 internal val GS1_KEYS = setOf("00", "01", "02")
 
-/** Номер товара и серийник в той записи, что напечатана на коробке: 01…21… */
+/** GTIN and serial in the form printed on the box: 01…21… */
 internal fun gtinSerial(gtin: String, serial: String?): String =
     if (serial != null) "01$gtin" + "21$serial" else "01$gtin"
 
-/** Поля кода, каким бы словарём он ни был записан. null - разобрать не удалось. */
+/** The code's fields, whatever dictionary it uses; null when it does not parse. */
 fun codeFields(raw: String): CodeFields? = describeCode(raw).fields
 
-/** Поля из пар GS1. Срок - из (17), а если его нет, из даты-времени (7003). */
+/** Fields from GS1 pairs. Expiry from (17), or from expiry with time (7003) without it. */
 internal fun fieldsOfGs1(parsed: List<Pair<String, String>>): CodeFields? {
     fun value(ai: String) = parsed.firstOrNull { it.first == ai }?.second
     return CodeFields(
@@ -316,16 +304,14 @@ internal fun fieldsOfGs1(parsed: List<Pair<String, String>>): CodeFields? {
     ).takeIf { !it.isEmpty }
 }
 
-/** Разбор PPN наружу - для общего определения вида кода. */
 internal fun ppnFields(code: String): CodeFields? = parsePpn(code)
 
 /**
- * Опознающая пара для немецкого PPN и для Digital Link, в той же записи, что у GS1:
- * идентификатор и значение подряд. null - код не из них.
+ * The identifying pair of a PPN or Digital Link code written GS1-style, identifier and
+ * value together; null for other codes.
  */
 internal fun shortCodeOfOther(code: String): String? {
-    // проверка по началу строки дешёвая, а сам разбор - нет: зовётся он на каждую
-    // строку списка, и большинство кодов ни тем ни другим не являются
+    // a cheap prefix check first: this runs for every list row, and most codes are neither
     if (isHttpUrl(code)) {
         val parsed = parseDigitalLink(code) ?: return null
         return gtinSerial(
@@ -333,8 +319,8 @@ internal fun shortCodeOfOther(code: String): String? {
             parsed.firstOrNull { it.first == "21" }?.second
         )
     }
-    // HIBC: основная часть, как она напечатана под кодом, и серийник или партия. Без
-    // них два изделия одного артикула выглядели бы в списке одинаково
+    // HIBC: the primary part as printed under the code plus serial or batch; without
+    // them two items of one product would look the same in a list
     if (code.startsWith("+") || code.startsWith("*+")) {
         val hibc = parseHibc(code) ?: return null
         val primary = hibc.primary ?: return null

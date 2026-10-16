@@ -4,11 +4,9 @@ import androidx.annotation.StringRes
 import com.datools.qrchecker.R
 
 /**
- * Что это за код - по его содержимому.
- *
- * Не по символу, которым он напечатан: в базе хранится только текст, и один и тот же
- * код маркировки приезжает и с камеры, и из PDF, и из выгрузки. Да и складу интересно не
- * «Data Matrix», а «Честный ЗНАК» или «лекарство с партией».
+ * What kind of code this is, judged by its content rather than its symbology: only the
+ * text is stored, the same code arrives from the camera, a PDF or an export, and a
+ * warehouse cares about "Chestny ZNAK" or "medicine with a batch", not "Data Matrix".
  */
 enum class CodeKind(@get:StringRes val label: Int) {
     CHESTNY_ZNAK(R.string.kind_chestny_znak),
@@ -22,16 +20,14 @@ enum class CodeKind(@get:StringRes val label: Int) {
     LINK(R.string.kind_link)
 }
 
-/** Вид кода и то, что в нём записано, - из одного разбора. */
+/** The kind of a code and its fields, from a single parse. */
 data class CodeDescription(val kind: CodeKind?, val fields: CodeFields?)
 
 private val NOTHING = CodeDescription(null, null)
 
 /**
- * Разбирает код один раз и отвечает сразу на оба вопроса: что это и что в нём.
- *
- * Пока вид и поля определялись по отдельности, каждая строка списка разбиралась дважды,
- * а две цепочки проверок вдобавок расходились: поля у кода находились, а вида - нет.
+ * Parses a code once and answers both questions: what it is and what it carries. Two
+ * separate parses doubled the work per list row and could disagree with each other.
  */
 fun describeCode(raw: String): CodeDescription {
     val code = normalizeCode(raw)
@@ -55,8 +51,8 @@ fun describeCode(raw: String): CodeDescription {
         }
     }
 
-    // Без номера товара или упаковки строка цифр - не код GS1, а, скорее всего, обычный
-    // штрихкод: EAN, начинающийся на 10 или 17, иначе разбирался как «партия» или «срок».
+    // Without an item number a string of digits is more likely a plain barcode: an EAN
+    // starting with 10 or 17 would otherwise parse as a batch or an expiry.
     parseGs1(code)?.takeIf { pairs -> pairs.any { it.first in GS1_KEYS } }?.let { pairs ->
         return CodeDescription(gs1Kind(code, pairs), fieldsOfGs1(pairs))
     }
@@ -71,25 +67,25 @@ fun describeCode(raw: String): CodeDescription {
     return NOTHING
 }
 
-/** null - ничего определённого сказать нельзя, и подписи не будет. */
+/** null when nothing definite can be said; no label is shown then. */
 fun codeKind(raw: String): CodeKind? = describeCode(raw).kind
 
 private fun gs1Kind(code: String, pairs: List<Pair<String, String>>): CodeKind {
-    // без разделителей криптохвост виден только по своей форме (91)xxxx(92)
+    // without separators the crypto tail is recognised by its (91)xxxx(92) shape
     if (code.indexOf(GROUP_SEPARATOR) < 0 && GS1_WITHOUT_SEPARATORS.matches(code)) {
         return CodeKind.CHESTNY_ZNAK
     }
     val ais = pairs.mapTo(HashSet()) { it.first }
-    // Примета Честного ЗНАКа - криптохвост: пара (91)+(92) или короткий (93) при
-    // серийнике. Сами по себе 91-99 - внутренние поля любой компании и встречаются где
-    // угодно. Партии в коде Честного ЗНАКа не бывает, а срок если и есть, то в (7003),
-    // так что лекарство ЕС с внутренним (91) по (10) и (17) отличается сразу.
+    // Chestny ZNAK is told by its crypto tail: (91)+(92), or a short (93) after the serial.
+    // 91-99 alone are company-internal fields found anywhere. A Chestny ZNAK code has no
+    // batch and puts expiry in (7003), so an EU medicine with an internal (91) is told
+    // apart by its (10) and (17).
     val crypto = ("91" in ais && "92" in ais) || "93" in ais
     val chestny = crypto && "21" in ais && "10" !in ais && "17" !in ais
     return if (chestny) CodeKind.CHESTNY_ZNAK else CodeKind.GS1
 }
 
-/** Контрольная цифра EAN/UPC/GTIN: веса 3 и 1 справа налево, без последней цифры. */
+/** EAN/UPC/GTIN check digit: weights 3 and 1 from the right, last digit excluded. */
 internal fun hasValidCheckDigit(digits: String): Boolean {
     if (digits.length < 2) return false
     var sum = 0

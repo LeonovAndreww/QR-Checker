@@ -11,15 +11,12 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Кладёт сессию в файл и возвращает намерение, которым его можно отдать куда угодно -
- * в мессенджер сменщику, в почту, в облако.
- *
- * Файл пишется в тот же каталог export, что и отчёты, и точно так же раздаётся через
- * FileProvider: каталог кэша целиком наружу не открывается.
+ * Writes the session to a file and returns an intent to send it anywhere: a messenger,
+ * mail, cloud storage. The file goes to the same export directory as reports and is
+ * shared through FileProvider, so the cache directory is never exposed as a whole.
  */
 suspend fun shareSessionFile(context: Context, session: SessionData): Intent {
-    // партия на тысячи кодов - это заметная запись, и на главном потоке она подвешивала
-    // нажатие «Поделиться»
+    // a batch of thousands of codes is a noticeable write
     val file = withContext(Dispatchers.IO) {
         val exportDir = File(context.cacheDir, "export").apply { mkdirs() }
         File(exportDir, "${sessionFileName(session.name)}.$SESSION_FILE_EXTENSION")
@@ -39,7 +36,7 @@ suspend fun shareSessionFile(context: Context, session: SessionData): Intent {
     )
 }
 
-/** Читает выбранный документ целиком. Файл сессии - десятки килобайт, дробить нечего. */
+/** Reads the whole document; a session file is tens of kilobytes. */
 fun readTextFromUri(context: Context, uri: Uri): String =
     context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
         ?: throw SessionFileException(R.string.session_file_unreadable)

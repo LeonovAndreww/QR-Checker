@@ -24,17 +24,13 @@ private val FILE_STAMP = threadLocalFormat("yyyy-MM-dd_HH-mm")
 private const val EXPORT_LIFETIME_MS = 24L * 60 * 60 * 1000
 
 /**
- * Отчёт из трёх колонок.
+ * A three-column report: the code as printed on the box, for checking by eye; the full
+ * content with the marking crypto tail, for loading into an accounting system; and when
+ * it was scanned, empty for unscanned codes.
  *
- * Первая - код в том виде, в каком он напечатан на коробке: по ней сверяют глазами.
- * Вторая - полное содержимое кода вместе с криптохвостом маркировки: она нужна, чтобы
- * строку можно было загрузить в учётную систему, а не только прочитать. Третья - когда
- * код отметили; у неотсканированных и у отмеченных до появления этого столбца она пуста.
- *
- * Оговорка про Excel: код, состоящий из одних цифр, Excel при открытии превратит в
- * число и съест ведущий ноль. У кодов маркировки в серийнике почти всегда есть буквы,
- * поэтому на практике это не срабатывает, но полагаться на это в отчёте для учёта
- * нельзя - для такой выгрузки нужен xlsx, а не csv.
+ * Caveat: Excel turns an all-digit code into a number and drops its leading zero.
+ * Marking code serials almost always contain letters, but a report meant for accounting
+ * should not rely on that; xlsx would be the format for it.
  */
 fun buildCsv(
     title: String,
@@ -61,14 +57,13 @@ fun buildCsv(
 }
 
 /**
- * Запятая экранируется наравне с точкой с запятой, хотя разделителем у нас не является:
- * коды маркировки её содержат, и без кавычек такую строку нельзя разобрать обратно - ни
- * нами, ни Excel с запятой в качестве разделителя.
+ * A comma is quoted like a semicolon even though it is not our separator: marking codes
+ * contain it, and unquoted the row could not be read back, by us or by Excel with a comma
+ * separator.
  *
- * Ячейка, которая начинается со знака формулы, получает впереди апостроф. Кавычки от
- * формулы не спасают: Excel вычисляет "=HYPERLINK(...)" и в кавычках, а собирающая
- * сессия записывает любой QR, какой попал в камеру. Апостроф Excel не показывает, а
- * разбор списка снимает его обратно.
+ * A cell starting with a formula sign gets a leading apostrophe. Quotes do not help:
+ * Excel evaluates "=HYPERLINK(...)" quoted too, and a collecting session records any QR
+ * the camera sees. Excel hides the apostrophe, and the list reader strips it again.
  */
 private fun escapeCsv(value: String): String {
     val safe = if (needsFormulaGuard(value)) "'$value" else value
@@ -80,10 +75,9 @@ private fun escapeCsv(value: String): String {
 }
 
 /**
- * Ячейке нужен апостроф впереди: она начинается со знака формулы или с апострофа.
- *
- * Апостроф прикрывается наравне с формулой. Иначе код «'+380...» выгружался как есть, а
- * при обратном чтении терял свой апостроф, приняв его за наш.
+ * The cell needs a leading apostrophe: it starts with a formula sign or an apostrophe.
+ * A leading apostrophe is guarded too, or "'+380..." would lose it on the way back,
+ * taken for ours.
  */
 internal fun needsFormulaGuard(value: String): Boolean =
     value.firstOrNull()?.let { it in "=+-@\t\r'" } == true
@@ -98,10 +92,9 @@ suspend fun shareCsv(context: Context, baseName: String, content: String): Inten
 private fun writeCsvForSharing(context: Context, baseName: String, content: String): Intent {
     val exportDir = File(context.cacheDir, "export").apply { mkdirs() }
 
-    // Время в имени нужно: в мессенджере видно, какая это выгрузка, а не один файл,
-    // молча перезаписывающий предыдущий. Но тогда файлы копятся в кеше, поэтому
-    // вчерашние удаляются. Сутки - чтобы не выдернуть файл из-под ещё не законченной
-    // отправки.
+    // A timestamp in the name tells exports apart in a messenger, but then files pile up
+    // in the cache, so old ones are removed; a day old, so a share still in progress is
+    // not pulled away.
     val stale = System.currentTimeMillis() - EXPORT_LIFETIME_MS
     exportDir.listFiles()?.forEach { if (it.lastModified() < stale) it.delete() }
 

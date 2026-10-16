@@ -5,14 +5,8 @@ data class SessionData(
     val name: String,
     val codes: List<String>,
     val scannedCodes: List<String>,
-    /**
-     * Когда каждый код отметили, в миллисекундах.
-     *
-     * Обнуляемое и с умолчанием, потому что сюда же Gson разбирает сессии, сохранённые
-     * версиями до появления времени: у них этого поля в JSON нет, и объект собирается
-     * без вызова конструктора, так что умолчание Kotlin туда не подставится.
-     */
+    /** When each code was scanned, in ms; codes without a known time are absent. */
     val scanTimes: Map<String, Long>? = null,
-    /** Сессия собирает коды, а не сверяет их со списком. */
+    /** The session collects codes instead of checking them against a list. */
     val collecting: Boolean = false
 )

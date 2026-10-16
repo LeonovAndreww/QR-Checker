@@ -7,26 +7,22 @@ import android.content.res.Resources
 import java.util.Locale
 
 /**
- * Язык устройства, каким он был при запуске процесса.
- *
- * Запоминается один раз и до первой подмены. Дальше applyLanguage зовёт
- * Locale.setDefault, и Locale.getDefault() начинает возвращать выбранный в настройках
- * язык, а не системный - после чего «Системный» возвращал бы приложение к тому же
- * русскому, который человек только что выключил.
+ * The device language as it was when the process started, captured before the first
+ * override. applyLanguage calls Locale.setDefault, after which Locale.getDefault()
+ * returns the chosen language, and "System" would keep the language just switched off.
  */
 private val deviceLocale: Locale = Locale.getDefault()
 
 /**
- * Подменяет язык интерфейса на выбранный в настройках.
+ * Applies the language chosen in settings.
  *
- * Делается своими руками, а не через AppCompatDelegate.setApplicationLocales: тот на
- * Android до 13 применяет язык только к экранам на AppCompatActivity, а здесь голая
- * ComponentActivity с Compose - язык бы просто не сменился на большей части устройств.
- * Здесь один путь на все версии.
+ * Done by hand rather than with AppCompatDelegate.setApplicationLocales: before
+ * Android 13 that only affects AppCompatActivity, and this app is a plain
+ * ComponentActivity with Compose. One path for all versions.
  *
- * Зовётся из attachBaseContext и приложения, и экрана: строки берутся и из Compose, и из
- * ViewModel по applicationContext, и разъехавшись они дали бы ровно ту мешанину языков,
- * от которой всё это и заводится.
+ * Called from attachBaseContext of both the application and the activity: strings come
+ * from Compose and from the application context, and if the two differed the screens
+ * would mix languages.
  */
 fun applyLanguage(base: Context): Context {
     val locale = chosenLocale(base) ?: return base
@@ -39,10 +35,8 @@ fun applyLanguage(base: Context): Context {
 }
 
 /**
- * Догоняет уже созданные контексты после смены языка в настройках.
- *
- * Экран пересоздаётся сам, а вот ресурсы приложения живут дольше него: без этого строки
- * из ViewModel остались бы на прежнем языке до перезапуска.
+ * Updates the application's resources after a language change; they outlive the screen,
+ * and strings resolved through them would stay in the old language until a restart.
  */
 fun refreshAppLanguage(context: Context) {
     val app = context.applicationContext
@@ -58,11 +52,9 @@ fun refreshAppLanguage(context: Context) {
 }
 
 /**
- * Тот же контекст, но с ресурсами на выбранном языке.
- *
- * Всё остальное - запуск экранов, доступ к файлам, тема - остаётся за исходным контекстом:
- * createConfigurationContext вернул бы не-Activity, и share-меню с выбором файлов через
- * него уже не открылись бы.
+ * The same context with resources in the chosen language. Everything else (starting
+ * activities, file access, theme) stays with the original context: a context from
+ * createConfigurationContext is not an Activity, and share sheets would not open from it.
  */
 private class LocalizedContext(
     base: Context,
@@ -72,11 +64,9 @@ private class LocalizedContext(
 }
 
 /**
- * Оборачивает контекст экрана так, чтобы строки читались на выбранном языке.
- *
- * Экран при этом не пересоздаётся: recreate() гасит и собирает окно заново, и на смене
- * языка это видно как рывок помех. Здесь меняются только ресурсы, а Compose перечитывает
- * строки сам, потому что выбор языка - это состояние.
+ * Wraps the activity context so strings come in the chosen language without recreating
+ * the activity, which shows as a flash. Compose rereads strings since the language
+ * choice is state.
  */
 fun localizedContext(base: Context, choice: LanguageChoice): Context {
     val tag = choice.tag

@@ -11,16 +11,10 @@ val PurpleGrey40 = Color(0xFF625b71)
 val Pink40 = Color(0xFF7D5260)
 
 /*
- * Акценты главного экрана: жёлтая кнопка новой сессии, серая правка, красное удаление.
- *
- * Раньше они стояли прямо в коде экрана как Color.Yellow, Color.DarkGray и Color.Red, то
- * есть одинаковыми в обеих темах, и в тёмной разваливались: тёмно-серая кнопка сливалась с
- * фоном, а белый текст на чистом красном давал контраст 3.9 при норме 4.5. Здесь у каждого
- * акцента своя пара «фон/текст» на светлую и на тёмную тему.
- *
- * Оттенки подобраны так, чтобы вид не поменялся: жёлтый остался жёлтым, красный красным.
- * В тёмной теме жёлтый чуть приглушён, иначе он бьёт по глазам на тёмном фоне, а серый
- * наоборот осветлён, иначе кнопки на фоне просто не видно.
+ * Home screen accents: yellow for a new session, grey for edit, red for delete. Each has
+ * its own container and content pair for the light and the dark theme, so the grey
+ * button does not merge with a dark background and text on red keeps a 4.5:1 contrast.
+ * In the dark theme yellow is toned down so it does not glare, and grey is lightened.
  */
 internal val NewSessionYellowLight = Color(0xFFFFFF00)
 internal val NewSessionYellowDark = Color(0xFFFFD54F)
@@ -36,18 +30,15 @@ internal val OnDeleteRedLight = Color(0xFFFFFFFF)
 internal val OnDeleteRedDark = Color(0xFF1A0000)
 
 /*
- * Цвета обратной связи при сканировании. В роли Material они не ложатся: «этот код уже
- * отсканирован» - не ошибка и не успех, а предупреждение, которого в схеме нет вовсе.
- * Для тёмной темы взяты отдельные тона: те же самые на тёмном фоне не читаются.
+ * Scan feedback colours. They do not fit Material roles: "already scanned" is neither
+ * an error nor a success but a warning, which the scheme lacks. The dark theme has its
+ * own tones, since the light ones do not read on a dark background.
  */
 internal val SuccessLight = Color(0xFF1B6B2A)
 internal val SuccessDark = Color(0xFF6EDD83)
 /*
- * «Уже отсканирован» - жёлтый, и он обязан оставаться жёлтым.
- *
- * Прежний светлый вариант был затемнён до 0xFF8A5000 ради белых букв на нём, и на этом
- * жёлтый кончился: получился коричневый. Правильный размен обратный - яркий янтарь с
- * тёмными буквами: и цвет на месте, и контраст 10:1 вместо натянутых 4.5.
+ * "Already scanned" must stay yellow: a bright amber with dark text keeps the colour and
+ * gives 10:1 contrast, where darkening it for white text turned it brown.
  */
 internal val WarningLight = Color(0xFFFFC107)
 internal val WarningDark = Color(0xFFFFCA45)

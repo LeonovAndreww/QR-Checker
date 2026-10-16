@@ -10,9 +10,8 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
- * Время отметки для выгрузки: год-месяц-день, потому что такой порядок сортируется как
- * текст и одинаково читается в любой стране. Локаль фиксирована по той же причине - файл
- * уходит из телефона и попадает к человеку с другими настройками.
+ * Scan time for exports: year-month-day, which sorts as text and reads the same in any
+ * country. The locale is fixed for the same reason: the file leaves the phone.
  */
 private val EXPORT_FORMAT = threadLocalFormat("yyyy-MM-dd HH:mm:ss")
 
@@ -20,16 +19,15 @@ fun formatScanTimeForExport(millis: Long?): String =
     if (millis == null) "" else EXPORT_FORMAT.get()!!.format(Date(millis))
 
 /**
- * Свой форматтер на каждый поток. SimpleDateFormat хранит разбираемую дату в себе, и две
- * выгрузки, собираемые параллельно вне главного потока, путали время соседних строк, а то
- * и падали.
+ * One formatter per thread: SimpleDateFormat keeps parse state inside, and exports built
+ * in parallel off the main thread mixed up times of neighbouring rows or crashed.
  */
 internal fun threadLocalFormat(pattern: String): ThreadLocal<SimpleDateFormat> =
     object : ThreadLocal<SimpleDateFormat>() {
         override fun initialValue() = SimpleDateFormat(pattern, Locale.US)
     }
 
-/** Круглосуточные часы или с половинами дня - по настройке, иначе как в телефоне. */
+/** 24-hour or 12-hour clock as set in the app, otherwise as on the phone. */
 private fun is24Hour(context: Context): Boolean = when (AppSettings.clock(context)) {
     ClockChoice.H24 -> true
     ClockChoice.H12 -> false
@@ -38,7 +36,7 @@ private fun is24Hour(context: Context): Boolean = when (AppSettings.clock(contex
 
 private fun timePattern(context: Context) = if (is24Hour(context)) "HH:mm" else "h:mm a"
 
-/** Точные дата и время: то, что показывают, когда код развёрнут. */
+/** Exact date and time, shown when a code is expanded. */
 fun formatScanTimeForScreen(context: Context, millis: Long): String {
     val locale = Locale.getDefault()
     val pattern = AndroidDateFormat.getBestDateTimePattern(
@@ -49,20 +47,18 @@ fun formatScanTimeForScreen(context: Context, millis: Long): String {
 }
 
 /**
- * Насколько давно это было, словами.
+ * How long ago, in words.
  *
- * «Двенадцать секунд назад» отвечает на вопрос, который человек задаёт у ленты: этот
- * короб я только что просканировал или он лежит здесь со вчерашнего дня. Точное время
- * на этот вопрос не отвечает - его ещё надо вычесть из текущего в уме.
- *
- * Дальше суток слова кончаются: «вчера в 17:55» уже точнее и короче, чем «19 часов
- * назад», а через неделю нужна и дата.
+ * "12 seconds ago" answers the question asked at the conveyor: did I just scan this box,
+ * or has it been here since yesterday. An exact time would need mental subtraction.
+ * Past a day words run out: "yesterday at 17:55" is shorter and more precise than
+ * "19 hours ago", and after a week the date is needed.
  */
 fun formatTimeAgo(context: Context, millis: Long, now: Long = System.currentTimeMillis()): String {
     val res = context.resources
     val elapsed = now - millis
 
-    // часы телефона могли перевести назад; «через минуту» - не ответ
+    // the phone clock may have been set back; "in a minute" is no answer
     if (elapsed < 0) return atTime(context, millis)
 
     val seconds = TimeUnit.MILLISECONDS.toSeconds(elapsed)
@@ -75,8 +71,7 @@ fun formatTimeAgo(context: Context, millis: Long, now: Long = System.currentTime
     val hours = TimeUnit.MILLISECONDS.toHours(elapsed)
     if (hours < 12) return res.getQuantityString(R.plurals.ago_hours, hours.toInt(), hours.toInt())
 
-    // дальше считаем не разницей, а календарём: в 00:30 «час назад» - это вчера, и
-    // сказать «сегодня» было бы неправдой
+    // by the calendar from here on: at 00:30 "an hour ago" is yesterday
     return when (daysBetween(millis, now)) {
         0 -> res.getString(R.string.ago_today_at, atTime(context, millis))
         1 -> res.getString(R.string.ago_yesterday_at, atTime(context, millis))
@@ -104,10 +99,9 @@ private fun yearOf(millis: Long): Int =
     Calendar.getInstance().apply { timeInMillis = millis }.get(Calendar.YEAR)
 
 /**
- * Сколько календарных суток между двумя моментами - по местному времени.
- *
- * Разница полуночей округляется, а не отбрасывается: в сутках перевода часов 23 или 25
- * часов, и при отбрасывании весенние «вчера» становились «сегодня» со временем из будущего.
+ * Calendar days between two moments in local time. The difference of midnights is
+ * rounded, not truncated: a DST day has 23 or 25 hours, and truncation turned a spring
+ * "yesterday" into "today" with a time in the future.
  */
 internal fun daysBetween(from: Long, to: Long): Int {
     val day = TimeUnit.DAYS.toMillis(1)

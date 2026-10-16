@@ -8,10 +8,8 @@ import java.util.Calendar
 import java.util.TimeZone
 
 /**
- * Календарные сутки между двумя моментами.
- *
- * Сутки перевода часов длятся 23 или 25 часов, и разница полуночей, просто обрезанная до
- * суток, весной делала «вчера» сегодняшним днём.
+ * Calendar days between two moments. A DST day lasts 23 or 25 hours, and a truncated
+ * difference of midnights turned a spring "yesterday" into today.
  */
 class ScanTimeTest {
 
@@ -35,21 +33,20 @@ class ScanTimeTest {
         }.timeInMillis
 
     @Test
-    fun `весенний перевод часов не съедает вчерашний день`() {
-        // 29 марта 2026 в Берлине часы переводят вперёд: в этих сутках 23 часа
+    fun `spring DST change does not eat yesterday`() {
+        // March 29, 2026 in Berlin clocks go forward: that day has 23 hours
         assertEquals(1, daysBetween(at(2026, 3, 29, 10), at(2026, 3, 30, 9)))
     }
 
     @Test
-    fun `осенний перевод часов не добавляет лишний день`() {
-        // 25 октября 2026 - назад, в сутках 25 часов
+    fun `autumn DST change does not add a day`() {
+        // October 25, 2026 clocks go back: that day has 25 hours
         assertEquals(1, daysBetween(at(2026, 10, 25, 10), at(2026, 10, 26, 9)))
     }
 
     @Test
-    fun `время в выгрузке не путается, когда её собирают в нескольких потоках`() {
-        // SimpleDateFormat хранит дату в себе: один общий на все потоки путал время
-        // соседних строк
+    fun `export times do not mix up when built on several threads`() {
+        // SimpleDateFormat keeps state inside; a shared one mixed up neighbouring rows
         val failures = java.util.concurrent.atomic.AtomicInteger()
         val threads = (1..4).map { t ->
             Thread {
@@ -67,7 +64,7 @@ class ScanTimeTest {
     }
 
     @Test
-    fun `обычные сутки считаются как раньше`() {
+    fun `ordinary days count as before`() {
         assertEquals(0, daysBetween(at(2026, 6, 10, 1), at(2026, 6, 10, 23)))
         assertEquals(7, daysBetween(at(2026, 3, 25, 12), at(2026, 4, 1, 12)))
     }

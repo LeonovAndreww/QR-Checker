@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- тот же экран, но собранный на тёмной основе: иначе окно под ним остаётся белым -->
+    <!-- the same theme on a dark parent, or the window under the screens stays white -->
     <style name="Theme.QRChecker" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
     </style>

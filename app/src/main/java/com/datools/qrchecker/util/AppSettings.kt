@@ -6,25 +6,23 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.edit
 
-/** Тема оформления. */
 enum class ThemeChoice { SYSTEM, LIGHT, DARK }
 
-/** Язык интерфейса. SYSTEM - тот, что выбран в системе. */
+/** Interface language; SYSTEM follows the system setting. */
 enum class LanguageChoice(val tag: String) {
     SYSTEM(""),
     RUSSIAN("ru"),
     ENGLISH("en")
 }
 
-/** Часы: как в системе, круглосуточные или с половинами дня. */
+/** Clock: as in the system, 24-hour or 12-hour. */
 enum class ClockChoice { SYSTEM, H24, H12 }
 
 /**
- * Настройки внешнего вида и отклика.
+ * Appearance and feedback settings.
  *
- * Лежат в SharedPreferences, а не в базе: их читают до того, как что-либо нарисовано, и
- * ждать ответа Room в этот момент нечего. Каждая заведена как состояние Compose, поэтому
- * экран перерисовывается сразу после переключения - без перезапуска.
+ * Kept in SharedPreferences rather than the database: they are read before anything is
+ * drawn. Each is exposed as Compose state, so a switch applies without a restart.
  */
 object AppSettings {
 
@@ -40,8 +38,8 @@ object AppSettings {
     private const val KEY_SCROLLBAR = "scrollbar"
     private const val KEY_SCAN_ON_TAP = "scan_on_tap"
 
-    // не applicationContext: язык читается из attachBaseContext приложения, когда
-    // applicationContext ещё не существует
+    // not applicationContext: the language is read in the application's
+    // attachBaseContext, before applicationContext exists
     private fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -92,7 +90,7 @@ object AppSettings {
         prefs(context).edit { putString(KEY_CLOCK, choice.name) }
     }
 
-    /** Отклик вибрацией включён по умолчанию: без него сканирование вслепую не подтверждается. */
+    /** On by default: without it a blind scan gets no confirmation. */
     fun hapticsState(context: Context): MutableState<Boolean> =
         hapticsState ?: mutableStateOf(prefs(context).getBoolean(KEY_HAPTICS, true))
             .also { hapticsState = it }
@@ -104,7 +102,7 @@ object AppSettings {
         prefs(context).edit { putBoolean(KEY_HAPTICS, on) }
     }
 
-    /** Звук выключен по умолчанию: пищать без спроса приложение не должно. */
+    /** Off by default: an app should not beep unasked. */
     fun soundState(context: Context): MutableState<Boolean> =
         soundState ?: mutableStateOf(prefs(context).getBoolean(KEY_SOUND, false))
             .also { soundState = it }
@@ -116,11 +114,7 @@ object AppSettings {
         prefs(context).edit { putBoolean(KEY_SOUND, on) }
     }
 
-    /**
-     * Показывать ли под кодом то, что в нём записано помимо самого номера: срок годности
-     * и партию. Включено по умолчанию - данные уже есть в коде, и на складе они как раз
-     * и нужны.
-     */
+    /** Expiry and batch under each code. On by default: the data is in the code anyway. */
     fun codeFieldsState(context: Context): MutableState<Boolean> =
         codeFieldsState ?: mutableStateOf(prefs(context).getBoolean(KEY_CODE_FIELDS, true))
             .also { codeFieldsState = it }
@@ -133,11 +127,8 @@ object AppSettings {
     }
 
     /**
-     * Показывать ли сам код в плашке с результатом сканирования.
-     *
-     * Включено по умолчанию: под кодом на коробке подпись печатают не всегда, и без неё
-     * человеку нечем свериться - глазами Data Matrix не читается. Особенно когда код
-     * оказался чужим: без строки на экране непонятно, что именно отсканировали.
+     * The code itself in the scan banner. On by default: the printed text under a Data
+     * Matrix is often missing, and without it there is nothing to check a foreign code by.
      */
     fun scanCodeState(context: Context): MutableState<Boolean> =
         scanCodeState ?: mutableStateOf(prefs(context).getBoolean(KEY_SCAN_CODE, true))
@@ -151,10 +142,8 @@ object AppSettings {
     }
 
     /**
-     * Показывать ли под кодом его вид: Честный ЗНАК, GS1, EAN-13 и так далее.
-     *
-     * Выключено по умолчанию: в списке одной партии вид у всех кодов один и тот же, и
-     * строка про него повторялась бы под каждым.
+     * The code's kind (Chestny ZNAK, GS1, EAN-13...) under each code. Off by default:
+     * within one batch every code has the same kind.
      */
     fun codeKindState(context: Context): MutableState<Boolean> =
         codeKindState ?: mutableStateOf(prefs(context).getBoolean(KEY_CODE_KIND, false))
@@ -165,10 +154,7 @@ object AppSettings {
         prefs(context).edit { putBoolean(KEY_CODE_KIND, on) }
     }
 
-    /**
-     * Полоса прокрутки в длинных списках. Включена по умолчанию: без неё в партии на
-     * тысячи коробок не видно ни где ты, ни сколько всего.
-     */
+    /** Scrollbar in long lists. On by default: a batch can be thousands of boxes. */
     fun scrollbarState(context: Context): MutableState<Boolean> =
         scrollbarState ?: mutableStateOf(prefs(context).getBoolean(KEY_SCROLLBAR, true))
             .also { scrollbarState = it }
@@ -179,9 +165,8 @@ object AppSettings {
     }
 
     /**
-     * Читать код только по касанию экрана. Выключено по умолчанию: обычно коробку просто
-     * подносят, и лишнее касание на каждую - лишняя работа. Включают, когда в кадре
-     * много кодов рядом, - и тогда распознаватель не работает впустую между касаниями.
+     * Decode only on a tap. Off by default, since boxes are usually just held up to the
+     * camera; useful with many codes side by side, and it saves battery between taps.
      */
     fun scanOnTapState(context: Context): MutableState<Boolean> =
         scanOnTapState ?: mutableStateOf(prefs(context).getBoolean(KEY_SCAN_ON_TAP, false))

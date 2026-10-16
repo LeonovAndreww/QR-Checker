@@ -32,21 +32,16 @@ class MainActivity : ComponentActivity() {
     private var localized: Resources? = null
     private var localizedTag: String? = null
 
-    // язык подменяется до того, как экран прочитает первую строку: после setContent
-    // менять уже поздно
+    // the language must be set before the first string is read
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(applyLanguage(base))
     }
 
     /**
-     * Ресурсы самой Activity тоже следуют за выбранным языком.
-     *
-     * Диалог живёт в отдельном окне со своим владельцем композиции, и тот заново
-     * подставляет LocalContext - контекст Activity, а не тот, что подставлен экраном.
-     * Пока это не учитывалось, приложение переключалось на английский целиком, а
-     * всплывающие окна оставались на языке системы.
-     *
-     * Метод зовут часто, поэтому результат держится до смены языка.
+     * The activity's own resources follow the chosen language too: a dialog lives in its
+     * own window, whose composition provides the activity as LocalContext again, so
+     * dialogs stayed in the system language. Cached until the language changes, since
+     * this is called often.
      */
     override fun getResources(): Resources {
         val base = super.getResources()
@@ -74,10 +69,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val language by AppSettings.languageState(this)
 
-            // Переключение языка на лету, без пересоздания экрана: LocalContext -
-            // статический CompositionLocal, так что его смена пересобирает всё дерево
-            // ниже, и каждый stringResource перечитывается. Заодно ресурсы приложения
-            // догоняют выбор - сообщения об ошибках читает ещё и ViewModel.
+            // Language switch without recreating the activity: LocalContext is a static
+            // CompositionLocal, so changing it recomposes the tree below and every
+            // stringResource is read again. Application resources follow as well.
             val localizedForScreen = remember(language) {
                 refreshAppLanguage(this)
                 localizedContext(this, language)
@@ -87,18 +81,14 @@ class MainActivity : ComponentActivity() {
                 QRCheckerTheme {
                     val background = MaterialTheme.colorScheme.background
 
-                    // Фон окна перекрашивается под выбранную тему.
-                    //
-                    // В ресурсах он может следовать только ночному режиму системы, а
-                    // тему в приложении выбирают отдельно: со светлой темой на тёмном
-                    // телефоне окно оставалось тёмным, и вспышка при переходах, ради
-                    // которой этот цвет и заводился, возвращалась.
+                    // The window background follows the app theme. In resources it can
+                    // only follow the system night mode, so a light theme on a dark phone
+                    // brought back the flash between screens this colour exists to hide.
                     LaunchedEffect(background) {
                         window.setBackgroundDrawable(background.toArgb().toDrawable())
                     }
 
-                    // сплошная подложка цвета темы: между экранами под ними не должно
-                    // просвечивать окно
+                    // a solid themed backdrop, so the window never shows between screens
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = background

@@ -14,11 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 /**
- * Колонка на весь экран, которая прокручивается, если не влезла.
- *
- * Высота у неё не меньше экрана, поэтому Spacer с weight по-прежнему прижимает кнопки к
- * низу. А в альбомной ориентации, где высоты не хватает, содержимое прокручивается, и
- * кнопки внизу не уезжают за край.
+ * A full-screen column that scrolls when it does not fit. It is at least as tall as the
+ * screen, so a weighted Spacer still pushes buttons to the bottom, while in landscape
+ * the content scrolls instead of pushing them off screen.
  */
 @Composable
 fun FullHeightColumn(

@@ -13,7 +13,7 @@ class CodeFormatTest {
     )
 
     @Test
-    fun `виды считаются, самые многочисленные первыми`() {
+    fun `kinds are counted, the most numerous first`() {
         assertEquals(
             listOf(CodeFormat.DATA_MATRIX to 2, CodeFormat.LINEAR to 1, CodeFormat.OTHER to 1),
             countFormats(codes, formats)
@@ -21,7 +21,7 @@ class CodeFormatTest {
     }
 
     @Test
-    fun `снятый вид не попадает в сессию, порядок остальных сохраняется`() {
+    fun `an unticked kind stays out, the order of the rest is kept`() {
         assertEquals(
             listOf("dm1", "dm2", "list1"),
             keepFormats(codes, formats, setOf(CodeFormat.DATA_MATRIX, CodeFormat.OTHER))

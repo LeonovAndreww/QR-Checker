@@ -16,13 +16,10 @@ import java.util.concurrent.TimeUnit
 private const val TAG = "QRChecker"
 private const val DECODE_TIMEOUT_SECONDS = 15L
 
-/**
- * Больше этого числа точек распознавателю не нужно: он работает по кадру телефона, а
- * не по снимку в полном разрешении.
- */
+/** The detector works on camera-sized frames; more pixels than this are wasted memory. */
 private const val MAX_IMAGE_PIXELS = 12_000_000L
 
-/** Во сколько раз уменьшать картинку при распаковке: только степени двойки. */
+/** The downsampling factor for decoding: powers of two only. */
 private fun sampleSizeFor(width: Int, height: Int): Int {
     if (width <= 0 || height <= 0) return 1
     var sample = 1
@@ -33,26 +30,17 @@ private fun sampleSizeFor(width: Int, height: Int): Int {
 }
 
 /**
- * Читает коды с картинки.
- *
- * Кодами делятся не только документами: приходит и снимок этикетки, и вырезанный кусок
- * экрана. Отдельная ветка нужна потому, что декодер требует картинку, а не файл, и путь
- * через PdfRenderer сюда не ведёт.
+ * Reads codes from an image: a photo of a label or a screenshot. A separate path because
+ * the detector takes a bitmap, not a file, and PdfRenderer does not apply.
  */
 suspend fun parseImageForCodes(context: Context, uri: Uri): List<ScannedCode> =
     withContext(Dispatchers.IO) {
-        // Снимок с камеры бывает на пятьдесят мегапикселей: декодеру столько не нужно,
-        // а памяти на такую картинку уходит больше, чем есть у процесса.
-        //
-        // Сначала читаются только размеры, по ним считается делитель, и лишь потом
-        // картинка раскладывается в память. Раньше здесь стояло inSampleSize = 1 - то
-        // есть «не уменьшать», ровно наоборот тому, что написано в комментарии, - и
-        // сама распаковка лежала вне обработчика нехватки памяти.
+        // A camera photo can have fifty megapixels, which the detector does not need and
+        // the process cannot hold. Bounds are read first, the sample size computed from
+        // them, and only then the image is decoded.
         val bitmap = try {
-            // Замерочный проход возвращает null по контракту - inJustDecodeBounds на то
-            // и нужен. Проверять тут надо поток, а не результат: на результате стояло
-            // "?: return emptyList()", и функция выходила всегда, ни разу не дойдя до
-            // самой картинки.
+            // a bounds-only decode returns null by contract, so the stream is checked,
+            // not the result
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             val measured = context.contentResolver.openInputStream(uri)
                 ?: return@withContext emptyList()
@@ -90,9 +78,8 @@ suspend fun parseImageForCodes(context: Context, uri: Uri): List<ScannedCode> =
             Log.e(TAG, "Out of memory reading the codes", e)
             emptyList()
         } catch (e: Exception) {
-            // Истёкший срок и отказ распознавателя - обычный исход для картинки,
-            // снятой под углом или не в фокусе. Файл остаётся без кодов, разбор
-            // остальных выбранных файлов продолжается.
+            // a timeout or a detector failure is normal for a tilted or blurry image: the
+            // file just gives no codes, and the other files are still read
             Log.e(TAG, "Could not read the codes", e)
             emptyList()
         } finally {

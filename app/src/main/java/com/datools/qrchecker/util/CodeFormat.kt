@@ -5,13 +5,12 @@ import com.datools.qrchecker.R
 import com.google.mlkit.vision.barcode.common.Barcode
 
 /**
- * Каким символом записан код.
+ * The symbology a code was printed with.
  *
- * Нужно ровно для одного: на розничной этикетке рядом с Data Matrix маркировки почти
- * всегда стоит ещё и обычный штрихкод товара. Пока распознавались только Data Matrix и
- * QR, этого не было видно; теперь читается всё подряд, и такой лист дал бы вдвое больше
- * кодов, половина из которых - не то, что сверяют. Поэтому формат запоминается, и
- * ненужный можно снять галочкой перед созданием сессии.
+ * Needed for one thing: next to a marking Data Matrix a retail label almost always has
+ * a plain product barcode. Everything is read now, so such a sheet would give twice the
+ * codes, half of them not what is being checked; the format is kept so a kind can be
+ * unticked before the session is created.
  */
 enum class CodeFormat(@get:StringRes val label: Int) {
     DATA_MATRIX(R.string.format_data_matrix),
@@ -19,7 +18,7 @@ enum class CodeFormat(@get:StringRes val label: Int) {
     LINEAR(R.string.format_linear),
     OTHER(R.string.format_other),
 
-    /** Код пришёл из текстового списка, а не с картинки: символа у него нет. */
+    /** The code came from a text list, not an image: it has no symbology. */
     TEXT(R.string.format_text);
 
     companion object {
@@ -36,20 +35,20 @@ enum class CodeFormat(@get:StringRes val label: Int) {
     }
 }
 
-/** Сколько кодов каждого вида, самые многочисленные первыми. */
+/** Codes per kind, the most numerous first. */
 fun countFormats(codes: List<String>, formats: Map<String, CodeFormat>): List<Pair<CodeFormat, Int>> =
     codes.groupingBy { formats[it] ?: CodeFormat.OTHER }.eachCount()
         .toList()
         .sortedWith(compareByDescending<Pair<CodeFormat, Int>> { it.second }.thenBy { it.first.ordinal })
 
-/** Коды только тех видов, что оставлены. Код без известного вида считается «другим». */
+/** Only codes of the kept kinds; a code of unknown kind counts as "other". */
 fun keepFormats(
     codes: List<String>,
     formats: Map<String, CodeFormat>,
     kept: Set<CodeFormat>
 ): List<String> = codes.filter { (formats[it] ?: CodeFormat.OTHER) in kept }
 
-/** Код вместе с тем, чем он записан. */
+/** A code with the symbology it was printed with. */
 data class ScannedCode(
     val value: String,
     val format: CodeFormat

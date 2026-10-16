@@ -96,9 +96,8 @@ fun EditSessionScreen(
         state.keptCodes
     }
 
-    // корзина: что убрали из сессии и когда
     var showEmptyBinConfirm by remember { mutableStateOf(false) }
-    // раскрытые коды корзины, сколько угодно сразу
+    // several binned codes can be expanded at once
     var expandedBinCodes by remember { mutableStateOf(setOf<String>()) }
     val snackbarHostState = remember { SnackbarHostState() }
     val clipboard = LocalClipboard.current
@@ -106,7 +105,7 @@ fun EditSessionScreen(
 
     // confirmation dialog when replacing codes
     var showReplaceConfirm by remember { mutableStateOf(false) }
-    // «Заменить» - поведение, которое было до сих пор, поэтому оно и остаётся по умолчанию
+    // replacing is the default
     var replaceCodesMode by remember { mutableStateOf(true) }
     val codesFromPdfTitle = stringResource(id = R.string.codes_from_pdf_title)
     val modeReplaceText = stringResource(id = R.string.codes_mode_replace)
@@ -190,8 +189,7 @@ fun EditSessionScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // общий значок файла, а не лист PDF: сюда давно кладут ещё CSV,
-                    // картинки и файлы сессий
+                    // a generic file icon: CSV, images and session files are accepted too
                     Icon(
                         painter = painterResource(id = R.drawable.ic_file_open),
                         contentDescription = pdfIconDesc
@@ -257,10 +255,7 @@ fun EditSessionScreen(
                 )
             }
 
-            // Корзина показывается, только когда в ней что-то есть.
-            //
-            // Пустая карточка «здесь ничего нет» - это строка, объясняющая собственное
-            // отсутствие; на экране правки, где и так тесно, ей делать нечего.
+            // the bin is shown only when it has something in it
             if (binned.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Card(modifier = Modifier.fillMaxWidth()) {
@@ -287,9 +282,7 @@ fun EditSessionScreen(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        // Список ограничен по высоте и прокручивается сам: в корзине
-                        // может лежать и сотня кодов, а экран правки - не место, где
-                        // их разглядывают.
+                        // bounded height with its own scroll: the bin can hold hundreds
                         LazyColumn(
                             modifier = Modifier.heightIn(max = 260.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -297,10 +290,8 @@ fun EditSessionScreen(
                             items(binned, key = { it.first }) { (code, at) ->
                                 val expanded = code in expandedBinCodes
 
-                                // Те же жесты, что и в списках кодов: вправо -
-                                // скопировать, влево - удалить. В корзине «удалить»
-                                // значит уже насовсем, и другого значения у него здесь
-                                // быть не может.
+                                // the same gestures as code lists: right copies, left
+                                // deletes, which in the bin means for good
                                 SwipeActionRow(
                                     onThresholdCrossed = { feel(Outcome.THRESHOLD) },
                                     start = SwipeAction(
@@ -463,16 +454,14 @@ fun EditSessionScreen(
 
         val picked = keptCodes ?: current.codes
         val previousCodesForMode = current.codes.toHashSet()
-        // «Заменить» - список становится тем, что в PDF. «Добавить» - к тому, что уже
-        // есть, дописываются только незнакомые коды: партию догружают по частям, и
-        // повторная загрузка того же файла не должна ничего задваивать.
+        // Replace: the list becomes the document's. Append: only unknown codes are added,
+        // so loading a batch in parts or the same file twice duplicates nothing.
         val finalCodes = if (replaceCodesMode) {
             picked
         } else {
             current.codes + picked.filterNot { it in previousCodesForMode }
         }
-        // множествами, а не списками: на партии в тысячи коробок contains по списку
-        // превращает подсчёт в квадрат
+        // sets, not lists: on thousands of codes list lookups make this quadratic
         val nextCodes = finalCodes.toHashSet()
         val previousCodes = current.codes.toHashSet()
 
@@ -501,8 +490,7 @@ fun EditSessionScreen(
                             label = { Text(modeAppendText) }
                         )
                     }
-                    // по одному слову не понять, что станет с уже отмеченным, а именно
-                    // это и решается выбором режима
+                    // the mode decides what happens to existing marks, so it is spelled out
                     Text(
                         text = stringResource(
                             if (replaceCodesMode) {
@@ -556,9 +544,8 @@ fun EditSessionScreen(
                         )
                     }
 
-                    // Пропавшая отметка - это потерянная работа, поэтому её показываем
-                    // поимённо, а не числом. Новые коды перечислять незачем: их и так
-                    // видно в сессии после замены.
+                    // A lost mark is lost work, so lost marks are listed by name; new codes
+                    // need no list, they are visible in the session afterwards.
                     if (lostMarks.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
@@ -605,5 +592,5 @@ fun EditSessionScreen(
     }
 }
 
-/** Сколько пропадающих отметок показать поимённо, прежде чем свернуть в «и ещё N». */
+/** Lost marks listed by name before the rest collapse into "and N more". */
 private const val LOST_MARKS_SHOWN = 12

@@ -8,8 +8,8 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-// Реквизиты подписи лежат в keystore.properties рядом с проектом и не коммитятся.
-// Без этого файла release собирается неподписанным - клон репозитория остаётся рабочим.
+// Signing credentials live in keystore.properties next to the project and are not committed.
+// Without that file the release build is unsigned, so a fresh clone still builds.
 val keystoreProperties = Properties().apply {
     val f = rootProject.file("keystore.properties")
     if (f.exists()) f.inputStream().use { load(it) }
@@ -40,9 +40,8 @@ android {
         }
     }
 
-    // Язык переключается внутри приложения, поэтому в бандл кладутся все языки сразу.
-    // По умолчанию Play отдаёт устройству ресурсы только его языка, и выбранный в
-    // настройках второй язык просто не нашёлся бы на устройстве.
+    // The language is switched inside the app, so the bundle ships all languages: by
+    // default Play delivers only the device's language, and the other would be missing.
     bundle {
         language {
             enableSplit = false

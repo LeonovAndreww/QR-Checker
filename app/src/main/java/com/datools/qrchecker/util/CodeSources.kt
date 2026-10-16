@@ -1,27 +1,24 @@
 package com.datools.qrchecker.util
 
 /**
- * Достаёт коды из текстового списка.
+ * Codes from a text list.
  *
- * Личный кабинет Честного ЗНАКа отдаёт коды выгрузкой CSV, и это основной вид, в котором
- * они попадают к людям: PDF - лишь один из вариантов, для печати этикеток. Поэтому список
- * читается наравне с документом.
+ * The Chestny ZNAK account exports codes as CSV, and that is how most people get them;
+ * PDF is just one option, for printing labels. So lists are read on a par with documents.
  *
- * Главная сложность в том, что разделители таблицы встречаются внутри самих кодов:
- * серийник состоит из произвольных знаков, и запятая с точкой с запятой попадаются в нём
- * постоянно. Резать строку по ним вслепую - значит молча обрубать коды, поэтому строка
- * разбирается по трём правилам подряд, от самого надёжного к самому шаткому.
+ * The hard part is that the table separators occur inside the codes: serials are made
+ * of arbitrary characters, commas and semicolons included. Splitting blindly would cut
+ * codes silently, so a row goes through a sequence of rules, most reliable first.
  */
 private const val SHORTEST_CODE = 8
 
 /**
- * Разделителями считаются только точка с запятой и табуляция. Запятая - нет: в кодах
- * маркировки она встречается, а в выгрузках Честного ЗНАКа колонки разделяет точка с
- * запятой, как принято в русской локали Excel.
+ * Only semicolon and tab separate columns. A comma does not: it occurs in marking codes,
+ * and Chestny ZNAK exports use semicolons, as Excel does in the Russian locale.
  */
 private val SEPARATORS = charArrayOf(';', '\t')
 
-/** (01)GTIN(21)серийник - форма кода маркировки, по ней строка узнаётся целиком. */
+/** (01)GTIN(21)serial, the shape of a marking code; a whole row in this shape is a code. */
 private val MARKING_CODE = Regex("^01\\d{14}21.+", RegexOption.DOT_MATCHES_ALL)
 
 fun parseCodeList(text: String): List<String> {
@@ -30,7 +27,7 @@ fun parseCodeList(text: String): List<String> {
     for (rawLine in text.lineSequence()) {
         val line = rawLine.trim().removePrefix("\uFEFF")
         if (line.isEmpty()) continue
-        // строка "sep=;", которой начинаются наши же отчёты, кодом не является
+        // the "sep=;" line our own reports start with is not a code
         if (line.startsWith("sep=", ignoreCase = true)) continue
 
         val code = codeFromLine(line) ?: continue
@@ -43,13 +40,10 @@ fun parseCodeList(text: String): List<String> {
 private fun codeFromLine(line: String): String? {
     val fields = splitCsvRow(line)
 
-    // 1. Собственный отчёт приложения. Узнаётся по строению строки, а не по заголовкам:
-    //    заголовки переведены, а вот то, что первая колонка - это в точности короткая
-    //    форма второй, верно в любой локали.
-    //
-    //    Проверять это надо раньше правила про голый код: строка отчёта тоже начинается
-    //    с кода маркировки, и без этой ветки она целиком уходила в сессию кодом вида
-    //    «код;код;время», после чего камера переставала находить совпадение.
+    // 1. The app's own report, recognised by structure rather than headers, which are
+    //    translated: the first column is exactly the short form of the second.
+    //    Checked before the bare-code rule, since a report row also starts with a marking
+    //    code and would otherwise become one "code;code;time" code.
     if (fields.size == 3) {
         val full = normalizeCode(fields[1]).withoutFormulaGuard()
         if (full.isNotEmpty() && normalizeCode(fields[0]).withoutFormulaGuard() == shortCode(full)) {
@@ -57,33 +51,31 @@ private fun codeFromLine(line: String): String? {
         }
     }
 
-    // 2. Кавычек в строке нет, а сама она имеет форму кода маркировки - это голый код.
-    //    Точка с запятой внутри него принадлежит серийнику: строка таблицы, в которой
-    //    поле содержит разделитель, обязана это поле закавычить, иначе её не разберёт
-    //    никто.
+    // 2. No quotes and the row has the shape of a marking code: a bare code. A semicolon
+    //    in it belongs to the serial, since a CSV field containing a separator must be
+    //    quoted.
     val bare = normalizeCode(line)
     if ('"' !in line && MARKING_CODE.matches(bare)) return bare.asCode()
 
-    // 3. Поле одно - значит колонок нет, и строка целиком и есть значение. Берётся
-    //    разобранное поле, а не сама строка: у значения с экранированной кавычкой
-    //    внутри снятие кавычек «по краям» оставляло и внешние, и удвоенные.
+    // 3. A single field means no columns: the parsed field is the value. The parsed one,
+    //    so an escaped quote inside does not leave the outer quotes behind.
     if (fields.size == 1) return normalizeCode(fields[0]).asCode()
 
-    // 4. Иначе это таблица. Из полей берётся то, что похоже на код маркировки, а если
-    //    таких нет - самое длинное: заголовки вроде "код" или "gtin" короче любого кода.
+    // 4. A table: take what looks like a marking code, or else the longest field;
+    //    headers like "code" or "gtin" are shorter than any code.
     val values = fields.mapNotNull { normalizeCode(it).asCode() }
     return values.filter { MARKING_CODE.matches(it) }.maxByOrNull { it.length }
         ?: values.maxByOrNull { it.length }
 }
 
-/** Апостроф, которым выгрузка прикрывает ячейку со знаком формулы, - не часть кода. */
+/** The apostrophe an export puts before a cell starting with a formula sign is not part of the code. */
 private fun String.withoutFormulaGuard(): String =
     if (startsWith('\'') && needsFormulaGuard(substring(1))) substring(1) else this
 
 private fun String.asCode(): String? =
     takeIf { it.length >= SHORTEST_CODE && !it.contains(' ') }
 
-/** Режет строку таблицы на поля, не трогая разделители внутри кавычек. */
+/** Splits a CSV row into fields, ignoring separators inside quotes. */
 private fun splitCsvRow(line: String): List<String> {
     val fields = ArrayList<String>()
     val field = StringBuilder()

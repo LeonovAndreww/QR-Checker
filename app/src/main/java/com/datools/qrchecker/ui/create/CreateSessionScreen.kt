@@ -79,7 +79,7 @@ fun CreateSessionScreen(navController: NavController) {
     val context = LocalContext.current
     var sessionName by rememberSaveable { mutableStateOf("") }
     var selectedNames by rememberSaveable { mutableStateOf(listOf<String>()) }
-    // имя из файла сессии подставляется один раз: дальше человек волен его переписать
+    // a session file's name is filled in once; after that the user may change it
     var nameTakenFromFile by rememberSaveable { mutableStateOf(false) }
 
     // getting ViewModel
@@ -90,20 +90,14 @@ fun CreateSessionScreen(navController: NavController) {
         contract = ActivityResultContracts.OpenMultipleDocuments(),
         onResult = { uris: List<Uri> ->
             if (uris.isNotEmpty()) {
-                // Постоянное разрешение на файл здесь не берётся.
-                //
-                // Оно требовалось, пока ссылка на файл переживала смерть процесса; теперь
-                // файл читается сразу после выбора, и разрешения из системного окна на
-                // это хватает. А взятые постоянные никто не отпускал, и они копились в
-                // счёт лимита, отведённого приложению.
+                // No persistable permission is taken: the files are read right away, and
+                // the picker's grant covers that. Persisted grants would only pile up
+                // against the app's limit.
                 val files = uris.map { uri -> uri to getFileNameFromUri(uri, context) }
                 selectedNames = files.map { it.second }
                 nameTakenFromFile = false
-                // Имя подставляется само - по первому файлу, без расширения.
-                //
-                // Придумывать название партии, которая и так называется по накладной,
-                // человеку незачем; своё он всё равно впишет поверх, а пустое поле
-                // просто держит кнопку «Далее» выключенной. Уже введённое не трогаем.
+                // The name defaults to the first file's name without extension: a batch is
+                // already named by its waybill. Whatever the user typed is kept.
                 if (sessionName.isBlank()) {
                     sessionName = files.firstOrNull()?.second.orEmpty()
                         .substringBeforeLast('.')
@@ -111,7 +105,7 @@ fun CreateSessionScreen(navController: NavController) {
                 }
                 viewModel.clearError()
                 viewModel.clearParsed()
-                // разбор начинается здесь, а не по кнопке: ждать нажатия незачем
+                // reading starts now, not on a button
                 viewModel.parseFiles(files)
             }
         }
@@ -125,12 +119,8 @@ fun CreateSessionScreen(navController: NavController) {
     val conflict = state.conflict
     val mergedMarks = state.mergedMarks
 
-    // Какие виды кодов берём в сессию. Пересобирается на каждый новый разбор: остаться
-    // от прошлого файла выбор не должен.
-    //
-    // Отмечено всё найденное: сводка выше говорит «найдено N кодов», и если часть из них
-    // молча не попадёт в сессию, эти два числа разойдутся без объяснения. Когда видов
-    // несколько, они перечислены с количествами - и лишний снимается одним нажатием.
+    // Which code kinds go into the session, reset on every new parse. Everything found
+    // is ticked, so "found N codes" matches what gets saved unless the user unticks a kind.
     val formatCounts = remember(parsed) {
         (parsed as? ParsedFile.Codes)?.let { countFormats(it.codes, it.formats) }.orEmpty()
     }
@@ -139,7 +129,7 @@ fun CreateSessionScreen(navController: NavController) {
     }
     val errorMessage = state.error?.asString()
 
-    // у файла сессии имя уже есть - подставляем его, чтобы не заставлять придумывать
+    // a session file carries its own name
     LaunchedEffect(parsed) {
         val session = (parsed as? ParsedFile.Session)?.session
         if (session != null && !nameTakenFromFile && session.name.isNotBlank()) {
@@ -148,12 +138,10 @@ fun CreateSessionScreen(navController: NavController) {
         }
     }
 
-    // Переход ждёт, пока прочитают, сколько отметок перенеслось: иначе экран уезжает
-    // на сканирование, и единственный ответ на «объединить» человек не видит вовсе.
-    //
-    // Он же ждёт, пока экран снова станет активным. Сессия могла дописаться, пока
-    // приложение было свёрнуто: переход тогда не выполняется, и id, сброшенный без
-    // перехода, оставлял человека на экране создания перед уже созданной сессией.
+    // Navigation waits until the merge result has been seen, or the only answer to
+    // "merge" would flash by. It also waits for the screen to be active again: a session
+    // created while the app was in the background could not navigate, and clearing the id
+    // anyway left the user on the create screen in front of a session that exists.
     val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
     val resumed = lifecycleState == Lifecycle.State.RESUMED
     LaunchedEffect(createdSessionId, mergedMarks, resumed) {
@@ -190,14 +178,13 @@ fun CreateSessionScreen(navController: NavController) {
     val scope = rememberCoroutineScope()
     val nameFocus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    // что мешает создать сессию: спрашивается по одному, по нажатию «Продолжить»
+    // what blocks creation, asked one at a time on "Continue"
     var askName by remember { mutableStateOf(false) }
     var askNoFile by remember { mutableStateOf<String?>(null) }
-    // имя, с которым создаётся сессия: им же пользуется «создать новую» в окне совпадения,
-    // а поле ввода при «Без названия» так и остаётся пустым
+    // the name the session is created with; "create new" in the conflict dialog uses it
+    // too, while the text field stays empty after "Untitled"
     var chosenName by remember { mutableStateOf("") }
-    // фокус в поле имени ставится, когда окно уже закрылось и фокус вернулся экрану:
-    // пока окно держит фокус, запрос из него уходит впустую
+    // focus is requested after the dialog has closed and returned focus to the screen
     var focusName by remember { mutableStateOf(false) }
     val windowInfo = LocalWindowInfo.current
     LaunchedEffect(focusName) {
@@ -215,17 +202,17 @@ fun CreateSessionScreen(navController: NavController) {
         }
     }
 
-    // Кнопка нажимается всегда, а не гаснет: погасшая не говорит, чего ей не хватает.
+    // The button stays enabled: a disabled one does not say what it is missing.
     fun proceed(name: String) {
         when {
             isParsing -> say(stillReadingText)
-            // сессия уже пишется - второе нажатие ничего не добавит
+            // already saving
             isLoading -> Unit
             parsed != null -> {
                 chosenName = name
                 viewModel.createSession(name, keepFormats = keptFormats)
             }
-            // файл выбран, но кодов из него не вышло: это не «файл не выбран»
+            // a file was picked but gave no codes, which is not "no file"
             selectedNames.isNotEmpty() -> say(errorMessage ?: noCodesText)
             else -> askNoFile = name
         }
@@ -335,7 +322,7 @@ fun CreateSessionScreen(navController: NavController) {
                     }
                     TextButton(onClick = {
                         viewModel.cancelParsing()
-                        // отменённый выбор - это не выбранный файл
+                        // a cancelled pick is no file
                         selectedNames = emptyList()
                     }) {
                         Text(cancelParsingText)
@@ -357,9 +344,8 @@ fun CreateSessionScreen(navController: NavController) {
                                 text = codesSummaryTemplate.format(source.codes.size),
                                 style = MaterialTheme.typography.bodyLarge
                             )
-                            // видно, какой из выбранных файлов приехал пустым: иначе
-                            // «нашлось 200» ничего не говорит о том, что один из трёх
-                            // документов не прочитался вовсе
+                            // shows which picked file came out empty; "found 200" alone
+                            // would hide that one of three documents was unreadable
                             if (source.sources.size > 1) {
                                 for (item in source.sources) {
                                     Text(
@@ -432,8 +418,7 @@ fun CreateSessionScreen(navController: NavController) {
             onDismissRequest = { askName = false },
             title = { Text(stringResource(id = R.string.name_missing_title)) },
             confirmButton = {
-                // имя как у безымянного файла: «Без названия», а если занято -
-                // с номером, это делает createSession
+                // createSession picks "Untitled", numbered if taken
                 TextButton(onClick = {
                     askName = false
                     proceed(untitledName)
@@ -497,9 +482,7 @@ fun CreateSessionScreen(navController: NavController) {
                 }
             },
             dismissButton = {
-                // Три исхода, а не два: продолжить в старой сессии, завести вторую или
-                // передумать. Отказаться раньше было можно только нажатием мимо окна,
-                // о котором никто не догадывается.
+                // three ways out: continue the old session, create a second one, or cancel
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     TextButton(onClick = { viewModel.dismissConflict() }) {
                         Text(cancelText)

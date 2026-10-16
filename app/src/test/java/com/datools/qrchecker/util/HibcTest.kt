@@ -4,11 +4,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** Все примеры - из самого стандарта ANSI/HIBC 2.6, с его контрольными знаками. */
+/** All examples are from the ANSI/HIBC 2.6 standard itself, with its check characters. */
 class HibcTest {
 
     @Test
-    fun `основной код - раздел 4,3,1 и приложение B`() {
+    fun `primary code - section 4,3,1 and appendix B`() {
         val hibc = parseHibc("+A123BJC5D6E71G")
         assertEquals("+A123BJC5D6E71", hibc?.primary)
         assertEquals("A123BJC5D6E7", hibc?.product)
@@ -17,16 +17,16 @@ class HibcTest {
     }
 
     @Test
-    fun `совмещённый код - срок днём года и партия, раздел 2,2,1,1`() {
+    fun `concatenated code - expiry as day of year and batch, section 2,2,1,1`() {
         val hibc = parseHibc("+A99912345/\$\$52001510X33")
         assertEquals("A9991234", hibc?.product)
         assertEquals("10X3", hibc?.lot)
-        // 15-й день 2020 года - 15 января
+        // day 15 of 2020 is January 15
         assertEquals("200115", hibc?.expiry)
     }
 
     @Test
-    fun `дополнительные поля - дата изготовления и серийник, раздел 2,3,2`() {
+    fun `supplementary fields - manufacture date and serial, section 2,3,2`() {
         val hibc = parseHibc("*+A99912345/\$\$52001510X3/16D20111212/S77DEFG457*")
         assertEquals("10X3", hibc?.lot)
         assertEquals("77DEFG45", hibc?.serial)
@@ -34,27 +34,27 @@ class HibcTest {
     }
 
     @Test
-    fun `срок годности полной датой в поле 14D, раздел 2,3,2,3`() {
+    fun `full expiry date in field 14D, section 2,3,2,3`() {
         val hibc = parseHibc("+A99912345/\$10X3/16D20111231/14D202001313")
         assertEquals("10X3", hibc?.lot)
         assertEquals("200131", hibc?.expiry)
     }
 
     @Test
-    fun `отдельный вторичный код только с партией, приложение E1,1`() {
+    fun `separate secondary code with a batch only, appendix E1,1`() {
         val hibc = parseHibc("+\$A1234GU")
         assertNull(hibc?.product)
         assertEquals("A1234", hibc?.lot)
     }
 
     @Test
-    fun `форматы даты из таблицы F1`() {
-        // контрольных знаков в таблице нет - досчитываются здесь же
+    fun `date formats from table F1`() {
+        // the table has no check characters, so they are computed here
         fun withCheck(body: String): String {
             val charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. \$/+%"
             return body + charset[body.sumOf { charset.indexOf(it) } % 43]
         }
-        // 28 сентября 2005, 22 часа; партия 3C001, серийник 0001, знак связи G
+        // September 28, 2005, 22:00; batch 3C001, serial 0001, link character G
         assertEquals("050900", parseHibc(withCheck("+\$\$09053C001G"))?.expiry)
         assertEquals("050928", parseHibc(withCheck("+\$\$20928053C001G"))?.expiry)
         assertEquals("050928", parseHibc(withCheck("+\$\$30509283C001G"))?.expiry)
@@ -67,8 +67,8 @@ class HibcTest {
     }
 
     @Test
-    fun `контрольный знак-пробел, срезанный при нормализации`() {
-        // подбирается код, у которого контрольный знак выходит пробелом
+    fun `a space check character trimmed by normalisation`() {
+        // a code is chosen whose check character comes out as a space
         val charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. \$/+%"
         val alnum = charset.take(36)
         val body = alnum.asSequence()
@@ -78,17 +78,17 @@ class HibcTest {
     }
 
     @Test
-    fun `телефон и формула - не hibc`() {
+    fun `phone numbers and formulas are not hibc`() {
         assertNull(parseHibc("+79991234567"))
-        // этот номер сходится по контрольному знаку - его отсекает только запрет
-        // устаревшей записи без «$» у отдельного вторичного кода
+        // this number passes the check; only rejecting the legacy secondary form
+        // without "$" rules it out
         assertNull(parseHibc("+79007081940"))
         assertNull(parseHibc("+SUM(A1:A9)"))
         assertNull(codeKind("+79991234567"))
     }
 
     @Test
-    fun `ни один мобильный номер россии не принимается за hibc`() {
+    fun `no russian mobile number is taken for hibc`() {
         val random = java.util.Random(42)
         repeat(50_000) {
             val number = "+79" + (0 until 9).joinToString("") { random.nextInt(10).toString() }
@@ -97,12 +97,12 @@ class HibcTest {
     }
 
     @Test
-    fun `количество перед датой из версий до 2,6`() {
+    fun `quantity before the date from versions before 2,6`() {
         fun withCheck(body: String): String {
             val charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. \$/+%"
             return body + charset[body.sumOf { charset.indexOf(it) } % 43]
         }
-        // 8 и две цифры количества, 9 и пять; дальше обычный формат даты
+        // 8 and two quantity digits, 9 and five; then the usual date format
         val two = parseHibc(withCheck("+\$\$8053050928LOT1G"))
         assertEquals("050928", two?.expiry)
         assertEquals("LOT1", two?.lot)
@@ -110,7 +110,7 @@ class HibcTest {
     }
 
     @Test
-    fun `в списке видно серийник, а не только артикул`() {
+    fun `the list shows the serial, not just the product`() {
         val a = "+A99912345/\$\$52001510X3/S0001"
         val charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. \$/+%"
         fun withCheck(body: String) = body + charset[body.sumOf { charset.indexOf(it) } % 43]
@@ -119,12 +119,12 @@ class HibcTest {
     }
 
     @Test
-    fun `звёздочки code 39 не мешают опознать вид`() {
+    fun `code 39 asterisks do not hide the kind`() {
         assertEquals(CodeKind.HIBC, codeKind("*+A99912345/\$\$52001510X3/16D20111212/S77DEFG457*"))
     }
 
     @Test
-    fun `в общих полях и короткой записи`() {
+    fun `in shared fields and the short form`() {
         val code = "+A99912345/\$\$52001510X33"
         assertEquals(CodeFields(product = "A9991234", batch = "10X3", expiry = "200115"), codeFields(code))
         assertEquals("+A99912345/\$10X3", shortCode(code))
@@ -132,7 +132,7 @@ class HibcTest {
     }
 
     @Test
-    fun `переживает выгрузку в csv`() {
+    fun `survives a csv export`() {
         val code = "+A99912345/\$\$52001510X33"
         val csv = buildCsv("t", "a", "b", "c", listOf(code))
         assertEquals(listOf(code), parseCodeList(csv))

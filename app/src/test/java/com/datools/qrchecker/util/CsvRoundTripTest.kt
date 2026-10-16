@@ -4,10 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Выгрузка обязана читаться обратно.
- *
- * Файл из приложения человек отправляет дальше, а получатель заводит по нему сессию тем
- * же приложением. Код, который ушёл в отчёт и не вернулся из него, теряется молча.
+ * An export must read back: a report sent on is turned into a session by the same app on
+ * the other end, and a code lost on the way is lost silently.
  */
 class CsvRoundTripTest {
 
@@ -26,43 +24,43 @@ class CsvRoundTripTest {
     }
 
     @Test
-    fun `код маркировки без запятой возвращается целиком`() {
-        // именно он ломался: строка отчёта сама начинается с кода маркировки, и правило
-        // про голый код забирало её вместе с колонками
+    fun `a marking code without a comma comes back whole`() {
+        // the case that broke: a report row starts with a marking code itself, and the
+        // bare-code rule took it together with the other columns
         val code = "010468057733357021ABC123"
         assertEquals(listOf(code), roundTrip(listOf(code)))
     }
 
     @Test
-    fun `неотсканированный код возвращается так же`() {
+    fun `an unscanned code comes back the same`() {
         val code = "010468057733357021ABC123"
         assertEquals(listOf(code), roundTrip(listOf(code), scanned = false))
     }
 
     @Test
-    fun `код маркировки с криптохвостом возвращается целиком`() {
+    fun `a marking code with its crypto tail comes back whole`() {
         val code = "0104680577333570215,'OfIXCFmCGl${gs}9180C3${gs}922Jxke"
         assertEquals(listOf(code), roundTrip(listOf(code)))
     }
 
     @Test
-    fun `линейный штрихкод возвращается`() {
+    fun `a linear barcode comes back`() {
         assertEquals(listOf("4601234567890"), roundTrip(listOf("4601234567890")))
     }
 
     @Test
-    fun `ссылка из обычного QR возвращается`() {
+    fun `a link from a plain QR comes back`() {
         val code = "https://example.com/a/b?c=1"
         assertEquals(listOf(code), roundTrip(listOf(code)))
     }
 
     @Test
-    fun `код с точкой с запятой возвращается`() {
+    fun `a code with a semicolon comes back`() {
         assertEquals(listOf("ABC;12345678"), roundTrip(listOf("ABC;12345678")))
     }
 
     @Test
-    fun `несколько разных кодов возвращаются все`() {
+    fun `several different codes all come back`() {
         val codes = listOf(
             "010468057733357021ABC123",
             "4601234567890",
@@ -72,15 +70,15 @@ class CsvRoundTripTest {
     }
 
     @Test
-    fun `голый код маркировки с разделителем внутри серийника не режется`() {
-        // ради этого случая правило про голый код и существует
+    fun `a bare marking code with a separator in its serial is not split`() {
+        // the reason the bare-code rule exists
         val code = "010468057733357021AB;CD"
         assertEquals(listOf(code), parseCodeList(code))
     }
 
     @Test
-    fun `код со знаком формулы уходит в отчёт обезвреженным`() {
-        // Excel вычисляет формулу и в кавычках - спасает только апостроф впереди
+    fun `a code with a formula sign is exported defused`() {
+        // Excel evaluates a formula even when quoted; only a leading apostrophe helps
         val code = "=HYPERLINK(\"https://x/\",\"Open\")"
         val csv = buildCsv("t", "a", "b", "c", listOf(code))
         val row = csv.lines().first { it.contains("HYPERLINK") }
@@ -90,30 +88,29 @@ class CsvRoundTripTest {
     }
 
     @Test
-    fun `код со знаком формулы возвращается без апострофа`() {
+    fun `a code with a formula sign comes back without the apostrophe`() {
         for (code in listOf("=1+2;HYPERLINK", "+79991234567", "-abcdefgh", "@SUM(A1:A9)")) {
             assertEquals(listOf(code), roundTrip(listOf(code)))
         }
     }
 
     @Test
-    fun `код, который сам начинается с апострофа, возвращается с ним`() {
-        // апостроф впереди прикрывается так же, как формула: иначе чтение принимало
-        // его за наш и срезало
+    fun `a code starting with an apostrophe keeps it`() {
+        // a leading apostrophe is guarded like a formula, or reading would take it for ours
         for (code in listOf("'+380501234567", "'abcdefgh", "''=SUM(A1)")) {
             assertEquals(listOf(code), roundTrip(listOf(code)))
         }
     }
 
     @Test
-    fun `немецкий ppn и digital link возвращаются целиком`() {
+    fun `german ppn and digital link come back whole`() {
         val ppn = normalizeCode("[)>\u001E06${gs}9N111234567842${gs}1TCH42B${gs}D270630${gs}SRX5TT8Q3MZ\u001E\u0004")
         val link = "https://dalgiardino.com/01/09506000134376/10/ABC/21/123456?17=221231"
         assertEquals(listOf(ppn, link), roundTrip(listOf(ppn, link)))
     }
 
     @Test
-    fun `значение с экранированной кавычкой теряет только обрамление`() {
+    fun `a value with an escaped quote loses only the enclosing quotes`() {
         assertEquals(listOf("ABC\"DEF12345"), parseCodeList("\"ABC\"\"DEF12345\""))
     }
 }

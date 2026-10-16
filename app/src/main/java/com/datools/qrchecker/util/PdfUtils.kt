@@ -64,13 +64,12 @@ suspend fun parsePdfForQRCodes(
     uri: Uri,
     scale: Int = 3,
     /**
-     * Сколько страниц пройдено из скольких. Сотня страниц разбирается заметно дольше
-     * секунды, и без этого экран показывает крутилку, по которой не отличить работу от
-     * зависания.
+     * Pages done out of total. A hundred pages take well over a second, and a bare
+     * spinner cannot tell work from a hang.
      */
     onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }
 ): PdfScanResult = withContext(Dispatchers.IO) {
-    // по коду, а не по паре: один и тот же код, прочитанный дважды, остаётся одним
+    // keyed by code, so a code read twice stays one
     val qrCodes = LinkedHashMap<String, ScannedCode>()
     var pageCount = 0
     var renderedSize = ""
@@ -78,9 +77,8 @@ suspend fun parsePdfForQRCodes(
     val tempFile = File.createTempFile("qrchecker_", ".pdf", context.cacheDir)
     val scanner = BarcodeScanning.getClient(
         BarcodeScannerOptions.Builder()
-            // читается всё, что умеет распознаватель: на складах и в фондах наклеен
-            // обычный штрихкод, а не Data Matrix. Что из прочитанного взять в сессию,
-            // решают уже на экране создания
+            // every format the detector knows: warehouses use plain barcodes too; the
+            // create screen decides what goes into the session
             .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
             .build()
     )
@@ -143,11 +141,9 @@ suspend fun parsePdfForQRCodes(
                     } catch (e: OutOfMemoryError) {
                         Log.e(TAG, "Out of memory decoding page $pageIndex", e)
                     } catch (e: Exception) {
-                        // Tasks.await бросает TimeoutException по истечении срока и
-                        // ExecutionException, когда распознаватель не справился. Ради
-                        // срока он здесь и стоит: страница пропускается, остальной
-                        // документ дочитывается. Без этого одна тяжёлая страница
-                        // выбрасывала весь разбор.
+                        // Tasks.await throws TimeoutException past the deadline and
+                        // ExecutionException when the detector fails. The page is skipped
+                        // and the rest of the document is still read.
                         Log.e(TAG, "Could not read page $pageIndex", e)
                     } finally {
                         bitmap.recycle()

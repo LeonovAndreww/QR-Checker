@@ -7,19 +7,12 @@ import androidx.room.PrimaryKey
 data class SessionEntity(
     @PrimaryKey val id: String,
     val name: String,
-    /** Когда сессия заведена. Ноль у заведённых до появления этого столбца. */
     val createdAt: Long = 0,
-    /**
-     * Когда её последний раз открывали. По этому полю список и упорядочен: то, чем
-     * занимаются сейчас, должно быть сверху, а не то, что завели раньше всех.
-     */
+    /** When it was last opened; the home list is ordered by this. */
     val openedAt: Long = 0,
     /**
-     * Сессия собирает коды, а не сверяет их со списком.
-     *
-     * У обычной сессии список приходит из документа, и код вне списка - это ошибка
-     * поставки. У собирающей списка изначально нет: она заводится пустой, и каждый новый
-     * код в неё дописывается. Единственное, что она ловит, - повторы.
+     * The session collects codes instead of checking them against a list. It starts
+     * empty and records every new code; the only thing it catches is repeats.
      */
     val collecting: Boolean = false
 )

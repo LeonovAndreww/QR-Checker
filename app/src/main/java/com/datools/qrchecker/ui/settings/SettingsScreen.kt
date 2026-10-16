@@ -175,8 +175,7 @@ fun SettingsScreen(navController: NavController) {
                     Spacer(modifier = Modifier.height(14.dp))
                     Text(themeLabel, style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.height(8.dp))
-                    // тема показывается собой: подписью «тёмная» можно было бы и
-                    // ошибиться, а образцом - нет
+                    // themes are shown as samples, which cannot be misread like a label
                     ThemePicker(
                         options = themeOptions,
                         selected = theme,
@@ -201,8 +200,7 @@ fun SettingsScreen(navController: NavController) {
                         onSelect = { AppSettings.setClock(context, it) }
                     )
 
-                    // тут же, а не отдельной карточкой: это о том, что видно на
-                    // экране, ровно как тема и формат времени
+                    // next to the theme and time format: it is about what the screen shows
                     Spacer(modifier = Modifier.height(14.dp))
                     SwitchRow(
                         label = scanCodeLabel,
@@ -263,9 +261,8 @@ fun SettingsScreen(navController: NavController) {
                         checked = haptics,
                         onCheckedChange = {
                             AppSettings.setHaptics(context, it)
-                            // включил - тут же почувствовал; иначе о том, что тумблер
-                            // подействовал, можно узнать только на складе. Только
-                            // вибрация: пищать в ответ на вибрацию - это ответ соседа
+                            // felt the moment it is switched on; vibration only, since a
+                            // beep would answer for the sound switch
                             if (it) feel.vibrateOnly(Outcome.SUCCESS)
                         }
                     )
@@ -341,13 +338,8 @@ fun SettingsScreen(navController: NavController) {
 }
 
 /**
- * Ряд взаимоисключающих вариантов.
- *
- * Не выпадающий список и не столбик переключателей: вариантов три, они короткие, и
- * выбранный виден без единого нажатия.
- *
- * Галочка у выбранного убрана. Она вставала вплотную к левому краю кнопки, ужимала
- * подпись до «Как в» и объясняла то, что и так видно по заливке.
+ * A row of mutually exclusive options: three short ones, the selected one visible
+ * without a tap. No check mark: it squeezed the label and repeated the fill.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -376,12 +368,8 @@ private fun <T> ChoiceRow(
 }
 
 /**
- * Выбор темы образцами.
- *
- * Каждый вариант нарисован в той теме, которую включает: не подпись «тёмная», а сама
- * тёмная плашка с полосами вместо содержимого - видно, что получится, ещё до нажатия.
- * «Системная» показывает ту тему, что стоит в телефоне сейчас: это и есть ответ на
- * вопрос «а что мне включится», а отличается она от соседней рамкой и подписью.
+ * Theme choice by samples, each drawn in the theme it selects. "System" shows the theme
+ * the phone uses right now, which is exactly what it would switch to.
  */
 @Composable
 private fun ThemePicker(
@@ -441,7 +429,7 @@ private val SwatchDarkBack = Color(0xFF16181A)
 private val SwatchDarkCard = Color(0xFF25282B)
 private val SwatchDarkInk = Color(0xFFE8E8E8)
 
-/** Кусочек экрана в заданной теме: полоса заголовка и две карточки под ней. */
+/** A piece of screen in the given theme: a title bar and two cards. */
 @Composable
 private fun SwatchFace(
     dark: Boolean,
@@ -456,8 +444,8 @@ private fun SwatchFace(
         if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
 
     Box(
-        // обводка снаружи, обрезка после неё: в обратном порядке рамка рисуется внутри
-        // уже обрезанной области, и по скруглённым углам от неё остаются огрызки
+        // border first, clip after: the other way round the border is drawn inside the
+        // clipped area and leaves bits at the rounded corners
         modifier = modifier
             .border(if (selected) 2.dp else 1.dp, ring, shape)
             .clip(shape)
@@ -485,7 +473,7 @@ private fun SwatchFace(
     }
 }
 
-/** Строка настройки со значком, подписью и тумблером. */
+/** A settings row with an icon, a label and a switch. */
 @Composable
 private fun SwitchRow(
     @DrawableRes icon: Int? = null,
@@ -515,8 +503,7 @@ private fun SwitchRow(
             .padding(end = 8.dp)
         ) {
             Text(text = label, style = MaterialTheme.typography.bodyLarge)
-            // без пояснения строка вроде «Срок годности и партия» читается как
-            // отдельная сущность, а не как «показывать ли их»
+            // without it a row like "Expiry and batch" reads as a thing, not a choice
             description?.let {
                 Text(
                     text = it,

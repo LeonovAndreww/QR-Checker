@@ -11,6 +11,6 @@ data class SessionSummary(
     val scanned: Int,
     val createdAt: Long,
     val openedAt: Long,
-    /** Сессия собирает коды, а не сверяет их со списком. */
+    /** The session collects codes instead of checking them against a list. */
     val collecting: Boolean = false
 )

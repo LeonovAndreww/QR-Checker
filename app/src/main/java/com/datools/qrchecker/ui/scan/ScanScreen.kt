@@ -73,34 +73,32 @@ import kotlin.math.roundToInt
 
 private const val TAG = "Scan"
 
-/** Сколько подсказок показывать: экран телефона всё равно не вместит больше. */
+/** Suggestions shown in manual entry; a phone screen does not fit more. */
 private const val MANUAL_SUGGESTIONS = 30
 
-/** Сколько висит пузырёк с кратностью после того, как щипок закончился. */
+/** How long the zoom bubble stays after a pinch ends. */
 private const val ZOOM_BUBBLE_MS = 1200L
 
-/** «1x», «2.5x», «0.6x» - так их подписывают в камерах. */
+/** "1x", "2.5x", "0.6x", the way camera apps label zoom. */
 internal fun formatZoom(ratio: Float): String {
     val rounded = (ratio * 10f).roundToInt() / 10f
     val text = if (rounded % 1f == 0f) rounded.toInt().toString() else rounded.toString()
     return "${text}x"
 }
 
-/** Сколько экран держится включённым без единого кода в кадре. */
+/** How long the screen stays on without a single code in view. */
 private const val SCREEN_AWAKE_IDLE_MS = 5 * 60_000L
 private const val SCREEN_AWAKE_CHECK_MS = 5_000L
 
-/** Сколько места занимает самая широкая группа кнопок в верхней полосе. */
+/** Width of the widest button group in the top bar; the title keeps clear of it. */
 private val TOP_BAR_SIDE = 112.dp
 
-/** Высота затемнения под верхней и нижней полосами управления. */
+/** Height of the dark gradient under the top and bottom controls. */
 private val CONTROL_SCRIM = 140.dp
 
 /**
- * Подписи на двух нижних кнопках подбирают размер под ширину.
- *
- * «Неотсканированные» - слово из семнадцати букв, и на узком экране оно не влезает ни
- * при каком фиксированном кегле; обрезать его нельзя - обе кнопки перестают читаться.
+ * The bottom button labels shrink to fit: "Неотсканированные" does not fit a narrow
+ * screen at any fixed size, and a truncated label is unreadable.
  */
 private val BUTTON_TEXT_SIZE = TextAutoSize.StepBased(
     minFontSize = 11.sp,
@@ -264,9 +262,8 @@ fun ScanScreen(navController: NavController) {
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
-        // Камера идёт под системные панели во весь экран, а управление - нет. Сверху и
-        // снизу отступы учитывались всегда, а по бокам нет: в альбомной ориентации
-        // кнопки навигации телефона встают сбоку и закрывали собой кнопки приложения.
+        // The camera goes under the system bars, the controls do not. Side insets
+        // matter in landscape, where the navigation bar sits on one side.
         val layoutDirection = LocalLayoutDirection.current
         val sides = Modifier.padding(
             start = padding.calculateStartPadding(layoutDirection),
@@ -276,12 +273,6 @@ fun ScanScreen(navController: NavController) {
             if (hasPermission) {
                 CameraPreview(
                     highlightColor = bannerColor?.container,
-                    // Цвет последнего ответа на этот код, а не его состояние.
-                    //
-                    // По состоянию отмеченный код был зелёным всегда - и коробка,
-                    // отсканированная вчера, после того как погасла оранжевая плашка
-                    // «уже отсканирован», обводилась зелёным, будто её отметили только
-                    // что. Без ответа на этом экране отмеченный код - это «уже был».
                     // The colour of the last answer to this code, not its state: by state a
                     // code scanned yesterday would turn green once the orange "already
                     // scanned" banner faded, as if it had just been marked.
@@ -312,12 +303,8 @@ fun ScanScreen(navController: NavController) {
                     }
                 )
 
-                // Затемнение под полосами с кнопками.
-                //
-                // Управление лежит поверх живого кадра, а кадр бывает любой яркости, так
-                // что цвет из темы на нём то читается, то нет: в светлой теме чёрные
-                // буквы пропадали на тёмном кадре, в тёмной - белые на светлом. Здесь
-                // фон делается предсказуемым, а буквы ниже - всегда белыми.
+                // Dark gradients under the controls: the live frame can be any brightness,
+                // so the text on it is always white over a predictable background.
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -342,18 +329,10 @@ fun ScanScreen(navController: NavController) {
                 )
             }
 
-            // Всё управление - внутри отступов от боковых системных панелей, камера под ними
-            // остаётся во весь экран. Отступ один на всех, чтобы ни один новый элемент
-            // не мог про него забыть.
+            // all controls sit inside the side insets; one wrapper so nothing forgets them
             Box(modifier = Modifier.fillMaxSize().then(sides)) {
-                // Одна полоса поверх камеры: слева «назад», справа действия, название -
-                // ровно по центру экрана.
-                //
-                // Раньше название стояло в общем ряду и делило место с кнопками: слева от
-                // него была одна стрелка, справа - значок и кнопка, и центр названия уезжал
-                // влево тем сильнее, чем шире кнопка. Здесь кнопки лежат поверх, а название
-                // центрируется по всей ширине и отступает от краёв на ширину самой широкой
-                // стороны - так оно и по центру, и ни на что не налезает.
+                // The title is centred over the full width with the buttons laid on top,
+                // padded by the widest side so it stays centred and never overlaps them.
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -374,9 +353,8 @@ fun ScanScreen(navController: NavController) {
                     )
 
                     IconButton(
-                        // то же, что и системная «назад»: на список сессий. Обычный
-                        // popBackStack возвращал на создание сессии, если пришли оттуда,
-                        // и два способа уйти с экрана вели в разные места
+                        // same as system back: to the session list, even when the user
+                        // came here from the create screen
                         onClick = {
                             navController.navigateOnce(Screen.Home.route) {
                                 popUpTo(Screen.Home.route) { inclusive = true }
@@ -395,9 +373,8 @@ fun ScanScreen(navController: NavController) {
                         modifier = Modifier.align(Alignment.CenterEnd),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Фонарь - первым: на складе между стеллажами и в кузове темно, а
-                        // без света Data Matrix не читается вообще никак. Кнопка есть
-                        // только там, где вспышка есть у камеры.
+                        // between shelves and inside a truck it is dark, and Data Matrix
+                        // does not read without light; shown only if there is a flash
                         if (hasTorch) {
                             IconButton(onClick = { torchOn = !torchOn }) {
                                 Icon(
@@ -412,9 +389,6 @@ fun ScanScreen(navController: NavController) {
                             }
                         }
 
-                        // «Поделиться» живёт здесь, а не в правке сессии: это действие над
-                        // той сессией, с которой человек сейчас работает, и искать его в
-                        // настройках никто не станет
                         IconButton(onClick = {
                             scope.launch {
                                 try {
@@ -422,8 +396,6 @@ fun ScanScreen(navController: NavController) {
                                 } catch (c: CancellationException) {
                                     throw c
                                 } catch (t: Throwable) {
-                                    // молчать нельзя: нажатие без единого следа читается как
-                                    // сломанная кнопка
                                     Log.e(TAG, "Can't share the session", t)
                                     snackbarHostState.showSnackbar(shareFailedText)
                                 }
@@ -436,10 +408,6 @@ fun ScanScreen(navController: NavController) {
                             )
                         }
 
-                        // клавиатура вместо карандаша и подписи: карандаш - это «поправить
-                        // то, что есть», а здесь код набирают с нуля, и по клавиатуре это
-                        // видно без слов. Заодно с экрана уходит синяя плашка, которая
-                        // закрывала кадр и спорила со всем вокруг
                         IconButton(onClick = { manualCode = "" }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_keyboard),
@@ -450,8 +418,6 @@ fun ScanScreen(navController: NavController) {
                     }
                 }
 
-                // Кратность показывается пузырьком, а не полосой с делениями: пальцы уже
-                // заняты щипком, а знать нужно ровно одно - на какой объектив попал.
                 LaunchedEffect(zoomShownAt) {
                     if (zoomShownAt == 0L) return@LaunchedEffect
                     zoomVisible = true
@@ -485,9 +451,7 @@ fun ScanScreen(navController: NavController) {
                     }
                 }
 
-                // У собирающей сессии список один, и кнопка одна - посередине, со счётчиком
-                // второй строкой. Отдельная подпись «записано» рядом с кнопкой «записанные»
-                // говорила одно и то же дважды и перекашивала низ экрана.
+                // a collecting session has one list, so one centred button with the count
                 if (loaded.collecting) {
                     Button(
                         onClick = {
@@ -540,8 +504,6 @@ fun ScanScreen(navController: NavController) {
                         Text(
                             text = scannedButtonText,
                             maxLines = 1,
-                            // подпись занимает столько, сколько влезло, а не обрезается:
-                            // «Неотсканирован...» - это не название кнопки
                             autoSize = BUTTON_TEXT_SIZE,
                             style = MaterialTheme.typography.titleMedium,
                             textAlign = TextAlign.Center,
@@ -592,10 +554,9 @@ fun ScanScreen(navController: NavController) {
                 }
 
                 manualCode?.let { typed ->
-                    // Набрать 31 знак кода маркировки руками невозможно, поэтому ввод здесь -
-                    // это поиск по кодам сессии, а не набор. Неотмеченные идут первыми: их и
-                    // ищут. Отмеченные остаются в списке, потому что коробка могла приехать
-                    // дважды, и человеку нужно это увидеть, а не гадать, куда делся код.
+                    // Nobody types a 31-character marking code, so manual entry is a search
+                    // over the session's codes. Unscanned codes come first; scanned ones stay
+                    // listed, so a box that arrived twice is visibly a repeat.
                     val query = typed.trim()
                     val suggestions = remember(loaded, query) {
                         val scanned = loaded.scannedCodes.toHashSet()
@@ -630,8 +591,7 @@ fun ScanScreen(navController: NavController) {
 
                                 if (suggestions.isEmpty()) {
                                     Text(
-                                        // в собирающей сессии отсутствие совпадений - не
-                                        // тупик: набранный код в неё запишется
+                                        // in a collecting session a code with no match is recorded
                                         text = if (loaded.collecting) {
                                             manualEntryWillRecord
                                         } else {
@@ -648,18 +608,13 @@ fun ScanScreen(navController: NavController) {
                                                     .fillMaxWidth()
                                                     .clickable {
                                                         manualCode = null
-                                                        // тот же путь, что у кадра с камеры,
-                                                        // чтобы отклик был тем же самым
                                                         viewModel.submitManual(code)
                                                     }
                                                     .padding(vertical = 8.dp)
                                             ) {
-                                                // Подсказки листаются вбок все разом, одним
-                                                // состоянием на список: код длиннее экрана,
-                                                // и по первым двум десяткам символов от
-                                                // соседа его не отличить. У каждой строки
-                                                // своя прокрутка означала бы, что строки
-                                                // разъезжаются и сравнивать их уже нельзя.
+                                                // One scroll state for all rows: codes are
+                                                // longer than the screen, and rows scrolled
+                                                // apart could not be compared.
                                                 Text(
                                                     text = shortCode(code),
                                                     style = MaterialTheme.typography.bodyLarge,
@@ -689,11 +644,10 @@ fun ScanScreen(navController: NavController) {
                             }
                         },
                         confirmButton = {
-                            // Диалог - это поиск по кодам сессии, и набранное в нём обычно
-                            // кусок кода, а не код. В сверяющей сессии такой кусок безобиден:
-                            // ответом будет «нет в этой сессии». В собирающей он записался бы
-                            // в неё настоящим кодом, поэтому записать можно только то, что не
-                            // совпало ни с чем, - и кнопка тогда так и называется.
+                            // What is typed is usually a fragment. In a checking session a
+                            // fragment just answers "not in this session"; in a collecting
+                            // one it would be recorded as a code, so only a text matching
+                            // nothing can be recorded, and the button says so.
                             val records = loaded.collecting && suggestions.isEmpty()
                             TextButton(
                                 enabled = typed.isNotBlank() && (!loaded.collecting || records),
@@ -709,8 +663,7 @@ fun ScanScreen(navController: NavController) {
                     )
                 }
 
-                // В режиме «по касанию» камера молчит, пока её не попросят, - без
-                // подсказки молчание читалось бы как поломка
+                // without a hint, a camera that waits for a tap looks broken
                 if (scanOnTap && banner == null && hasPermission) {
                     Text(
                         text = stringResource(id = R.string.scan_on_tap_hint),
@@ -754,15 +707,11 @@ fun ScanScreen(navController: NavController) {
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                // сам код под ответом: подпись под Data Matrix печатают не
-                                // всегда, а глазами он не читается - без строки на экране
-                                // сверить нечем, и особенно когда код оказался чужим
+                                // the printed text under a Data Matrix is often missing,
+                                // and the code cannot be read by eye
                                 if (showScanCode) {
                                     banner.code.let { scanned ->
-                                        // нажатие кладёт в буфер код целиком, а не
-                                        // укороченный: в учётную систему нужен весь.
-                                        // clickable съедает касание, и наводка фокуса,
-                                        // висящая на видоискателе, его не увидит
+                                        // copies the full code, not the shortened one
                                         Row(
                                             modifier = Modifier
                                                 .padding(top = 2.dp)
@@ -792,8 +741,7 @@ fun ScanScreen(navController: NavController) {
                                         }
                                     }
                                 }
-                                // срок и партия - прямо в ответе: смотрят на них в момент
-                                // сканирования, а не потом в списке
+                                // expiry and batch are checked at the moment of scanning
                                 banner.code.let { scanned ->
                                     CodeMetaLine(
                                         code = scanned,

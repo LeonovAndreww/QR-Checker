@@ -54,45 +54,38 @@ import java.util.concurrent.TimeUnit
 
 private const val TAG = "Camera"
 
-/** Как ведёт себя колечко на месте нажатия и сколько камера держит наведённый фокус. */
+/** Timing of the ring drawn at a tap, and how long the camera keeps the tapped focus. */
 private const val FOCUS_RING_IN_MS = 180
 private const val FOCUS_RING_HOLD_MS = 450L
 private const val FOCUS_RING_OUT_MS = 260
 private const val FOCUS_HOLD_SECONDS = 4L
 
 /**
- * Как показывать найденный код.
- *
- * Переключается здесь, а не в настройках: это выбор оформления, который делается один
- * раз при сборке, а не то, в чём человек у ленты станет разбираться.
+ * How the accepted code is shown. A build-time design choice, not a user setting.
  */
 private enum class ViewfinderStyle {
-    /**
-     * Рамка стоит на месте, у кода своя обводка. Видно и то, куда наводить, и что
-     * именно приняли, - обе рамки в кадре одновременно.
-     */
+    /** The viewfinder stays put and the code gets its own outline, so both are visible. */
     FIXED,
 
-    /** Уголки рамки съезжаются к коду и едут за ним, пока он в кадре. */
+    /** The viewfinder corners close in on the code and follow it. */
     LATCHING
 }
 
 private val VIEWFINDER_STYLE = ViewfinderStyle.FIXED
 
-/** Как далеко от кода касание ещё считается касанием этого кода. */
+/** How far from a code a tap still counts as a tap on it. */
 private val TAP_REACH = 24.dp
 
-/** Сколько после касания кадры ищут код под пальцем. */
+/** How long after a tap frames look for the code under the finger. */
 private const val TAP_WINDOW_MS = 1_500L
 
 /**
- * Сколько в режиме «по касанию» камера работает после касания: найти код под пальцем,
- * ответить и проводить его рамкой. Потом засыпает до следующего касания - иначе
- * направленная на коробку камера разбирала бы кадры без конца.
+ * How long the analyzer runs after a tap in scan-on-tap mode: long enough to find the
+ * code, answer and follow it. Then it sleeps, since decoding frames is what costs battery.
  */
 private const val TAP_AWAKE_MS = 3_000L
 
-/** Четыре края рамки кода, каждый через свой фильтр 1€. */
+/** Smooths the four edges of a code's box, each through its own One Euro filter. */
 private class BoxSmoother {
     private val left = OneEuroFilter()
     private val top = OneEuroFilter()
@@ -111,22 +104,22 @@ private class BoxSmoother {
     )
 }
 
-/** Насколько плавно рамка переезжает к найденному коду и обратно в центр. */
+/** Duration of the viewfinder's move to a code and back to the centre. */
 private const val FRAME_SNAP_MS = 260
 
-/** Сколько рамка ждёт код, пропавший из кадра, прежде чем вернуться в центр. */
+/** How long the frame waits for a code that left the view before letting it go. */
 private const val FRAME_RELEASE_MS = 700L
 private const val FRAME_RELEASE_CHECK_MS = 120L
 
-/** Доля короткой стороны экрана, которую занимает сторона рамки видоискателя. */
+/** Viewfinder side as a fraction of the screen's short side. */
 private const val VIEWFINDER_FRACTION = 0.72f
 
 /**
- * Пересчёт координат кадра в координаты экрана.
+ * Maps analysis frame coordinates to view coordinates.
  *
- * PreviewView растягивает кадр по большей стороне и обрезает лишнее (FILL_CENTER), так
- * что доли кадра и доли экрана друг другу не равны. Без этого рамка на экране и область,
- * по которой идёт отбор, разъехались бы, и приложение принимало бы не то, что показывает.
+ * PreviewView scales the frame to fill and crops the rest (FILL_CENTER), so frame and
+ * view fractions differ; without this the drawn viewfinder and the area used to pick a
+ * code would not match.
  */
 private class PreviewMapping(imageWidth: Int, imageHeight: Int, viewSize: IntSize) {
     private val scale = maxOf(
@@ -147,7 +140,7 @@ private class PreviewMapping(imageWidth: Int, imageHeight: Int, viewSize: IntSiz
 private fun ComposeRect(topLeft: Offset, bottomRight: Offset) =
     androidx.compose.ui.geometry.Rect(topLeft, bottomRight)
 
-/** Рамка видоискателя в координатах экрана: квадрат по центру. */
+/** The viewfinder in view coordinates: a centred square. */
 private fun viewfinderRect(viewSize: IntSize): androidx.compose.ui.geometry.Rect {
     val side = minOf(viewSize.width, viewSize.height) * VIEWFINDER_FRACTION
     val left = (viewSize.width - side) / 2f
@@ -166,14 +159,14 @@ private fun viewfinderRect(viewSize: IntSize): androidx.compose.ui.geometry.Rect
 @Composable
 internal fun CameraPreview(
     highlightColor: Color?,
-    /** Цвет по состоянию кода: он нужен и тогда, когда плашки ответа уже нет. */
+    /** Colour for a code by its state, used once the answer banner is gone. */
     colorOf: (String) -> Color?,
     torchOn: Boolean,
     onTorchAvailable: (Boolean) -> Unit,
     onTapped: () -> Unit,
-    /** Читать код только по касанию, а не на каждом кадре. */
+    /** Decode only after a tap instead of on every frame. */
     scanOnTap: Boolean,
-    /** Текущая кратность - её показывает уже сам экран. */
+    /** The current zoom ratio; the screen shows it. */
     onZoomChanged: (Float) -> Unit,
     /**
      * One decoded frame: every code in it, and the one picked for an answer, if any.
@@ -196,12 +189,12 @@ internal fun CameraPreview(
     val currentOnTapped by rememberUpdatedState(onTapped)
     val currentScanOnTap by rememberUpdatedState(scanOnTap)
     val currentDensity by rememberUpdatedState(LocalDensity.current)
-    // рамка кода без дрожи: распознаватель на каждом кадре находит её чуть по-разному
+    // the detector finds the box a little differently on every frame
     val boxSmoother = remember { BoxSmoother() }
-    // куда и когда коснулись: ближайшие кадры берут код под пальцем
+    // where and until when a tap asks for the code under the finger
     var tapAt by remember { mutableStateOf(Offset.Zero) }
     var tapUntil by remember { mutableLongStateOf(0L) }
-    // анализатор живёт в эффекте камеры; ссылка нужна, чтобы будить его касанием
+    // the analyzer lives in the camera effect; a tap needs it to wake it up
     var analyzerGate by remember { mutableStateOf<MlKitQrCodeAnalyzer?>(null) }
     LaunchedEffect(scanOnTap, analyzerGate) {
         analyzerGate?.activeUntil = if (scanOnTap) 0L else Long.MAX_VALUE
@@ -211,25 +204,21 @@ internal fun CameraPreview(
 
     var viewSize by remember { mutableStateOf(IntSize.Zero) }
     val currentViewSize by rememberUpdatedState(viewSize)
-    // камера появляется не сразу: пока её нет, наводить нечего
+    // bound asynchronously; null until then
     var camera by remember { mutableStateOf<Camera?>(null) }
-    // куда ткнули: колечко живёт секунду, чтобы было видно, что нажатие приняли
+    // the focus ring is drawn here for a moment, so the tap is visibly taken
     var focusAt by remember { mutableStateOf<Offset?>(null) }
-    // Последний принятый код и его место в кадре.
-    //
-    // Пока камера продолжает его видеть, прямоугольник обновляется на каждом кадре -
-    // рамка едет за коробкой. Время последнего появления нужно отдельно от плашки
-    // ответа: плашка гаснет через секунду, а помеченным код остаётся всё то время, что
-    // он в кадре.
+    // The last accepted code and its box, updated on every frame that still sees it.
+    // Tracked apart from the banner: the banner fades after a second, but the code
+    // stays outlined for as long as it is in view.
     var acceptedCode by remember { mutableStateOf<String?>(null) }
     var acceptedBox by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var acceptedSeenAt by remember { mutableLongStateOf(0L) }
     var acceptedColor by remember { mutableStateOf<Color?>(null) }
-    // линейный штрихкод отвечает, только набрав несколько одинаковых чтений
+    // a new linear barcode needs several equal reads before it is answered
     val linearVote = remember { LinearReadVote() }
 
-    // рамка видоискателя: одно анимируемое значение на все четыре стороны, чтобы она
-    // переезжала к коду целиком, а не рывками по каждой границе отдельно
+    // one animated value for all four sides, so the frame moves as a whole
     val frame = remember {
         Animatable(GeomRect.Zero, GeomRect.VectorConverter)
     }
@@ -249,8 +238,8 @@ internal fun CameraPreview(
                 val size = currentViewSize
                 if (size == IntSize.Zero) return@execute
                 val now = System.currentTimeMillis()
-                // время съёмки кадра, если камера его даёт: по нему сглаживание не
-                // зависит от того, когда главный поток дошёл до результата
+                // capture time when the camera reports it, so smoothing does not depend
+                // on when the main thread got to the result
                 val frameTime = codes.first().frameTimeMs.takeIf { it > 0L } ?: now
 
                 val first = codes.first()
@@ -319,10 +308,9 @@ internal fun CameraPreview(
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         var boundProvider: ProcessCameraProvider? = null
 
-        // Поворот больше не пересоздаёт экран, и камере надо сказать о нём самим: иначе
-        // кадры анализа приходили бы повёрнутыми по-старому, и рамка рисовалась бы не
-        // там, где код. Слушается сам экран, а не конфигурация: переворот на 180°
-        // конфигурацию не меняет, а кадр переворачивает.
+        // The activity handles rotation itself, so the use cases must be told about it,
+        // or analysis frames would arrive rotated the old way. The display is watched
+        // rather than the configuration: a 180° turn changes no configuration.
         var boundPreview: Preview? = null
         var boundAnalysis: ImageAnalysis? = null
         val displayManager = context.getSystemService(DisplayManager::class.java)
@@ -337,11 +325,9 @@ internal fun CameraPreview(
             }
         }
         displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
-        // Экран могли закрыть, пока провайдер готовился.
-        //
-        // Тогда onDispose уже прошёл - анализатор закрыт, исполнитель остановлен, а
-        // boundProvider ещё пуст, так что отвязывать было нечего. Привязка после этого
-        // запускала камеру в закрытый декодер и оставляла её работать за спиной.
+        // The screen may be closed while the provider is still getting ready: onDispose
+        // has then run with nothing to unbind, and binding afterwards would leave the
+        // camera running into a closed decoder.
         var disposed = false
 
         cameraProviderFuture.addListener({
@@ -391,19 +377,15 @@ internal fun CameraPreview(
         }
     }
 
-    // Цвет рамки берётся у плашки, пока она висит, и у самого кода, когда её уже нет.
-    //
-    // Пока он брался только у плашки, выходило вот что: наводишь на код, ответ на него
-    // придержан (та же коробка всё ещё в кадре, отвечать второй раз незачем) - и рамка
-    // сжимается вокруг кода, оставаясь белой, будто ничего не нашла.
+    // The banner's colour while it is shown, the code's own colour after that. The
+    // answer to a code still in view is not repeated, so without the second source the
+    // frame around it would stay white as if nothing had been found.
     LaunchedEffect(highlightColor, acceptedCode) {
         acceptedColor = highlightColor ?: acceptedCode?.let { colorOf(it) }
     }
 
-    // Код ушёл из кадра - рамка отпускает его и возвращается в центр.
-    //
-    // Считается по последнему кадру с этим кодом, а не по таймеру ответа: пока коробка
-    // перед камерой, она помечена, сколько бы ни прошло времени.
+    // A code that left the view is let go, judged by its last sighting rather than by
+    // the answer timer: a box held in front of the camera stays outlined.
     LaunchedEffect(acceptedCode) {
         while (acceptedCode != null) {
             delay(FRAME_RELEASE_CHECK_MS)
@@ -415,13 +397,9 @@ internal fun CameraPreview(
         }
     }
 
-    // Рамка переезжает к коду и обратно.
-    //
-    // К коду - пружиной, а не за фиксированное время: цель меняется на каждом кадре,
-    // пока коробку держат в руках, и анимация запускается заново по многу раз в
-    // секунду. Пружина при перезапуске подхватывает набранную скорость, поэтому рамка
-    // едет за кодом плавно; постоянное время дёргало бы её с каждого кадра заново.
-    // Обратно в центр возвращаться некуда спешить - там обычный переход.
+    // To the code with a spring: the target changes on every frame while the box is
+    // held, and a spring keeps its velocity across restarts where a fixed-time tween
+    // would jerk on each frame. Back to the centre there is no hurry, so a tween.
     LaunchedEffect(acceptedBox, viewSize) {
         if (viewSize == IntSize.Zero) return@LaunchedEffect
         val home = viewfinderRect(viewSize)
@@ -438,7 +416,7 @@ internal fun CameraPreview(
         }
     }
 
-    // колечко фокуса: сжимается к точке и тает - так это показывают в камере телефона
+    // shrinks to the point and fades, like a phone camera's focus ring
     LaunchedEffect(focusAt) {
         val at = focusAt ?: return@LaunchedEffect
         focusScale.snapTo(1.35f)
@@ -449,7 +427,7 @@ internal fun CameraPreview(
         if (focusAt == at) focusAt = null
     }
 
-    // фонарь включается только когда камера уже привязана
+    // the torch can only be switched once the camera is bound
     LaunchedEffect(camera, torchOn) {
         val control = camera ?: return@LaunchedEffect
         onTorchAvailable(camera?.cameraInfo?.hasFlashUnit() == true)
@@ -464,17 +442,10 @@ internal fun CameraPreview(
         modifier = Modifier
             .fillMaxSize()
             .onSizeChanged { viewSize = it }
-            // Автофокус ведёт по центру кадра, а код на коробке нередко сбоку и вплотную:
-            // объектив цепляется за фон и не может собрать мелкую сетку Data Matrix.
-            // Нажатие говорит камере, куда смотреть, - ровно так же, как в любой камере
-            // телефона, поэтому этому и учить никого не надо.
-            // Щипок - до нажатия в цепочке: он забирает событие себе, как только
-            // пальцев становится двое, и одиночное нажатие после этого не считается
-            // за наведение фокуса.
-            //
-            // Кратность отдаётся камере как отношение, а не как «цифровой зум»: на
-            // телефонах с несколькими объективами система сама переключается между
-            // ними на нужных значениях, и оптический зум работает как оптический.
+            // Pinch to zoom. It comes before the tap detector: once two fingers are
+            // down it takes the gesture, so a pinch is never read as a tap to focus.
+            // The zoom is set as a ratio, which lets multi-camera phones switch lenses
+            // and keep optical zoom optical.
             .pointerInput(camera) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
@@ -501,11 +472,11 @@ internal fun CameraPreview(
                     } while (event.changes.any { it.pressed })
                 }
             }
+            // Tap to focus: autofocus aims at the centre, while the code on a box is often
+            // off-centre and close, too fine for a lens that locked onto the background.
             .pointerInput(Unit) {
                 detectTapGestures { at ->
-                    // нажатие - это ещё и «спроси заново»: человек наводится на ту же
-                    // коробку, чтобы убедиться в её состоянии, и молчание в ответ
-                    // означало бы, что приложение его не услышало
+                    // a tap also asks again about the code in view
                     currentOnTapped()
                     focusAt = at
                     if (currentScanOnTap) {
@@ -520,9 +491,8 @@ internal fun CameraPreview(
                     try {
                         control.startFocusAndMetering(
                             FocusMeteringAction.Builder(point)
-                                // фокус сам возвращается к автоматическому: иначе
-                                // наведённая на одну коробку камера так и осталась бы
-                                // сфокусированной на ней и на следующей
+                                // back to continuous autofocus afterwards, or the next
+                                // box would be out of focus
                                 .setAutoCancelDuration(FOCUS_HOLD_SECONDS, TimeUnit.SECONDS)
                                 .build()
                         )
@@ -539,9 +509,7 @@ internal fun CameraPreview(
             val drawn = frame.value.takeIf { it.width > 0f && it.height > 0f }
                 ?: viewfinderRect(IntSize(size.width.toInt(), size.height.toInt()))
 
-            // затемнение вокруг рамки: показывает, где приложение смотрит, и заодно
-            // подсказывает, куда наводить. Переезжает вместе с рамкой, поэтому светлое
-            // окно всегда там же, где уголки
+            // dim everything outside the viewfinder; it moves with the frame
             val scrim = Color.Black.copy(alpha = 0.45f)
             drawRect(scrim, size = Size(size.width, drawn.top))
             drawRect(
@@ -561,8 +529,7 @@ internal fun CameraPreview(
             )
 
             when (VIEWFINDER_STYLE) {
-                // уголки стоят на месте и остаются белыми, а найденный код получает
-                // собственную обводку цвета ответа - в кадре видно и то, и другое
+                // fixed white corners, plus the code's own outline in the answer colour
                 ViewfinderStyle.FIXED -> {
                     drawCorners(
                         drawn,
@@ -570,8 +537,7 @@ internal fun CameraPreview(
                         3.dp.toPx(),
                         drawn.width * 0.12f
                     )
-                    // те же уголки, что и у видоискателя, только вокруг кода и цвета
-                    // ответа: две рамки на экране должны быть одного языка
+                    // the same corner style as the viewfinder, around the code
                     acceptedBox?.let { box ->
                         val color = acceptedColor ?: return@let
                         val grown = box.inflate(6.dp.toPx())
@@ -584,8 +550,7 @@ internal fun CameraPreview(
                     }
                 }
 
-                // уголки одни и те же: в покое они очерчивают центр кадра, на найденном
-                // коде - сам код, и по дороге между положениями просто едут
+                // one set of corners: around the centre at rest, around the code when found
                 ViewfinderStyle.LATCHING ->
                     drawCorners(drawn, cornerColor, 3.dp.toPx(), drawn.width * 0.22f)
             }
@@ -606,12 +571,8 @@ internal fun CameraPreview(
 }
 
 /**
- * Куда именно переезжает рамка, найдя код.
- *
- * Вплотную к коду она смотрится тесно, а совсем маленький код превратил бы её в точку,
- * поэтому прямоугольник немного раздувается и не даёт себе стать меньше трети исходной
- * рамки. И не вылезает за неё же: рамка не должна оказаться больше того окна, в котором
- * приложение вообще смотрит.
+ * Where the frame moves when it latches onto a code: the code's box padded a little,
+ * no smaller than a third of the viewfinder and no larger than the viewfinder itself.
  */
 private fun snapTarget(
     box: androidx.compose.ui.geometry.Rect,
@@ -630,7 +591,7 @@ private fun snapTarget(
     )
 }
 
-/** Уголки прямоугольника: так рисуют видоискатель, чтобы рамка не закрывала сам код. */
+/** Draws only the corners of [rect], so the outline does not cover the code. */
 private fun DrawScope.drawCorners(
     rect: androidx.compose.ui.geometry.Rect,
     color: Color,

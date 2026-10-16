@@ -1,18 +1,17 @@
 package com.datools.qrchecker.util
 
 /**
- * Решает, какому чтению линейного штрихкода верить.
+ * Decides which reads of a linear barcode to trust.
  *
- * У Data Matrix и QR есть коды исправления ошибок, и неверно прочитанный символ они не
- * отдают вовсе. У EAN и UPC защиты нет, кроме одной контрольной цифры, а её две
- * перепутанные цифры проходят: с наклонённой этикетки за пару секунд набиралось
- * несколько разных «кодов» с одной коробки, и собирающая сессия записывала их все.
+ * Data Matrix and QR have error correction and never return a misread symbol. EAN and
+ * UPC only have a check digit, which two swapped digits pass: a tilted label produced
+ * several different "codes" from one box within seconds, and a collecting session
+ * recorded them all.
  *
- * Ошибка чтения от кадра к кадру разная, настоящий код - один и тот же. Поэтому код
- * принимается, когда за последнюю секунду он прочитан [votes] раза. Не подряд: на
- * наклонённой этикетке ошибка проскакивает через кадр, и требование «подряд» не давало
- * отметить коробку вовсе. А старые чтения выпадают по времени - коробку убрали и
- * поднесли другую, прошлые голоса ей не засчитываются.
+ * Misreads differ from frame to frame while the real code stays the same, so a code is
+ * accepted once it has been read [votes] times within the last second. Not in a row: on
+ * a tilted label a misread slips in every other frame. Old reads expire, so a new box
+ * does not inherit the previous one's votes.
  */
 class LinearReadVote(
     private val votes: Int = 3,
@@ -20,7 +19,7 @@ class LinearReadVote(
 ) {
     private val reads = ArrayDeque<Pair<String, Long>>()
 
-    /** Записывает чтение и отвечает, набрал ли этот код достаточно голосов. */
+    /** Records a read and tells whether this code now has enough votes. */
     fun offer(value: String, now: Long): Boolean {
         while (reads.isNotEmpty() && now - reads.first().second > windowMs) reads.removeFirst()
         reads.addLast(value to now)

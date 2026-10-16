@@ -34,23 +34,18 @@ import kotlin.math.exp
 import kotlin.math.roundToInt
 
 /**
- * Доля ширины, дальше которой плашку не утащить никаким усилием.
- *
- * Плашка не улетает за экран и не исчезает: свайп здесь - способ вызвать действие, а не
- * убрать строку. Копирование в списке вообще ничего не меняет, а удалением управляет сам
- * список - он перерисуется, когда база ответит.
+ * How far the row can be dragged, as a fraction of its width. It never leaves the
+ * screen: a swipe here triggers an action rather than dismissing the row, and the list
+ * redraws itself when the data changes.
  */
 private const val MAX_TRAVEL = 0.42f
 
-/** Где действие считается вызванным. Заметно раньше половины: до половины никто не тянет. */
+/** Where the action triggers: well before half, since nobody drags that far. */
 private const val TRIGGER_TRAVEL = 0.22f
 
 /**
- * Насколько палец обгоняет плашку: чем дальше тянешь, тем туже идёт.
- *
- * Смещение считается как limit * (1 - e^(-x/limit)): у нуля плашка идёт за пальцем один
- * к одному, дальше отстаёт всё сильнее и упирается в limit. Это та самая упругость, по
- * которой чувствуется, что дальше тянуть некуда.
+ * Rubber-band resistance: limit * (1 - e^(-x/limit)). One to one near zero, then lagging
+ * more and more and never passing limit, so the end of the travel can be felt.
  */
 internal fun resistedOffset(raw: Float, limit: Float): Float {
     if (limit <= 0f) return 0f
@@ -58,7 +53,7 @@ internal fun resistedOffset(raw: Float, limit: Float): Float {
     return if (raw < 0f) -magnitude else magnitude
 }
 
-/** Что показать под плашкой, пока её тянут, и что сделать, когда отпустят за порогом. */
+/** What to show under the row while it is dragged, and what to do on release past the threshold. */
 data class SwipeAction(
     val background: Color,
     val onTrigger: () -> Unit,
@@ -66,14 +61,13 @@ data class SwipeAction(
 )
 
 /**
- * Плашка с действиями по свайпу: вправо - [start], влево - [end].
+ * A row with swipe actions: right for [start], left for [end].
  *
- * Написано руками, а не через SwipeToDismissBox: тот существует, чтобы строку убрать, и
- * договориться с ним «покажи жест, но останься на месте» не выходит - он доигрывает уход
- * до конца и застревает снаружи экрана. Здесь плашка всегда возвращается на место сама.
+ * Hand-written rather than SwipeToDismissBox, which exists to remove the row: it plays
+ * the dismissal to the end and gets stuck off screen. Here the row always springs back.
  *
- * [onThresholdCrossed] зовётся в момент, когда действие взведено, - по нему даётся отдача:
- * отпускать можно уже здесь, доводить до края не нужно.
+ * [onThresholdCrossed] fires when the action is armed, for haptic feedback: releasing
+ * there is enough.
  */
 @Composable
 fun SwipeActionRow(
@@ -87,7 +81,7 @@ fun SwipeActionRow(
     val offset = remember { Animatable(0f) }
     var width by remember { mutableFloatStateOf(0f) }
     var raw by remember { mutableFloatStateOf(0f) }
-    // взведено ли действие: порог перешагнули, палец ещё не отпущен
+    // past the threshold with the finger still down
     var armed by remember { mutableStateOf(false) }
 
     val currentStart by rememberUpdatedState(start)
@@ -99,7 +93,7 @@ fun SwipeActionRow(
 
     val dragState = rememberDraggableState { delta ->
         val next = raw + delta
-        // в сторону, где действия нет, плашка не едет вовсе
+        // no movement towards a side without an action
         raw = when {
             next > 0f && currentStart == null -> 0f
             next < 0f && currentEnd == null -> 0f
@@ -144,8 +138,7 @@ fun SwipeActionRow(
         }
 
         if (action != null) {
-            // иконка проявляется по мере движения и на пороге уже во всю силу:
-            // видно, докуда осталось тянуть
+            // the icon fades in with the drag and is fully shown at the threshold
             val progress = if (trigger > 0f) (abs(shown) / trigger).coerceIn(0f, 1f) else 0f
             Box(
                 modifier = Modifier

@@ -5,11 +5,9 @@ import com.datools.qrchecker.R
 import java.util.Calendar
 
 /**
- * Срок годности из кода в читаемый вид.
- *
- * Записан он как ггммдд. Век восстанавливается по правилу GS1: 00-49 - двадцать первый,
- * 50-99 - двадцатый. Нулевой день означает «до конца месяца», и тогда день не пишется,
- * иначе на этикетке появилось бы тридцатое февраля.
+ * Formats a YYMMDD expiry. The century follows the GS1 rule: 00-49 is the 21st, 50-99
+ * the 20th. Day 00 means the end of the month, so no day is shown; otherwise labels
+ * would read February 30.
  */
 fun formatExpiry(context: Context, raw: String): String? {
     if (raw.length != 6 || !raw.all { it.isDigit() }) return null

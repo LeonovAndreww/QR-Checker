@@ -21,25 +21,25 @@ class ScanVerdictTest {
     )
 
     @Test
-    fun `код из списка отмечается`() {
+    fun `a code from the list is marked`() {
         val s = session(codes = listOf("A", "B"))
         assertEquals(ScanVerdict.Marked("A"), verdictFor(s, "A"))
     }
 
     @Test
-    fun `чужой код в сверяющей сессии остаётся чужим`() {
+    fun `a foreign code in a checking session stays foreign`() {
         val s = session(codes = listOf("A"))
         assertEquals(ScanVerdict.Foreign("X"), verdictFor(s, "X"))
     }
 
     @Test
-    fun `чужой код в собирающей сессии дописывается`() {
+    fun `a foreign code in a collecting session is recorded`() {
         val s = session(codes = emptyList(), collecting = true)
         assertEquals(ScanVerdict.Recorded("X"), verdictFor(s, "X"))
     }
 
     @Test
-    fun `повтор ловится в обеих сессиях и несёт время`() {
+    fun `a repeat is caught in both kinds and carries its time`() {
         val checking = session(listOf("A"), scanned = listOf("A"), times = mapOf("A" to 100L))
         val collecting = session(listOf("A"), scanned = listOf("A"), times = mapOf("A" to 100L), collecting = true)
         assertEquals(ScanVerdict.Repeat("A", 100L), verdictFor(checking, "A"))
@@ -47,21 +47,21 @@ class ScanVerdictTest {
     }
 
     @Test
-    fun `повтор без известного времени - всё равно повтор`() {
+    fun `a repeat with an unknown time is still a repeat`() {
         val s = session(listOf("A"), scanned = listOf("A"))
         assertEquals(ScanVerdict.Repeat("A", null), verdictFor(s, "A"))
     }
 
     @Test
-    fun `собирающая сессия не дописывает то, что уже отмечено`() {
+    fun `a collecting session does not record an already marked code`() {
         val s = session(listOf("A"), scanned = listOf("A"), collecting = true)
         assertEquals(ScanVerdict.Repeat("A", null), verdictFor(s, "A"))
     }
 
     @Test
-    fun `собирающая сессия с подгруженным списком ведёт себя как сверяющая, пока код в списке`() {
-        // файл в собирающую сессию добавить можно: неотмеченный код из него отмечается,
-        // а не дописывается второй раз
+    fun `a collecting session with a loaded list marks codes from the list`() {
+        // a file can be added to a collecting session: an unmarked code from it gets
+        // marked rather than recorded a second time
         val s = session(codes = listOf("A", "B"), collecting = true)
         assertEquals(ScanVerdict.Marked("B"), verdictFor(s, "B"))
     }

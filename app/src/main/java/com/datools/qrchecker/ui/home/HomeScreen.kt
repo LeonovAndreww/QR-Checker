@@ -103,8 +103,6 @@ fun HomeScreen(navController: NavController) {
 
     Scaffold(
         topBar = {
-            // Та же панель, что на остальных экранах: раньше здесь был крупный текст, а
-            // кнопки висели по его краям, и главный экран выпадал из общего строя
             CenterAlignedTopAppBar(
                 title = { Text(titleText) },
                 navigationIcon = {
@@ -133,7 +131,7 @@ fun HomeScreen(navController: NavController) {
             modifier = Modifier.padding(innerPadding)
         )
         {
-            // база ещё не ответила: экран пуст, но ничего не утверждает
+            // the database has not answered yet: an empty screen claims nothing
             val loaded = sessions ?: return@Column
 
             if (loaded.isEmpty()) {
@@ -154,9 +152,8 @@ fun HomeScreen(navController: NavController) {
                 return@Column
             }
 
-            // Строки помечены ключами, и при перестановке список держится за ту, что была
-            // первой. Сессия, поднятая наверх, оказывалась тогда над краем экрана -
-            // если человек был в начале списка, он туда же и возвращается.
+            // Keyed rows keep the scroll position on the item that was first, so a session
+            // moved to the top would land above the edge. A user at the top stays there.
             val firstId = loaded.firstOrNull()?.id
             LaunchedEffect(firstId) {
                 if (listState.firstVisibleItemIndex <= 1) listState.scrollToItem(0)
@@ -165,12 +162,12 @@ fun HomeScreen(navController: NavController) {
             ScrollbarBox(state = listState, enabled = scrollbarShown) {
                 LazyColumn(
                     state = listState,
-                    // сверху зазор: без него первая сессия прилипала к панели
+                    // top gap, or the first session sticks to the bar
                     contentPadding = PaddingValues(top = 12.dp, bottom = 80.dp)
                 ) {
                     items(loaded, key = { it.id }) { session ->
-                        // Те же жесты, что в списках кодов: вправо - правка, влево - удаление.
-                        // Кнопки по краям остаются: жест быстрее, но его ещё надо знать.
+                        // the same gestures as code lists: right edits, left deletes; the
+                        // buttons stay, since a gesture has to be known first
                         SwipeActionRow(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             onThresholdCrossed = { feel(Outcome.THRESHOLD) },
@@ -202,9 +199,7 @@ fun HomeScreen(navController: NavController) {
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                // Кнопки сессии - одна группа: скругления только снаружи, зазоров
-                                // внутри нет. Три отдельно стоящих прямоугольника читались как три
-                                // разных элемента, хотя относятся к одной строке
+                                // the session's buttons form one group: rounded outside only
                                 horizontalArrangement = Arrangement.spacedBy(0.dp)
                             ) {
                                 FilledIconButton(
@@ -227,9 +222,7 @@ fun HomeScreen(navController: NavController) {
                                         .weight(1f),
                                     shape = RectangleShape
                                 ) {
-                                    // счёт уже считался запросом для списка, но на экран не
-                                    // выводился: приложение открывалось и не отвечало на
-                                    // единственный вопрос, ради которого его открывают
+                                    // the progress is what the app is opened for
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(
                                             text = session.name,
@@ -239,8 +232,8 @@ fun HomeScreen(navController: NavController) {
                                         )
                                         Text(
                                             text = buildString {
-                                                // «12 из 340» у собирающей сессии соврало бы:
-                                                // знаменателя у неё нет
+                                                // "12 of 340" would be false: a collecting
+                                                // session has no total
                                                 append(
                                                     if (session.collecting) {
                                                         collectedTemplate.format(session.scanned)
@@ -251,9 +244,7 @@ fun HomeScreen(navController: NavController) {
                                                         )
                                                     }
                                                 )
-                                                // у сессий, заведённых до появления этих полей,
-                                                // времени нет, и выдумывать его нечего - строка
-                                                // просто короче
+                                                // no time recorded: the line is just shorter
                                                 val at = maxOf(session.openedAt, session.createdAt)
                                                 if (at > 0) {
                                                     append("  ·  ")

@@ -4,23 +4,20 @@ import kotlin.math.PI
 import kotlin.math.abs
 
 /**
- * Фильтр «1€» (Casiez, Roussel, Vogel, 2012) - сглаживание дрожащего сигнала без
- * заметного запаздывания.
+ * The One Euro filter (Casiez, Roussel, Vogel, 2012): smoothing a jittery signal without
+ * noticeable lag.
  *
- * Рамку кода распознаватель на каждом кадре находит чуть по-разному, и обводка вокруг
- * неподвижной коробки дрожала. Обычное усреднение лечит дрожь, но тянет рамку за
- * движущейся коробкой с опозданием. Здесь сила сглаживания зависит от скорости: стоит
- * код - сглаживается сильно, едет - почти не сглаживается и не отстаёт. Тем же приёмом
- * гасят дрожание в трекинге рук и лиц.
- *
- * Стоит несколько умножений на кадр.
+ * The detector finds a code's box a little differently on every frame, so the outline
+ * around a still box trembled. Plain averaging cures the jitter but drags behind a
+ * moving box. Here the smoothing depends on speed: strong when the code is still, weak
+ * when it moves. A few multiplications per frame.
  */
 class OneEuroFilter(
-    /** Частота среза в покое, Гц: чем ниже, тем спокойнее неподвижная рамка. */
+    /** Cutoff frequency at rest, Hz: lower is calmer for a still box. */
     private val minCutoff: Double = 0.5,
-    /** Насколько быстро сглаживание ослабевает с ростом скорости. */
+    /** How fast smoothing weakens as speed grows. */
     private val beta: Double = 0.02,
-    /** Частота среза для оценки скорости, Гц. */
+    /** Cutoff frequency for the speed estimate, Hz. */
     private val derivativeCutoff: Double = 1.0
 ) {
     private var lastValue = 0.0
@@ -40,8 +37,7 @@ class OneEuroFilter(
             lastTimeMs = timeMs
             return value
         }
-        // тот же или более ранний момент - не новый кадр: состояние не трогаем, иначе
-        // повторный вызов сбрасывал бы сглаживание и отдавал сырое значение
+        // not a new frame: a repeated call must not reset the filter and return the raw value
         if (timeMs <= lastTimeMs) return lastValue
         val dt = (timeMs - lastTimeMs) / 1000.0
         lastTimeMs = timeMs

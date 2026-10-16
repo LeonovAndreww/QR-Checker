@@ -4,8 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Полезные нагрузки взяты из настоящего документа заказчика, страницы 1 и 2. Под каждым
- * кодом в PDF напечатана ровно та строка, которую обязан вернуть shortCode().
+ * Payloads from a real customer document, pages 1 and 2. Under each code the PDF prints
+ * exactly the string shortCode() must return.
  */
 class CodeTextTest {
 
@@ -18,13 +18,13 @@ class CodeTextTest {
         "Zrt6xkAQ5lK3wcmFh/H9SXKGKWNsEA+dwaOz5ZKF0m2SzaNeTY8j/jRzu26YvH72mfoGZhZBwgJYIushQ=="
 
     @Test
-    fun `короткий код повторяет надпись на коробке`() {
+    fun `the short code matches the text on the box`() {
         assertEquals("0104680577333570215,'OfIXCFmCGl", shortCode(page1))
         assertEquals("01046805773335702153vt-1ZQae;wC", shortCode(page2))
     }
 
     @Test
-    fun `граница находится и без разделителей`() {
+    fun `the boundary is found without separators`() {
         assertEquals(
             "0104680577333570215,'OfIXCFmCGl",
             shortCode(page1.replace(gs.toString(), ""))
@@ -36,18 +36,18 @@ class CodeTextTest {
     }
 
     @Test
-    fun `разделитель переживает нормализацию, мусор вокруг - нет`() {
+    fun `the separator survives normalisation, the noise around it does not`() {
         assertEquals(page1, normalizeCode("​$page1\n"))
     }
 
     @Test
-    fun `код без криптохвоста остаётся целым`() {
+    fun `a code without a crypto tail stays whole`() {
         val plain = "0104680577333570215,'OfIXCFmCGl"
         assertEquals(plain, shortCode(plain))
     }
 
     @Test
-    fun `обычный QR не режется`() {
+    fun `a plain QR is not cut`() {
         assertEquals("https://example.com/91abcd92", shortCode("https://example.com/91abcd92"))
     }
 }

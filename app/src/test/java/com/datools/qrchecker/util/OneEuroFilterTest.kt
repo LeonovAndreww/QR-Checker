@@ -7,8 +7,8 @@ import kotlin.math.abs
 class OneEuroFilterTest {
 
     @Test
-    fun `дрожь неподвижного кода гасится`() {
-        // рамка стоит на 500 и прыгает на ±6 пикселей от кадра к кадру, 15 кадров в секунду
+    fun `jitter of a still code is damped`() {
+        // the box sits at 500 and jumps by ±6 pixels from frame to frame, at 15 fps
         val filter = OneEuroFilter()
         var worst = 0.0
         for (i in 0 until 60) {
@@ -20,8 +20,8 @@ class OneEuroFilterTest {
     }
 
     @Test
-    fun `движущийся код догоняется без большого отставания`() {
-        // коробку ведут со скоростью 600 пикселей в секунду
+    fun `a moving code is followed without much lag`() {
+        // the box moves at 600 pixels per second
         val filter = OneEuroFilter()
         var lag = 0.0
         for (i in 0 until 30) {
@@ -33,11 +33,11 @@ class OneEuroFilterTest {
     }
 
     @Test
-    fun `повторный вызов с тем же временем не сбрасывает сглаживание`() {
+    fun `a repeated call with the same time does not reset smoothing`() {
         val filter = OneEuroFilter()
         filter.filter(500.0, 0)
         val smoothed = filter.filter(520.0, 66)
-        // тот же кадр ещё раз - ответ прежний, а не сырое 520
+        // the same frame again gives the previous answer, not the raw 520
         assertTrue(abs(filter.filter(520.0, 66) - smoothed) < 1e-9)
         assertTrue(smoothed < 519.0)
     }

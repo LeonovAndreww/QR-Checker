@@ -15,10 +15,8 @@ import com.datools.qrchecker.util.describeCode
 import com.datools.qrchecker.util.formatExpiry
 
 /**
- * Одна строка под кодом: что это за код, до какого числа годен и какая партия.
- *
- * Видна и у свёрнутого кода: срок и партию на складе сверяют, просматривая список, а не
- * раскрывая каждую строку по очереди. Ничего из этого нет - нет и строки.
+ * One line under a code: its kind, expiry and batch. Shown for collapsed codes too,
+ * since these are checked while scanning the list. Nothing to show, no line.
  */
 @Composable
 fun CodeMetaLine(
@@ -31,7 +29,6 @@ fun CodeMetaLine(
     textAlign: TextAlign? = null
 ) {
     val context = LocalContext.current
-    // один разбор на строку: вид и поля берутся из него оба
     val description = remember(code) { describeCode(code) }
     val kind = description.kind.takeIf { showKind }
     val fields = description.fields.takeIf { showFields }

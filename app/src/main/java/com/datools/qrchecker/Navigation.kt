@@ -46,18 +46,15 @@ private val sessionIdArgument = listOf(
     navArgument(ARG_SESSION_ID) { type = NavType.StringType }
 )
 
-/** Насколько долго один экран сменяет другой. */
+/** Duration of the cross-fade between screens. */
 private const val SCREEN_FADE_MS = 160
 
 @Composable
 fun AppNav() {
     val navController = rememberNavController()
 
-    // Экраны сменяются растворением, а не выездом сбоку.
-    //
-    // При выезде между уходящим и приходящим экраном на мгновение видно фон окна, и
-    // переход с белого списка на чёрную камеру читался как вспышка. Растворение ничего
-    // не открывает: под верхним экраном всё это время лежит нижний.
+    // Screens cross-fade instead of sliding: a slide briefly shows the window background
+    // between screens, and going from a white list to the black camera read as a flash.
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route,
@@ -108,11 +105,9 @@ const val TYPE_SCANNED = "scanned"
 const val TYPE_NOT_SCANNED = "not_scanned"
 
 /**
- * Переход, который не срабатывает дважды.
- *
- * Два быстрых нажатия успевают отдать две команды до того, как применилась первая, и
- * приложение уезжает в пустой белый экран. Экран, с которого уходят, в этот момент уже не
- * в состоянии RESUMED - по нему второй тап и отсеивается. То же и для возврата.
+ * Navigation that cannot fire twice. Two quick taps issue two commands before the first
+ * applies, and the app ends up on a blank screen. The screen being left is no longer
+ * RESUMED by then, which filters out the second tap; the same goes for going back.
  */
 fun NavController.navigateOnce(route: String): Boolean {
     if (currentBackStackEntry?.lifecycle?.currentState != Lifecycle.State.RESUMED) return false

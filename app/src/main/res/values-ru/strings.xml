@@ -47,7 +47,7 @@
     <string name="error_saving_session">Не удалось сохранить: %1$s</string>
     <string name="save_button">Сохранить</string>
 
-    <!-- helper: %2$s should be either empty or text like "\nX отсканированных кодов будет удалено." -->
+    <!-- helper: %2$s should be either empty or text like "\nX scanned codes will be removed." -->
 
     <!-- ScanScreen -->
     <string name="session_not_found">Сессия не найдена</string>
@@ -134,7 +134,7 @@
     <string name="session_file_empty">В файле нет ни одного кода</string>
     <string name="session_file_unreadable">Не удалось открыть файл</string>
 
-    <!-- внешний вид и отклик -->
+    <!-- appearance and feedback -->
     <string name="appearance_title">Оформление</string>
     <string name="theme_label">Тема</string>
     <string name="theme_system">Системная</string>
@@ -153,7 +153,7 @@
     <string name="feedback_haptics">Вибрация</string>
     <string name="feedback_sound">Звук</string>
 
-    <!-- как давно код отсканирован -->
+    <!-- time since scan -->
     <string name="ago_just_now">только что</string>
     <plurals name="ago_seconds">
         <item quantity="one">%1$d секунду назад</item>
@@ -178,7 +178,7 @@
     <string name="ago_on_date_at">%1$s в %2$s</string>
     <string name="msg_already_scanned_ago">Отсканирован %1$s</string>
 
-    <!-- виды кодов -->
+    <!-- code kinds -->
     <string name="format_data_matrix">Data Matrix</string>
     <string name="format_qr">QR</string>
     <string name="format_linear">Штрихкод</string>
@@ -190,7 +190,7 @@
     <string name="cd_torch_off">Выключить подсветку</string>
     <string name="cd_sort_newest">Сначала старые</string>
     <string name="cd_sort_oldest">Сначала новые</string>
-    <!-- корзина -->
+    <!-- bin -->
     <string name="bin_title">Корзина: %1$d</string>
     <string name="bin_why">Коды, убранные из этой сессии. В списках, счётчиках и выгрузке их нет.</string>
     <string name="bin_restore">Вернуть</string>
@@ -199,7 +199,7 @@
     <string name="bin_empty_confirm">%1$d кодов исчезнут насовсем.</string>
     <string name="error_loading_session">Не удалось открыть сессию: %1$s</string>
     <string name="bin_deleted">Удалён насовсем</string>
-    <!-- код убирают из списка -->
+    <!-- removing a code from a list -->
     <string name="bin_code_title">Убрать в корзину?</string>
     <string name="bin_code_confirm">Код уйдёт из сессии и будет ждать в корзине:</string>
     <string name="bin_code_action">Убрать</string>
@@ -207,7 +207,7 @@
     <string name="unmark_code_confirm">Код вернётся в список неотсканированных:</string>
     <string name="unmark_code_action">Снять</string>
 
-    <!-- что записано в коде -->
+    <!-- fields in the code -->
     <string name="field_expiry">Годен до</string>
     <string name="field_batch">Партия</string>
     <string name="expiry_full">%1$02d.%2$02d.%3$d</string>
@@ -217,7 +217,7 @@
     <string name="show_code_fields">Срок годности и партия</string>
     <string name="show_code_fields_why">Под кодом в списках и на экране сканирования, если код их содержит (лекарства ЕС, немецкий PPN, медизделия HIBC).</string>
 
-    <!-- сессия без файла -->
+    <!-- session without a file -->
     <string name="msg_recorded">Записан</string>
     <string name="btn_collected">Записанные</string>
     <string name="untitled_session">Без названия</string>

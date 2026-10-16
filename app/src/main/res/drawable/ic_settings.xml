@@ -1,4 +1,4 @@
-<!-- Одна иконка вместо material-icons-extended: стандартный settings из Material Symbols. -->
+<!-- A single icon instead of material-icons-extended: settings from Material Symbols. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"

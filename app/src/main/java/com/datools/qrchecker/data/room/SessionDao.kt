@@ -41,7 +41,7 @@ abstract class SessionDao {
     )
     abstract suspend fun getCodes(sessionId: String): List<SessionCodeEntity>
 
-    /** Что лежит в корзине - свежеудалённое сверху. */
+    /** The bin, most recently deleted first. */
     @Query(
         """
         SELECT * FROM session_codes
@@ -52,11 +52,9 @@ abstract class SessionDao {
     abstract suspend fun getDeletedCodes(sessionId: String): List<SessionCodeEntity>
 
     /**
-     * Убирает коды сессии, не трогая корзину.
-     *
-     * Замена документа не должна выметать то, что человек убрал руками: это разные
-     * действия. Код из корзины, снова оказавшийся в новом документе, вернётся обычным -
-     * вставка перезапишет его строку.
+     * Removes the session's codes but leaves the bin alone: replacing the document and
+     * binning a code by hand are different actions. A binned code that is in the new
+     * document comes back as a regular one, since the insert replaces its row.
      */
     @Query("DELETE FROM session_codes WHERE sessionId = :sessionId AND deletedAt IS NULL")
     abstract suspend fun deleteAllCodes(sessionId: String)
@@ -72,8 +70,8 @@ abstract class SessionDao {
     abstract suspend fun markScanned(sessionId: String, code: String, at: Long): Int
 
     /**
-     * Отмечает пачку кодов разом. Возвращает, сколько отметок реально добавилось: коды,
-     * которых в сессии нет или которые уже отмечены, не считаются.
+     * Marks a batch of codes at once. Returns how many marks were actually added; codes
+     * not in the session or already marked do not count.
      */
     @Query(
         """
@@ -95,13 +93,7 @@ abstract class SessionDao {
     @Query("SELECT name FROM sessions")
     abstract suspend fun getSessionNames(): List<String>
 
-    /**
-     * Сессии ровно с таким числом кодов.
-     *
-     * Отбор идёт одним запросом, а не «сколько кодов» на каждую сессию по очереди: при
-     * полусотне заведённых партий это была сотня обращений к базе на каждое открытие
-     * файла.
-     */
+    /** Sessions with exactly this many codes, in one query rather than one per session. */
     @Query(
         """
         SELECT sessionId FROM session_codes WHERE deletedAt IS NULL
@@ -119,14 +111,13 @@ abstract class SessionDao {
     abstract suspend fun markUnscanned(sessionId: String, code: String): Int
 
     /**
-     * Убирает код в корзину. Отметка при этом не гасится.
+     * Moves a code to the bin, keeping its mark.
      *
-     * Корзина обязана возвращать ровно то, что в неё положили: гашение отметки делало
-     * восстановление не отменой удаления, а отменой ещё и сканирования - с потерей
-     * времени. В собирающей сессии это было хуже всего: вернувшийся код становился
-     * неотмеченным, то есть невидимым, потому что списка неотмеченных у неё нет.
+     * Restoring must return exactly what was binned. Clearing the mark would make a
+     * restore also undo the scan and lose its time; in a collecting session the code
+     * would come back unmarked, which means invisible there.
      *
-     * На счётчики это не влияет: удалённое из них и так исключено по deletedAt.
+     * Counters are unaffected: they already exclude binned rows by deletedAt.
      */
     @Query(
         """
@@ -144,11 +135,11 @@ abstract class SessionDao {
     )
     abstract suspend fun restoreCode(sessionId: String, code: String): Int
 
-    /** Насовсем: это и есть «очистить корзину». */
+    /** For good: this is "empty the bin". */
     @Query("DELETE FROM session_codes WHERE sessionId = :sessionId AND deletedAt IS NOT NULL")
     abstract suspend fun purgeBin(sessionId: String): Int
 
-    /** Один код из корзины - насовсем. */
+    /** One binned code, for good. */
     @Query(
         """
         DELETE FROM session_codes
@@ -157,7 +148,7 @@ abstract class SessionDao {
     )
     abstract suspend fun purgeCode(sessionId: String, code: String): Int
 
-    /** Всё, что пролежало в корзине дольше положенного, по всем сессиям разом. */
+    /** Bin entries older than [before], across all sessions. */
     @Query("DELETE FROM session_codes WHERE deletedAt IS NOT NULL AND deletedAt < :before")
     abstract suspend fun purgeBinnedBefore(before: Long): Int
 
@@ -182,13 +173,11 @@ abstract class SessionDao {
     abstract suspend fun nextPosition(sessionId: String): Int
 
     /**
-     * Дописывает в сессию код, которого в ней не было, сразу отмеченным.
+     * Adds a code that was not in the session, already marked. Collecting sessions only:
+     * in a checking session such a code is "not in this batch", not a new row.
      *
-     * Только для собирающей сессии: у сверяющей появление такого кода - это ответ «нет в
-     * этой поставке», а не повод менять список.
-     *
-     * Позиция берётся следующей за последней: порядок в списке - это порядок, в котором
-     * коды приходили, другого у собранной сессии нет.
+     * It goes after the last position, since arrival order is the only order a collected
+     * session has.
      */
     @Transaction
     open suspend fun addScannedCode(sessionId: String, code: String, at: Long) {
@@ -206,10 +195,8 @@ abstract class SessionDao {
     }
 
     /**
-     * Отмечает коды, у каждого из которых своё время, одной транзакцией.
-     *
-     * По отдельности каждая отметка была своей транзакцией со своим сбросом на диск, и
-     * слияние файла на несколько тысяч отметок шло секундами.
+     * Marks codes, each with its own time, in one transaction. One transaction per mark
+     * made merging a file with thousands of marks take seconds.
      */
     @Transaction
     open suspend fun markScannedEach(sessionId: String, times: Map<String, Long>): Int =
@@ -222,11 +209,8 @@ abstract class SessionDao {
     }
 
     /**
-     * Сессия и её коды пишутся вместе или не пишутся вовсе.
-     *
-     * По отдельности между ними есть промежуток, в который сессия уже заведена, а кодов
-     * в ней ещё нет: приложение, снятое в этот момент, открывалось бы потом на пустой
-     * партии.
+     * The session and its codes are written together or not at all, so a process killed
+     * in between cannot leave an empty session behind.
      */
     @Transaction
     open suspend fun insertSessionWithCodes(
@@ -238,12 +222,9 @@ abstract class SessionDao {
     }
 
     /**
-     * То же для замены документа: имя и новый список кодов - одна правка.
-     *
-     * Собирающая сессия, получив документ, становится сверяющей. Собирать её
-     * заводили, потому что списка не было; теперь он есть, и код не из него - это
-     * ответ «нет в этой сессии», а не новая строка. Показывать её дальше как
-     * собирающую значило прятать недостающие коды: у собирающей их списка нет.
+     * Rename and code replacement as one change. A collecting session that gets a
+     * document becomes a checking one: it was collecting because there was no list, and
+     * now a code outside the list is "not in this session" rather than a new row.
      */
     @Transaction
     open suspend fun renameAndReplaceCodes(

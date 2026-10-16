@@ -3,10 +3,9 @@
     <background android:drawable="@color/ic_launcher_background"/>
     <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
     <!--
-      Слой для тем оформления Android 13+: система красит его силуэт цветом обоев.
-      Взять сюда обычный foreground нельзя - у него непрозрачны и модули кода, и красный
-      лист под ними, так что заливка одним цветом дала бы сплошной квадрат. Здесь в альфе
-      оставлены только модули кода и скобки сканера.
+      The layer for Android 13+ themed icons, tinted by the system. The regular foreground
+      cannot be used: its code modules and the red sheet are both opaque, so a single tint
+      would give a solid square. Only the modules and scanner brackets are kept in alpha.
     -->
     <monochrome android:drawable="@drawable/ic_launcher_monochrome"/>
 </adaptive-icon>

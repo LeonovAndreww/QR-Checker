@@ -30,10 +30,8 @@ private val LightColorScheme = lightColorScheme(
 )
 
 /**
- * Цвет плашки и цвет текста или значка на ней.
- *
- * По отдельности они не живут: тот же фон в тёмной теме светлеет, и белые буквы на нём
- * прочитать нельзя.
+ * A background colour and the colour of text or icons on it. They go together: the same
+ * background lightens in the dark theme, and white text on it would not read.
  */
 @Immutable
 data class OnColor(
@@ -42,12 +40,9 @@ data class OnColor(
 )
 
 /**
- * Акценты, которых нет в схеме Material: жёлтая кнопка новой сессии, серая правка,
- * красное удаление, и три цвета обратной связи при сканировании.
- *
- * Для «этот код уже отсканирован» роли в Material нет вовсе - это не ошибка и не успех.
- * Набор держится в теме, а не в экранах, чтобы цвета не подставлялись руками и не
- * оказывались в тёмной теме нечитаемыми.
+ * Accents missing from the Material scheme: new session, edit and delete buttons, and
+ * the three scan feedback colours ("already scanned" has no Material role). Kept in the
+ * theme so screens do not hardcode colours that fail in the dark theme.
  */
 @Immutable
 data class AppAccents(
@@ -86,16 +81,14 @@ val MaterialTheme.accents: AppAccents
 
 @Composable
 fun QRCheckerTheme(
-    // «Как в системе» - значение по умолчанию: телефон уже знает, ночь сейчас или день,
-    // и переспрашивать об этом человека незачем
+    // the phone already knows whether it is day or night
     choice: ThemeChoice = AppSettings.theme(LocalContext.current),
     dark: Boolean = when (choice) {
         ThemeChoice.SYSTEM -> isSystemInDarkTheme()
         ThemeChoice.LIGHT -> false
         ThemeChoice.DARK -> true
     },
-    // Динамические цвета: на Android 12+ схема берётся из обоев телефона. Переключается
-    // здесь одной строкой, если захочется вернуть прежнее поведение.
+    // Android 12+ takes the scheme from the wallpaper
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {

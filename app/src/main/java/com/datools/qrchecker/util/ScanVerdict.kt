@@ -2,37 +2,29 @@ package com.datools.qrchecker.util
 
 import com.datools.qrchecker.model.SessionData
 
-/**
- * Что приложение отвечает на предъявленный код.
- *
- * Вынесено из экрана отдельно: это единственное место, где решается, что вообще
- * происходит при сканировании, и внутри composable его нельзя ни прочитать целиком, ни
- * проверить тестом.
- */
+/** The app's answer to a presented code. Kept out of the screen so it can be tested. */
 sealed interface ScanVerdict {
 
     val code: String
 
-    /** Код был в списке и отмечен впервые. Обычная сессия. */
+    /** The code was in the list and is marked for the first time. */
     data class Marked(override val code: String) : ScanVerdict
 
-    /** Кода в сессии не было, и он в неё дописан. Только собирающая сессия. */
+    /** The code was not in the session and has been added. Collecting sessions only. */
     data class Recorded(override val code: String) : ScanVerdict
 
-    /** Код уже отмечен. [at] - когда именно, null если время неизвестно. */
+    /** The code is already marked; [at] is when, null if unknown. */
     data class Repeat(override val code: String, val at: Long?) : ScanVerdict
 
-    /** Кода нет в этой поставке. У собирающей сессии не бывает. */
+    /** The code is not in this batch. Never happens in a collecting session. */
     data class Foreign(override val code: String) : ScanVerdict
 }
 
 /**
- * Порядок проверок важен.
- *
- * Повтор проверяется первым: отмеченный код остаётся отмеченным в любой сессии, и
- * собирающая не должна дописывать его заново. Дальше - список: код из документа
- * отмечается. И только потом расходятся пути: собирающая дописывает незнакомый код,
- * сверяющая называет его чужим.
+ * The order matters. A repeat comes first: a marked code stays marked in any session,
+ * and a collecting one must not add it again. Then the list: a code from the document is
+ * marked. Only then the session kinds part: collecting adds an unknown code, checking
+ * calls it foreign.
  */
 fun verdictFor(session: SessionData, code: String): ScanVerdict = when {
     code in session.scannedCodes -> ScanVerdict.Repeat(code, session.scanTimes?.get(code))

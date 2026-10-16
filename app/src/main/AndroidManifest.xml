@@ -10,16 +10,10 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!--
-      Доступ в сеть приложению не нужен: коды распознаются на устройстве встроенной
-      моделью, которая лежит внутри пакета, а всё остальное - файлы и база - тоже местное.
-
-      Эти два разрешения приходили от com.google.android.datatransport, транспорта
-      телеметрии Google: ML Kit тянет его за собой, и он отправляет статистику вызовов.
-      Приложение с этого ничего не получает, а в форме Data Safety такую отправку пришлось
-      бы объявлять сбором данных - при том, что данных приложение не собирает.
-
-      Когда появится совместная работа над сессией, разрешение вернётся сюда осознанно и
-      под свою задачу.
+      No network access is needed: codes are decoded on device by the bundled model, and
+      files and the database are local. These two permissions came from
+      com.google.android.datatransport, Google telemetry that ML Kit pulls in; the app
+      gains nothing from it, and Data Safety would have to declare it as data collection.
     -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission
@@ -37,10 +31,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.QRChecker">
         <!--
-            Поворот экрана приложение принимает само, без пересоздания: Compose и так
-            перестраивает экран под новый размер. Пересоздание отвязывало камеру и
-            запускало её заново, и на поворот экран сканирования на миг становился
-            чёрным.
+            Rotation is handled without recreating the activity: Compose relayouts anyway,
+            and recreation rebound the camera, blacking out the scan screen for a moment.
         -->
         <activity
             android:name=".MainActivity"

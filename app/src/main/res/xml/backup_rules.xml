@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Правила автобэкапа Android, устройства до API 31.
+   Android Auto Backup rules before API 31.
 
-   База не выгружается. Room пишет через WAL, и снимок, снятый посреди записи, приезжает
-   обратно битым; сессии для этого переносит собственный бэкап в выбранную папку.
-
-   backup.xml хранит SAF-права на эту папку, а они действуют только на своём устройстве -
-   после восстановления папка считалась бы выбранной, но не открывалась.
+   The database is excluded: Room writes through WAL, and a snapshot taken mid-write
+   restores corrupted; sessions travel through the app's own backup folder instead.
+   backup.xml holds the SAF grant for that folder, which only works on its own device.
 -->
 <full-backup-content>
     <exclude domain="database" path="sessions.db" />

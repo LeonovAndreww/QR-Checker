@@ -62,7 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private const val TAG = "QRChecker"
 
-/** Как часто пересчитывается «сколько времени назад». Чаще незачем, реже уже заметно. */
+/** How often "time ago" labels are refreshed. */
 private const val TIME_AGO_REFRESH_MS = 10_000L
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,8 +82,7 @@ fun CodesListScreen(
     // snackbar host
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // «двенадцать секунд назад» перестаёт быть правдой через двенадцать секунд, а список
-    // сам по себе не перерисовывается - его никто не трогает
+    // "12 seconds ago" stops being true, and nothing else redraws the list
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -94,10 +93,9 @@ fun CodesListScreen(
 
     // dialog state for delete confirmation
     var query by rememberSaveable { mutableStateOf("") }
-    // раскрытые коды: их сравнивают между собой, поэтому раскрыть можно сколько угодно
+    // several codes can be expanded at once, so they can be compared
     var expandedCodes by rememberSaveable { mutableStateOf(setOf<String>()) }
     var codeToDelete by remember { mutableStateOf<String?>(null) }
-    // порядок списка. Один переключатель вместо меню: вариантов ровно два
     var newestFirst by rememberSaveable { mutableStateOf(true) }
     var dontAskChecked by remember { mutableStateOf(false) }
     var codeToDeleteIsScanned by remember { mutableStateOf(false) }
@@ -107,10 +105,7 @@ fun CodesListScreen(
     val listState = rememberLazyListState()
 
     val scannedCount = session?.scannedCodes?.size ?: 0
-    // у собирающей сессии список один, и слово «отсканированные» в нём лишнее:
-    // других кодов в ней не бывает
-    // у собирающей сессии и список и слова свои: снимать отметку там некуда,
-    // неотсканированных у неё нет
+    // a collecting session has one list and its own wording: nothing to unmark into
     val collecting = session?.collecting == true
     val titleScanned = if (collecting) {
         stringResource(id = R.string.codes_title_collected, scannedCount)
@@ -157,15 +152,10 @@ fun CodesListScreen(
         else R.string.export_header_not_scanned
     )
 
-    // hoisted above the Scaffold: the toolbar action needs the same list the body draws
-    //
-    // Отсканированные идут от свежих к старым: наверху то, что человек только что
-    // отметил, - к нему и возвращаются, если ошиблись. Неотсканированные времени не
-    // имеют вовсе, у них порядок документа, и переворачивать его можно только целиком.
-    //
-    // Считается один раз на смену сессии или порядка, и отбор идёт по множеству: список
-    // на несколько тысяч кодов с проверкой «есть ли в списке отмеченных» превращал
-    // каждую букву в поиске в десятки миллионов сравнений.
+    // Hoisted above the Scaffold: the toolbar action needs the same list the body draws.
+    // Scanned codes go newest first, so a mistake is at the top; unscanned codes keep
+    // the document order. Membership goes through a set: on lists of thousands a list
+    // lookup turned each search keystroke into millions of comparisons.
     val exportableCodes: List<String> = remember(session, type, newestFirst) {
         val loaded = session ?: return@remember emptyList()
         val order = if (type == TYPE_SCANNED) {
@@ -178,18 +168,16 @@ fun CodesListScreen(
         if (newestFirst) order else order.asReversed()
     }
 
-    // the search narrows what is shown; the export always writes the whole list, so a
-    // forgotten filter cannot quietly turn "what is missing" into a shorter answer
-    // Короткая запись для поиска считается один раз на сессию и вид списка, а не на
-    // каждую нажатую букву, - и только когда в поиск что-то вписали: открытие списка
-    // на тысячи кодов не должно разбирать их все заранее.
+    // The search narrows what is shown; the export always writes the whole list, so a
+    // forgotten filter cannot quietly turn "what is missing" into a shorter answer.
+    // Short forms are computed once per list and only once something is searched.
     val shortCodes = remember(session, type) { lazy { exportableCodes.associateWith { shortCode(it) } } }
     val visibleCodes = remember(exportableCodes, query) {
         if (query.isBlank()) {
             exportableCodes
         } else {
-            // ищется и по полному коду, и по тому, что показано в строке: у немецкого PPN,
-            // HIBC и Digital Link это пересобранная запись, которой в самом коде нет
+            // the shown form is searched too: for PPN, HIBC and Digital Link it is rebuilt
+            // and does not occur in the raw code
             val q = query.trim()
             exportableCodes.filter {
                 it.contains(q, ignoreCase = true) ||
@@ -198,8 +186,7 @@ fun CodesListScreen(
         }
     }
 
-    // Сообщения вытесняют друг друга, а не встают в очередь: десяток действий подряд
-    // иначе оборачивался десятком всплывающих плашек одна за другой.
+    // messages replace each other instead of queueing up behind a burst of actions
     fun say(message: String) {
         scope.launch {
             snackbarHostState.currentSnackbarData?.dismiss()
@@ -210,8 +197,7 @@ fun CodesListScreen(
     fun copyCode(code: String) {
         scope.launch {
             clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(copyCodeText, code)))
-            // с Android 13 система сама показывает, что скопировано, и своя плашка
-            // встаёт второй такой же поверх системной
+            // Android 13+ shows its own confirmation
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) say(codeCopiedText)
         }
     }
@@ -220,7 +206,7 @@ fun CodesListScreen(
         viewModel.messages.collect { say(it.resolve(context)) }
     }
 
-    // один путь для кнопки и для свайпа: подтверждение спрашивается или нет одинаково
+    // the button and the swipe share one path, so confirmation works the same
     fun requestDelete(code: String, isScanned: Boolean) {
         if (state.skipDeleteConfirm) {
             viewModel.delete(code, isScanned)
@@ -258,8 +244,7 @@ fun CodesListScreen(
                     }
 
                     IconButton(
-                        // кнопка живая и при пустом списке: неактивная выглядит ровно как
-                        // сломанная, и понять, почему ничего не происходит, неоткуда
+                        // enabled on an empty list too: a disabled button looks broken
                         onClick = {
                             if (exportableCodes.isEmpty()) {
                                 say(nothingToExport)
@@ -413,9 +398,8 @@ fun CodesListScreen(
                                                 modifier = Modifier.fillMaxWidth(),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                // свёрнуто видно ровно то, что напечатано на
-                                                // коробке; криптохвост кода маркировки на
-                                                // этикетку не выводят и глазами не сверяют
+                                                // collapsed shows what is printed on the box;
+                                                // the crypto tail of a marking code is not
                                                 Column(
                                                     modifier = Modifier
                                                         .weight(1f)
@@ -433,10 +417,8 @@ fun CodesListScreen(
                                                         showFields = codeDetails,
                                                         singleLine = !expanded
                                                     )
-                                                    // свёрнуто - «как давно», развёрнуто -
-                                                    // точная дата: свёрнутый список читают
-                                                    // глазами на ходу, а точное время нужно,
-                                                    // только когда в него вглядываются
+                                                    // relative time when collapsed, the exact
+                                                    // date when expanded
                                                     if (!expanded) {
                                                         session.scanTimes?.get(code)?.let { at ->
                                                             Text(
@@ -463,9 +445,7 @@ fun CodesListScreen(
                                             }
 
                                             if (expanded) {
-                                                // дата встаёт в одну строку с кнопкой и
-                                                // прижимается вправо: строкой выше она
-                                                // нагромождалась на сам код и растила плашку
+                                                // the date shares the row with the button
                                                 Row(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     verticalAlignment = Alignment.CenterVertically
@@ -509,13 +489,10 @@ fun CodesListScreen(
                         dontAskChecked = false
                     },
                     title = {
-                        // Здесь код не удаляют, а убирают: из списка отмеченных
-                        // снимается отметка, из списка неотмеченных код уезжает в
-                        // корзину. Слово «удалить» осталось за самой корзиной, где оно
-                        // и означает то, что означает.
+                        // Codes are not deleted here: scanned ones are unmarked, unscanned
+                        // ones go to the bin. "Delete" is the bin's word.
                         Text(
-                            // спрашивается ровно про то, что произойдёт: в собирающей
-                            // сессии отметку снимать неоткуда, там код уезжает в корзину
+                            // a collecting session has nothing to unmark into, so its codes go to the bin
                             text = if (codeToDeleteIsScanned && !collecting) {
                                 unmarkTitle
                             } else {
@@ -535,8 +512,7 @@ fun CodesListScreen(
                                 style = MaterialTheme.typography.bodyLarge
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-                            // код отдельной строкой: в одну с вопросом он не влезает и
-                            // обрезается на пару символов
+                            // on its own line: next to the question it would be truncated
                             Text(
                                 text = previewCode,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -579,8 +555,7 @@ fun CodesListScreen(
                     },
                     dismissButton = {
                         TextButton(onClick = {
-                            // отменили - значит и галочку не применяем, и не оставляем
-                            // её нажатой на следующий раз
+                            // cancelling discards the checkbox too
                             codeToDelete = null
                             dontAskChecked = false
                         }) {
