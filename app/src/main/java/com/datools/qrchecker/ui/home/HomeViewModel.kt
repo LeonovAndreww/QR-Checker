@@ -1,16 +1,16 @@
 package com.datools.qrchecker.ui.home
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.model.SessionSummary
-import com.datools.qrchecker.util.DeleteConfirmation
+import com.datools.qrchecker.settings.DeleteConfirmation
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(

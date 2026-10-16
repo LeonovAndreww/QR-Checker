@@ -1,22 +1,24 @@
 package com.datools.qrchecker.ui.create
 
+import com.datools.qrchecker.R
+import com.datools.qrchecker.codes.CodeFormat
+import com.datools.qrchecker.codes.keepFormats
+import com.datools.qrchecker.data.SessionBackup
+import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.files.SessionFileException
+import com.datools.qrchecker.files.SourceSummary
+import com.datools.qrchecker.files.readCodesFromFiles
+import com.datools.qrchecker.model.SessionData
+import com.datools.qrchecker.ui.UiText
 import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.datools.qrchecker.R
-import com.datools.qrchecker.data.SessionRepository
-import com.datools.qrchecker.model.SessionData
-import com.datools.qrchecker.ui.UiText
-import com.datools.qrchecker.util.CodeFormat
-import com.datools.qrchecker.util.SessionBackup
-import com.datools.qrchecker.util.SessionFileException
-import com.datools.qrchecker.util.SourceSummary
-import com.datools.qrchecker.util.keepFormats
-import com.datools.qrchecker.util.readCodesFromFiles
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.UUID
+import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,8 +27,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import java.util.UUID
-import javax.inject.Inject
 
 private const val TAG = "CreateSession"
 

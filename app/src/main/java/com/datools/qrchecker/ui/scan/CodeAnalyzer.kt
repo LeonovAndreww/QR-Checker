@@ -1,12 +1,12 @@
 package com.datools.qrchecker.ui.scan
 
+import com.datools.qrchecker.codes.CodeFormat
+import com.datools.qrchecker.codes.normalizeCode
+import android.graphics.Rect
 import android.util.Log
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
-import android.graphics.Rect
-import com.datools.qrchecker.util.normalizeCode
-import com.datools.qrchecker.util.CodeFormat
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode

@@ -1,8 +1,10 @@
 package com.datools.qrchecker.util
 
+import com.datools.qrchecker.R
+import com.datools.qrchecker.settings.AppSettings
+import com.datools.qrchecker.settings.ClockChoice
 import android.content.Context
 import android.text.format.DateFormat as AndroidDateFormat
-import com.datools.qrchecker.R
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date

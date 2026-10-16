@@ -1,5 +1,7 @@
 package com.datools.qrchecker.ui
 
+import com.datools.qrchecker.R
+import com.datools.qrchecker.codes.CodeFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -14,8 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.datools.qrchecker.R
-import com.datools.qrchecker.util.CodeFormat
 
 /**
  * Checkboxes per code kind, shared by the create and edit screens: a retail barcode next

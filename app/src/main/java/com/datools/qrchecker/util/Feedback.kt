@@ -1,5 +1,6 @@
 package com.datools.qrchecker.util
 
+import com.datools.qrchecker.settings.AppSettings
 import android.content.Context
 import android.media.AudioManager
 import android.media.ToneGenerator

@@ -1,20 +1,21 @@
 package com.datools.qrchecker.ui.scan
 
+import com.datools.qrchecker.ARG_SESSION_ID
+import com.datools.qrchecker.codes.normalizeCode
+import com.datools.qrchecker.data.SessionBackup
+import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.di.ApplicationScope
+import com.datools.qrchecker.model.SessionData
+import com.datools.qrchecker.scan.CodePresence
+import com.datools.qrchecker.scan.ScanVerdict
+import com.datools.qrchecker.scan.verdictFor
+import com.datools.qrchecker.util.Outcome
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.datools.qrchecker.ARG_SESSION_ID
-import com.datools.qrchecker.data.SessionRepository
-import com.datools.qrchecker.di.ApplicationScope
-import com.datools.qrchecker.model.SessionData
-import com.datools.qrchecker.util.CodePresence
-import com.datools.qrchecker.util.Outcome
-import com.datools.qrchecker.util.ScanVerdict
-import com.datools.qrchecker.util.SessionBackup
-import com.datools.qrchecker.util.normalizeCode
-import com.datools.qrchecker.util.verdictFor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -27,7 +28,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 private const val TAG = "Scan"
 

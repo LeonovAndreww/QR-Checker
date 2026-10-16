@@ -1,5 +1,7 @@
 package com.datools.qrchecker.ui.theme
 
+import com.datools.qrchecker.settings.AppSettings
+import com.datools.qrchecker.settings.ThemeChoice
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -14,8 +16,6 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import com.datools.qrchecker.util.AppSettings
-import com.datools.qrchecker.util.ThemeChoice
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,

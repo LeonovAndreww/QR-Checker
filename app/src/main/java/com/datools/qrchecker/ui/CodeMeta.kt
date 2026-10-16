@@ -1,5 +1,8 @@
 package com.datools.qrchecker.ui
 
+import com.datools.qrchecker.R
+import com.datools.qrchecker.codes.describeCode
+import com.datools.qrchecker.codes.formatExpiry
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -10,9 +13,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import com.datools.qrchecker.R
-import com.datools.qrchecker.util.describeCode
-import com.datools.qrchecker.util.formatExpiry
 
 /**
  * One line under a code: its kind, expiry and batch. Shown for collapsed codes too,

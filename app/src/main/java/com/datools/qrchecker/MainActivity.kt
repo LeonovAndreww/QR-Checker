@@ -1,6 +1,10 @@
 package com.datools.qrchecker
 
-import dagger.hilt.android.AndroidEntryPoint
+import com.datools.qrchecker.settings.AppSettings
+import com.datools.qrchecker.settings.applyLanguage
+import com.datools.qrchecker.settings.localizedContext
+import com.datools.qrchecker.settings.refreshAppLanguage
+import com.datools.qrchecker.ui.theme.QRCheckerTheme
 import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
@@ -19,11 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.drawable.toDrawable
-import com.datools.qrchecker.ui.theme.QRCheckerTheme
-import com.datools.qrchecker.util.AppSettings
-import com.datools.qrchecker.util.applyLanguage
-import com.datools.qrchecker.util.localizedContext
-import com.datools.qrchecker.util.refreshAppLanguage
+import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
 
 @AndroidEntryPoint

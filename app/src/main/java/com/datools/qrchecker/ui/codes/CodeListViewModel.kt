@@ -1,17 +1,18 @@
 package com.datools.qrchecker.ui.codes
 
+import com.datools.qrchecker.ARG_SESSION_ID
+import com.datools.qrchecker.R
+import com.datools.qrchecker.data.SessionBackup
+import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.model.SessionData
+import com.datools.qrchecker.settings.DeleteConfirmation
+import com.datools.qrchecker.ui.UiText
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.datools.qrchecker.ARG_SESSION_ID
-import com.datools.qrchecker.R
-import com.datools.qrchecker.data.SessionRepository
-import com.datools.qrchecker.model.SessionData
-import com.datools.qrchecker.ui.UiText
-import com.datools.qrchecker.util.DeleteConfirmation
-import com.datools.qrchecker.util.SessionBackup
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -21,7 +22,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 private const val TAG = "CodeList"
 

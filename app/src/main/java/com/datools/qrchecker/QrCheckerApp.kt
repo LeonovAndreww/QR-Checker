@@ -1,15 +1,15 @@
 package com.datools.qrchecker
 
+import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.di.ApplicationScope
+import com.datools.qrchecker.settings.applyLanguage
 import android.app.Application
 import android.content.Context
 import android.util.Log
-import com.datools.qrchecker.data.SessionRepository
-import com.datools.qrchecker.di.ApplicationScope
-import com.datools.qrchecker.util.applyLanguage
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltAndroidApp
 class QrCheckerApp : Application() {

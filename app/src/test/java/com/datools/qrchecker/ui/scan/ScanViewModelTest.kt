@@ -1,14 +1,14 @@
 package com.datools.qrchecker.ui.scan
 
+import com.datools.qrchecker.ARG_SESSION_ID
+import com.datools.qrchecker.data.SessionBackup
+import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.data.room.AppDatabase
+import com.datools.qrchecker.model.SessionData
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.datools.qrchecker.ARG_SESSION_ID
-import com.datools.qrchecker.data.SessionRepository
-import com.datools.qrchecker.data.room.AppDatabase
-import com.datools.qrchecker.model.SessionData
-import com.datools.qrchecker.util.SessionBackup
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

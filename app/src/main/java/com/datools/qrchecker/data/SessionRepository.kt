@@ -5,10 +5,9 @@ import com.datools.qrchecker.data.room.SessionDao
 import com.datools.qrchecker.data.room.SessionEntity
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.model.SessionSummary
-import com.datools.qrchecker.util.SessionBackup
-import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
 
 /** How long a code stays in the bin before it is purged: a week. */
 private const val BIN_LIFETIME_MS = 7L * 24 * 60 * 60 * 1000
