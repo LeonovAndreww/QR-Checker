@@ -1,5 +1,6 @@
 package com.datools.qrchecker
 
+import dagger.hilt.android.AndroidEntryPoint
 import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
@@ -25,6 +26,7 @@ import com.datools.qrchecker.util.localizedContext
 import com.datools.qrchecker.util.refreshAppLanguage
 import java.util.Locale
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private var localized: Resources? = null

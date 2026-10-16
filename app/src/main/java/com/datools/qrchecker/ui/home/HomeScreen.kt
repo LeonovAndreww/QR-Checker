@@ -1,4 +1,4 @@
-package com.datools.qrchecker.ui
+package com.datools.qrchecker.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -55,8 +55,11 @@ import androidx.navigation.NavController
 import com.datools.qrchecker.navigateOnce
 import com.datools.qrchecker.R
 import com.datools.qrchecker.Screen
-import com.datools.qrchecker.data.SessionRepository
-import com.datools.qrchecker.util.DeleteConfirmation
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.datools.qrchecker.ui.ScrollbarBox
+import com.datools.qrchecker.ui.SwipeAction
+import com.datools.qrchecker.ui.SwipeActionRow
 import com.datools.qrchecker.util.Outcome
 import com.datools.qrchecker.util.rememberFeedback
 import com.datools.qrchecker.util.formatTimeAgo
@@ -69,14 +72,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(navController: NavController) {
     val context = LocalContext.current
-    val repo = remember { SessionRepository(context) }
-    val scope = rememberCoroutineScope()
-    // summaries only: the list draws names, so pulling every code of every session would be waste
-    // null - «база ещё не ответила», пустой список - «сессий нет».
-    //
-    // Раньше и то и другое было пустым списком, и на каждом холодном запуске на миг
-    // показывалось «сессий пока нет» - у человека с десятком партий в работе.
-    val sessions by remember { repo.getSummariesFlow() }.collectAsState(initial = null)
+    val viewModel: HomeViewModel = hiltViewModel()
+    val sessions by viewModel.sessions.collectAsStateWithLifecycle()
     var sessionToDelete by remember { mutableStateOf<SessionSummary?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val accents = MaterialTheme.accents
@@ -310,13 +307,8 @@ fun HomeScreen(navController: NavController) {
             },
             confirmButton = {
                 TextButton(onClick = {
-                    scope.launch {
-                        repo.delete(session.id)
-                        // настройка «не спрашивать» принадлежала этой сессии и вместе с
-                        // ней и уходит, иначе новая сессия унаследует чужой выбор
-                        DeleteConfirmation.forget(context, session.id)
-                        sessionToDelete = null
-                    }
+                    viewModel.delete(session.id)
+                    sessionToDelete = null
                 }) {
                     Text(deleteConfirm)
                 }

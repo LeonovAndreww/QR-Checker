@@ -2,30 +2,32 @@ package com.datools.qrchecker.util
 
 import android.content.Context
 import androidx.core.content.edit
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 private const val PREFS = "delete_confirmation"
 
 /**
- * Сессии, в которых человек попросил больше не переспрашивать перед удалением кода.
+ * Sessions in which the user asked not to confirm deleting a code again.
  *
- * Хранится по сессиям, а не одним выключателем на приложение: в одной партии коды правят
- * десятками и подтверждение только мешает, в другой удаление - редкое и опасное действие.
- * Переживает уход с экрана, иначе «запомнить» не значило бы ничего.
+ * Kept per session rather than as one switch: in one batch codes are fixed by the dozen
+ * and the question only gets in the way, in another a delete is rare and risky.
  */
-object DeleteConfirmation {
+@Singleton
+class DeleteConfirmation @Inject constructor(
+    @param:ApplicationContext private val context: Context
+) {
+    private val prefs get() = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    private fun prefs(context: Context) =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun isSkipped(sessionId: String): Boolean = prefs.getBoolean(sessionId, false)
 
-    fun isSkipped(context: Context, sessionId: String): Boolean =
-        prefs(context).getBoolean(sessionId, false)
-
-    fun skip(context: Context, sessionId: String) {
-        prefs(context).edit { putBoolean(sessionId, true) }
+    fun skip(sessionId: String) {
+        prefs.edit { putBoolean(sessionId, true) }
     }
 
-    /** Вызывается при удалении сессии, чтобы настройка не пережила саму сессию. */
-    fun forget(context: Context, sessionId: String) {
-        prefs(context).edit { remove(sessionId) }
+    /** Called when the session is deleted, so the choice does not outlive it. */
+    fun forget(sessionId: String) {
+        prefs.edit { remove(sessionId) }
     }
 }

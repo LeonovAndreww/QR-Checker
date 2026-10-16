@@ -1,4 +1,4 @@
-package com.datools.qrchecker.ui
+package com.datools.qrchecker.ui.scan
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

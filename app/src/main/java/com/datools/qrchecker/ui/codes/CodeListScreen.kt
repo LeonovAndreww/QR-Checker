@@ -1,4 +1,4 @@
-package com.datools.qrchecker.ui
+package com.datools.qrchecker.ui.codes
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -30,18 +30,14 @@ import com.datools.qrchecker.TYPE_SCANNED
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Checkbox
-import com.datools.qrchecker.util.DeleteConfirmation
 import com.datools.qrchecker.util.Outcome
 import com.datools.qrchecker.util.rememberFeedback
-import com.datools.qrchecker.util.SessionBackup
-import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.util.buildCsv
 import com.datools.qrchecker.util.formatScanTimeForScreen
 import com.datools.qrchecker.util.formatTimeAgo
 import com.datools.qrchecker.util.shortCode
 import com.datools.qrchecker.util.AppSettings
 import com.datools.qrchecker.util.shareCsv
-import com.datools.qrchecker.model.SessionData
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -56,6 +52,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.R
+import com.datools.qrchecker.ui.CodeMetaLine
+import com.datools.qrchecker.ui.ScrollbarBox
+import com.datools.qrchecker.ui.SwipeAction
+import com.datools.qrchecker.ui.SwipeActionRow
+import com.datools.qrchecker.ui.resolve
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private const val TAG = "QRChecker"
 
@@ -66,14 +69,14 @@ private const val TIME_AGO_REFRESH_MS = 10_000L
 @Composable
 fun CodesListScreen(
     navController: NavController,
-    sessionId: String,
     type: String // TYPE_SCANNED or TYPE_NOT_SCANNED
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
     val feel = rememberFeedback()
-    val repo = remember { SessionRepository(context) }
-    var session by remember { mutableStateOf<SessionData?>(null) }
+    val viewModel: CodeListViewModel = hiltViewModel()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val session = state.session
     val scope = rememberCoroutineScope()
 
     // snackbar host
@@ -96,26 +99,12 @@ fun CodesListScreen(
     var codeToDelete by remember { mutableStateOf<String?>(null) }
     // порядок списка. Один переключатель вместо меню: вариантов ровно два
     var newestFirst by rememberSaveable { mutableStateOf(true) }
-    var skipDeleteConfirm by remember {
-        mutableStateOf(DeleteConfirmation.isSkipped(context, sessionId))
-    }
     var dontAskChecked by remember { mutableStateOf(false) }
     var codeToDeleteIsScanned by remember { mutableStateOf(false) }
     val codeDetails by AppSettings.codeFieldsState(context)
     val codeKindShown by AppSettings.codeKindState(context)
     val scrollbarShown by AppSettings.scrollbarState(context)
     val listState = rememberLazyListState()
-
-    // LaunchedEffect is already a coroutine tied to this composable, and repo.getById is a
-    // suspend Room call that dispatches itself — no extra scope or IO switch needed here
-    LaunchedEffect(sessionId) {
-        session = try {
-            repo.getById(sessionId)
-        } catch (t: Throwable) {
-            Log.e(TAG, "Can't load session $sessionId", t)
-            null
-        }
-    }
 
     val scannedCount = session?.scannedCodes?.size ?: 0
     // у собирающей сессии список один, и слово «отсканированные» в нём лишнее:
@@ -146,10 +135,6 @@ fun CodesListScreen(
     val deleteCancel = stringResource(id = R.string.delete_cancel)
     val binAction = stringResource(id = R.string.bin_code_action)
     val unmarkAction = stringResource(id = R.string.unmark_code_action)
-    val binSuccess = stringResource(id = R.string.delete_code_binned)
-    val unmarkSuccess = stringResource(id = R.string.delete_code_unmarked)
-    val deleteFailed = stringResource(id = R.string.delete_code_failed)
-    val deleteError = stringResource(id = R.string.delete_code_error)
     val exportCd = stringResource(id = R.string.cd_export)
     val sortNewestCd = stringResource(id = R.string.cd_sort_newest)
     val sortOldestCd = stringResource(id = R.string.cd_sort_oldest)
@@ -231,42 +216,14 @@ fun CodesListScreen(
         }
     }
 
-    fun performDelete(code: String, isScanned: Boolean) {
-        // В собирающей сессии снимать отметку некуда: списка неотсканированных у неё
-        // нет, и код просто пропал бы из единственного видимого списка и из счётчика,
-        // оставшись в сессии и в выгрузке. Поэтому оттуда - сразу в корзину.
-        val unmark = isScanned && !collecting
-        scope.launch {
-            try {
-                // в списке отсканированных код возвращается в неотсканированные;
-                // в списке неотсканированных он уходит из сессии совсем
-                if (unmark) {
-                    repo.unmarkScanned(sessionId, code)
-                } else {
-                    repo.deleteCode(sessionId, code)
-                }
-
-                val updated = repo.getById(sessionId)
-                if (updated != null) {
-                    session = updated
-                    SessionBackup.scheduleSave(context, updated)
-                    // два разных действия и два разных ответа: в списке отмеченных
-                    // снимается отметка, в списке неотмеченных код уезжает в корзину
-                    say(if (unmark) unmarkSuccess else binSuccess)
-                } else {
-                    say(deleteFailed)
-                }
-            } catch (t: Throwable) {
-                Log.e(TAG, "Can't delete code from session $sessionId", t)
-                say("$deleteError: ${t.message}")
-            }
-        }
+    LaunchedEffect(viewModel, context) {
+        viewModel.messages.collect { say(it.resolve(context)) }
     }
 
     // один путь для кнопки и для свайпа: подтверждение спрашивается или нет одинаково
     fun requestDelete(code: String, isScanned: Boolean) {
-        if (skipDeleteConfirm) {
-            performDelete(code, isScanned)
+        if (state.skipDeleteConfirm) {
+            viewModel.delete(code, isScanned)
         } else {
             codeToDelete = code
             codeToDeleteIsScanned = isScanned
@@ -481,7 +438,7 @@ fun CodesListScreen(
                                                     // глазами на ходу, а точное время нужно,
                                                     // только когда в него вглядываются
                                                     if (!expanded) {
-                                                        session?.scanTimes?.get(code)?.let { at ->
+                                                        session.scanTimes?.get(code)?.let { at ->
                                                             Text(
                                                                 text = formatTimeAgo(context, at, now),
                                                                 style = MaterialTheme.typography.bodySmall,
@@ -525,7 +482,7 @@ fun CodesListScreen(
                                                     Text(copyCodeText)
                                                 }
                                                 Spacer(modifier = Modifier.weight(1f))
-                                                session?.scanTimes?.get(code)?.let { at ->
+                                                session.scanTimes?.get(code)?.let { at ->
                                                     Text(
                                                         text = formatScanTimeForScreen(context, at),
                                                         style = MaterialTheme.typography.bodySmall,
@@ -605,12 +562,11 @@ fun CodesListScreen(
                             val code = codeToDelete!!
                             val isScanned = codeToDeleteIsScanned
                             if (dontAskChecked) {
-                                DeleteConfirmation.skip(context, sessionId)
-                                skipDeleteConfirm = true
+                                viewModel.skipDeleteConfirmation()
                             }
                             codeToDelete = null
                             dontAskChecked = false
-                            performDelete(code, isScanned)
+                            viewModel.delete(code, isScanned)
                         }) {
                             Text(
                                 if (codeToDeleteIsScanned && !collecting) {

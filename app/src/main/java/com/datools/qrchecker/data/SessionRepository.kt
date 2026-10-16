@@ -1,24 +1,26 @@
 package com.datools.qrchecker.data
 
-import android.content.Context
-import android.util.Log
-import com.datools.qrchecker.data.room.AppDatabase
 import com.datools.qrchecker.data.room.SessionCodeEntity
+import com.datools.qrchecker.data.room.SessionDao
 import com.datools.qrchecker.data.room.SessionEntity
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.model.SessionSummary
 import com.datools.qrchecker.util.SessionBackup
 import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
+import javax.inject.Singleton
 
-private const val TAG = "QRChecker"
-
-/** Сколько код лежит в корзине, прежде чем исчезнуть сам: неделя. */
+/** How long a code stays in the bin before it is purged: a week. */
 private const val BIN_LIFETIME_MS = 7L * 24 * 60 * 60 * 1000
 
-class SessionRepository(context: Context) {
-    private val appContext = context.applicationContext
-    private val dao = AppDatabase.getInstance(context).sessionDao()
+/** Codes per SQL "IN (...)" list, under SQLite's limit on bound parameters. */
+private const val IN_CHUNK = 500
 
+@Singleton
+class SessionRepository @Inject constructor(
+    private val dao: SessionDao,
+    private val backup: SessionBackup
+) {
     suspend fun insert(session: SessionData, now: Long = System.currentTimeMillis()) {
         dao.insertSessionWithCodes(
             SessionEntity(
@@ -40,48 +42,31 @@ class SessionRepository(context: Context) {
             name = session.name,
             codes = codes.map { it.code },
             scannedCodes = codes.filter { it.scanned }.map { it.code },
-            scanTimes = codes.mapNotNull { row ->
-                row.scannedAt?.let { row.code to it }
-            }.toMap(),
+            scanTimes = codes.mapNotNull { row -> row.scannedAt?.let { row.code to it } }.toMap(),
             collecting = session.collecting
         )
     }
 
-    /** Отмечает, что сессию открыли: по этому времени список и упорядочен. */
+    /** The home list is ordered by this, so what is being worked on now stays on top. */
     suspend fun touchOpened(sessionId: String, at: Long = System.currentTimeMillis()) =
         dao.touchOpened(sessionId, at)
 
     fun getSummariesFlow(): Flow<List<SessionSummary>> = dao.getSummariesFlow()
 
-    /**
-     * Удаляет сессию вместе с её копией в папке бэкапа.
-     *
-     * Копия убирается здесь, а не на экране: удаление - это одно действие, откуда бы его
-     * ни вызвали, и копия, пережившая сессию, возвращала её при каждом восстановлении.
-     */
+    /** Deletes the session together with its backup copy, wherever the delete comes from. */
     suspend fun delete(sessionId: String) {
         dao.deleteSession(sessionId)
-        SessionBackup.scheduleDelete(appContext, sessionId)
+        backup.scheduleDelete(sessionId)
     }
 
-    suspend fun exists(sessionId: String): Boolean = dao.getSession(sessionId) != null
-
-    /**
-     * Marks one code as scanned, touching a single row. Returns false when the code is not
-     * part of the session or was already scanned.
-     */
+    /** False when the code is not in the session or was already scanned. */
     suspend fun markScanned(
         sessionId: String,
         code: String,
         at: Long = System.currentTimeMillis()
     ): Boolean = dao.markScanned(sessionId, code, at) > 0
 
-    /**
-     * Дописывает в собирающую сессию код, которого в ней ещё не было.
-     *
-     * Отдельно от markScanned: тот обновляет строку, которая уже есть, и для нового кода
-     * не делает ничего.
-     */
+    /** Adds a new code to a collecting session, already scanned. */
     suspend fun recordScanned(
         sessionId: String,
         code: String,
@@ -94,17 +79,14 @@ class SessionRepository(context: Context) {
     }
 
     /**
-     * Убирает код из сессии в корзину.
-     *
-     * Не насовсем: удаление кода - единственное здесь необратимое действие, а
-     * промахнуться по строке в списке на несколько тысяч проще простого. Вернуть его
-     * можно на экране правки сессии.
+     * Moves a code to the bin rather than deleting it: it is the only destructive action
+     * here, and missing a row in a list of thousands is easy.
      */
     suspend fun deleteCode(sessionId: String, code: String, at: Long = System.currentTimeMillis()) {
         dao.moveCodeToBin(sessionId, code, at)
     }
 
-    /** Что лежит в корзине этой сессии, свежеудалённое сверху. */
+    /** Binned codes with the time they were binned, newest first. */
     suspend fun binnedCodes(sessionId: String): List<Pair<String, Long>> =
         dao.getDeletedCodes(sessionId).map { it.code to (it.deletedAt ?: 0L) }
 
@@ -112,33 +94,25 @@ class SessionRepository(context: Context) {
         dao.restoreCode(sessionId, code)
     }
 
-    /** Очищает корзину. Вот это уже насовсем. */
+    /** Empties the bin for good. */
     suspend fun emptyBin(sessionId: String): Int = dao.purgeBin(sessionId)
 
-    /** Удаляет из корзины один код - тоже насовсем. */
+    /** Deletes one binned code for good. */
     suspend fun purgeCode(sessionId: String, code: String) {
         dao.purgeCode(sessionId, code)
     }
 
-    /**
-     * Выбрасывает из корзины всё, что пролежало в ней дольше недели.
-     *
-     * Срок не настраивается: партию сверяют за смену, и код, о котором не вспомнили за
-     * неделю, не вспомнят уже никогда. Отдельная настройка на это была бы вопросом, на
-     * который никому не хочется отвечать.
-     */
+    /** Drops bin entries older than a week, across all sessions. */
     suspend fun purgeOldBin(now: Long = System.currentTimeMillis()): Int =
         dao.purgeBinnedBefore(now - BIN_LIFETIME_MS)
 
     suspend fun rename(sessionId: String, name: String) = dao.renameSession(sessionId, name)
 
-    /** Replaces the code list, keeping the scanned state of the codes that survive. */
+    /** Replaces the code list, keeping the marks and their times on codes that survive. */
     suspend fun replaceCodes(sessionId: String, name: String, codes: List<String>) {
         val previous = dao.getCodes(sessionId).filter { it.scanned }
         val stillScanned = previous.mapTo(HashSet()) { it.code }
-        // время отметки переживает замену PDF вместе с самой отметкой
-        val previousTimes = previous.mapNotNull { row -> row.scannedAt?.let { row.code to it } }
-            .toMap()
+        val previousTimes = previous.mapNotNull { row -> row.scannedAt?.let { row.code to it } }.toMap()
 
         dao.renameAndReplaceCodes(
             sessionId,
@@ -156,11 +130,8 @@ class SessionRepository(context: Context) {
     }
 
     /**
-     * Сессия, у которой ровно тот же набор кодов, что у открываемого файла.
-     *
-     * Сравнивается набор, а не порядок: тот же PDF, разложенный в другом порядке, - та же
-     * партия. Сначала отсеиваются сессии другого размера, чтобы не тянуть коды всех
-     * сессий подряд.
+     * A session with exactly the same set of codes, in any order: the same document opened
+     * twice is the same batch. Sessions of another size are filtered out in SQL first.
      */
     suspend fun findWithSameCodes(codes: Collection<String>): SessionData? {
         val wanted = codes.toHashSet()
@@ -171,15 +142,8 @@ class SessionRepository(context: Context) {
     }
 
     /**
-     * Переносит отметки из открытого файла в уже существующую сессию. Возвращает, сколько
-     * отметок добавилось - только их и стоит показывать пользователю.
-     *
-     * Время у каждой отметки своё, из файла. Единое «сейчас» на всех приписывало
-     * вчерашней приёмке сегодняшний час: и «уже отсканирован час назад» на экране, и
-     * колонка времени в отчёте после такого слияния врали.
-     *
-     * Коды без времени идут пачками по 500: в списке IN у SQLite ограничение на число
-     * параметров.
+     * Copies marks from a file into an existing session and returns how many were new.
+     * Each mark keeps its own time from the file; codes without one get [at].
      */
     suspend fun mergeScanned(
         sessionId: String,
@@ -188,19 +152,14 @@ class SessionRepository(context: Context) {
         at: Long = System.currentTimeMillis()
     ): Int {
         val (timed, untimed) = scanned.partition { it in times }
-        val changed = untimed.chunked(500).sumOf { dao.markScannedIn(sessionId, it, at) }
+        val changed = untimed.chunked(IN_CHUNK).sumOf { dao.markScannedIn(sessionId, it, at) }
         return changed + dao.markScannedEach(sessionId, timed.associateWith { times.getValue(it) })
     }
 
-    /** Идентификаторы всех сессий - чтобы при восстановлении не заводить дубликаты. */
+    /** Ids of all sessions, so a restore does not create duplicates. */
     suspend fun existingIds(): Set<String> = dao.getSessionIds().toHashSet()
 
-    /**
-     * Свободное имя: то же самое, а если такое уже занято - с номером в скобках.
-     *
-     * Две сессии с одинаковым именем в списке неразличимы, а «создать отдельную» именно
-     * это и делало: рядом появлялась вторая строка, ничем не отличающаяся от первой.
-     */
+    /** The wanted name, or the same with a number in brackets if it is taken. */
     suspend fun freeName(wanted: String): String {
         val taken = dao.getSessionNames().toHashSet()
         if (wanted !in taken) return wanted

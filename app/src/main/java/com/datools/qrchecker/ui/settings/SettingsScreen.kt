@@ -1,6 +1,5 @@
-package com.datools.qrchecker.ui
+package com.datools.qrchecker.ui.settings
 
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,27 +58,28 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.R
-import com.datools.qrchecker.data.SessionRepository
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.datools.qrchecker.ui.resolve
 import com.datools.qrchecker.util.AppSettings
 import com.datools.qrchecker.util.ClockChoice
 import com.datools.qrchecker.util.LanguageChoice
 import com.datools.qrchecker.util.Outcome
-import com.datools.qrchecker.util.SessionBackup
 import com.datools.qrchecker.util.ThemeChoice
 import com.datools.qrchecker.util.rememberFeedback
 import kotlinx.coroutines.launch
-
-private const val TAG = "QRChecker"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(navController: NavController) {
     val context = LocalContext.current
-    val repo = remember { SessionRepository(context) }
-    val scope = rememberCoroutineScope()
+    val viewModel: SettingsViewModel = hiltViewModel()
+    val backupState by viewModel.backupState.collectAsStateWithLifecycle()
+    val folderName = backupState.folderName
+    val enabled = backupState.autoEnabled
+    val restoring = backupState.restoring
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var folderName by remember { mutableStateOf(SessionBackup.folderName(context)) }
     val theme by AppSettings.themeState(context)
     val language by AppSettings.languageState(context)
     val clock by AppSettings.clockState(context)
@@ -87,8 +88,6 @@ fun SettingsScreen(navController: NavController) {
     val codeDetails by AppSettings.codeFieldsState(context)
     val scanCode by AppSettings.scanCodeState(context)
     val feel = rememberFeedback(withSound = true)
-    var enabled by remember { mutableStateOf(SessionBackup.isEnabled(context)) }
-    var restoring by remember { mutableStateOf(false) }
 
     val title = stringResource(id = R.string.settings_title)
     val appearanceTitle = stringResource(id = R.string.appearance_title)
@@ -123,26 +122,24 @@ fun SettingsScreen(navController: NavController) {
     )
     val backupTitle = stringResource(id = R.string.backup_title)
     val backupWhy = stringResource(id = R.string.backup_why)
-    val pickFolderFirst = stringResource(id = R.string.backup_pick_folder_first)
     val folderNone = stringResource(id = R.string.backup_folder_none)
     val chooseFolder = stringResource(id = R.string.backup_choose_folder)
     val changeFolder = stringResource(id = R.string.backup_change_folder)
     val forgetFolder = stringResource(id = R.string.backup_forget_folder)
     val autoLabel = stringResource(id = R.string.backup_auto)
     val restoreLabel = stringResource(id = R.string.backup_restore)
-    val folderFailed = stringResource(id = R.string.backup_folder_failed)
-    val restoreTemplate = stringResource(id = R.string.backup_restored)
-    val restoreFailed = stringResource(id = R.string.backup_restore_failed)
 
     val pickFolder = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        if (SessionBackup.setFolder(context, uri)) {
-            folderName = SessionBackup.folderName(context)
-            enabled = SessionBackup.isEnabled(context)
-        } else {
-            scope.launch { snackbarHostState.showSnackbar(folderFailed) }
+        if (uri != null) viewModel.onFolderPicked(uri)
+    }
+
+    // one-off messages from the view model, resolved with the screen's localized context
+    LaunchedEffect(viewModel, context) {
+        viewModel.messages.collect { message ->
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(message.resolve(context))
         }
     }
 
@@ -308,11 +305,7 @@ fun SettingsScreen(navController: NavController) {
                             Text(if (folderName == null) chooseFolder else changeFolder)
                         }
                         if (folderName != null) {
-                            TextButton(onClick = {
-                                SessionBackup.clearFolder(context)
-                                folderName = null
-                                enabled = false
-                            }) {
+                            TextButton(onClick = { viewModel.forgetFolder() }) {
                                 Text(forgetFolder)
                             }
                         }
@@ -326,18 +319,7 @@ fun SettingsScreen(navController: NavController) {
                         Text(autoLabel, style = MaterialTheme.typography.bodyLarge)
                         Switch(
                             checked = enabled,
-                            onCheckedChange = {
-                                // тумблер не заперт: запертый неотличим от сломанного.
-                                // Без папки он объясняет, чего не хватает
-                                if (folderName == null) {
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar(pickFolderFirst)
-                                    }
-                                    return@Switch
-                                }
-                                enabled = it
-                                SessionBackup.setEnabled(context, it)
-                            }
+                            onCheckedChange = { viewModel.setAutoEnabled(it) }
                         )
                     }
 
@@ -345,27 +327,7 @@ fun SettingsScreen(navController: NavController) {
 
                     OutlinedButton(
                         enabled = folderName != null && !restoring,
-                        onClick = {
-                            restoring = true
-                            scope.launch {
-                                try {
-                                    val known = repo.existingIds()
-                                    // восстанавливаются только те, которых на устройстве
-                                    // нет: повторное восстановление ничего не затирает
-                                    val missing =
-                                        SessionBackup.readAll(context).filter { it.id !in known }
-                                    for (session in missing) repo.insert(session)
-                                    snackbarHostState.showSnackbar(
-                                        restoreTemplate.format(missing.size)
-                                    )
-                                } catch (t: Throwable) {
-                                    Log.e(TAG, "Can't restore from the backup folder", t)
-                                    snackbarHostState.showSnackbar(restoreFailed)
-                                } finally {
-                                    restoring = false
-                                }
-                            }
-                        },
+                        onClick = { viewModel.restore() },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(restoreLabel)

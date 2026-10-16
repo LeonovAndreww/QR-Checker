@@ -1,4 +1,4 @@
-package com.datools.qrchecker.ui
+package com.datools.qrchecker.ui.create
 
 import android.net.Uri
 import android.util.Log
@@ -19,7 +19,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.TextButton
-import com.datools.qrchecker.viewmodel.ParsedFile
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -66,8 +65,11 @@ import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.datools.qrchecker.viewmodel.ScanViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.datools.qrchecker.ui.FormatFilter
+import com.datools.qrchecker.ui.FullHeightColumn
+import com.datools.qrchecker.ui.asString
 
 private const val TAG = "QRChecker"
 
@@ -81,7 +83,8 @@ fun CreateSessionScreen(navController: NavController) {
     var nameTakenFromFile by rememberSaveable { mutableStateOf(false) }
 
     // getting ViewModel
-    val scanViewModel: ScanViewModel = viewModel()
+    val viewModel: CreateSessionViewModel = hiltViewModel()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     val documentPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
@@ -106,21 +109,21 @@ fun CreateSessionScreen(navController: NavController) {
                         .substringBeforeLast('.')
                         .trim()
                 }
-                scanViewModel.clearError()
-                scanViewModel.clearParsed()
+                viewModel.clearError()
+                viewModel.clearParsed()
                 // разбор начинается здесь, а не по кнопке: ждать нажатия незачем
-                scanViewModel.parseSelectedFiles(context, files)
+                viewModel.parseFiles(files)
             }
         }
     )
 
-    val isLoading by scanViewModel.isLoading
-    val isParsing by scanViewModel.isParsing
-    val progress by scanViewModel.progress
-    val parsed by scanViewModel.parsed
-    val createdSessionId by scanViewModel.createdSessionId
-    val conflict by scanViewModel.conflict
-    val mergedMarks by scanViewModel.mergedMarks
+    val isLoading = state.isLoading
+    val isParsing = state.isParsing
+    val progress = state.progress
+    val parsed = state.parsed
+    val createdSessionId = state.createdSessionId
+    val conflict = state.conflict
+    val mergedMarks = state.mergedMarks
 
     // Какие виды кодов берём в сессию. Пересобирается на каждый новый разбор: остаться
     // от прошлого файла выбор не должен.
@@ -134,7 +137,7 @@ fun CreateSessionScreen(navController: NavController) {
     var keptFormats by remember(parsed) {
         mutableStateOf(formatCounts.map { it.first }.toSet())
     }
-    val errorMessage by scanViewModel.errorMessage
+    val errorMessage = state.error?.asString()
 
     // у файла сессии имя уже есть - подставляем его, чтобы не заставлять придумывать
     LaunchedEffect(parsed) {
@@ -157,7 +160,7 @@ fun CreateSessionScreen(navController: NavController) {
         val id = createdSessionId ?: return@LaunchedEffect
         if (mergedMarks != null || !resumed) return@LaunchedEffect
         if (navController.navigateOnce(Screen.Scan.createRoute(id))) {
-            scanViewModel.clearCreatedSessionId()
+            viewModel.clearCreatedSessionId()
         }
     }
 
@@ -220,7 +223,7 @@ fun CreateSessionScreen(navController: NavController) {
             isLoading -> Unit
             parsed != null -> {
                 chosenName = name
-                scanViewModel.createSession(context, name, keepFormats = keptFormats)
+                viewModel.createSession(name, keepFormats = keptFormats)
             }
             // файл выбран, но кодов из него не вышло: это не «файл не выбран»
             selectedNames.isNotEmpty() -> say(errorMessage ?: noCodesText)
@@ -296,7 +299,7 @@ fun CreateSessionScreen(navController: NavController) {
             }
 
             if (isLoading && progress != null) {
-                val p = progress!!
+                val p = progress
                 Spacer(Modifier.height(12.dp))
                 Column(
                     modifier = Modifier
@@ -331,7 +334,7 @@ fun CreateSessionScreen(navController: NavController) {
                         )
                     }
                     TextButton(onClick = {
-                        scanViewModel.cancelParsing()
+                        viewModel.cancelParsing()
                         // отменённый выбор - это не выбранный файл
                         selectedNames = emptyList()
                     }) {
@@ -457,7 +460,7 @@ fun CreateSessionScreen(navController: NavController) {
             confirmButton = {
                 TextButton(onClick = {
                     askNoFile = null
-                    scanViewModel.createCollectingSession(context, name)
+                    viewModel.createCollectingSession(name)
                 }) {
                     Text(stringResource(id = R.string.no_file_confirm))
                 }
@@ -472,11 +475,11 @@ fun CreateSessionScreen(navController: NavController) {
 
     mergedMarks?.let { count ->
         AlertDialog(
-            onDismissRequest = { scanViewModel.clearMergedMarks() },
+            onDismissRequest = { viewModel.clearMergedMarks() },
             title = { Text(mergedTitle) },
             text = { Text(stringResource(R.string.session_merged, count)) },
             confirmButton = {
-                TextButton(onClick = { scanViewModel.clearMergedMarks() }) {
+                TextButton(onClick = { viewModel.clearMergedMarks() }) {
                     Text(continueText)
                 }
             }
@@ -485,11 +488,11 @@ fun CreateSessionScreen(navController: NavController) {
 
     conflict?.let { existing ->
         AlertDialog(
-            onDismissRequest = { scanViewModel.dismissConflict() },
+            onDismissRequest = { viewModel.dismissConflict() },
             title = { Text(existsTitle) },
             text = { Text(stringResource(R.string.session_exists_text, existing.name)) },
             confirmButton = {
-                TextButton(onClick = { scanViewModel.mergeIntoExisting(context) }) {
+                TextButton(onClick = { viewModel.mergeIntoExisting() }) {
                     Text(mergeText)
                 }
             },
@@ -498,13 +501,12 @@ fun CreateSessionScreen(navController: NavController) {
                 // передумать. Отказаться раньше было можно только нажатием мимо окна,
                 // о котором никто не догадывается.
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = { scanViewModel.dismissConflict() }) {
+                    TextButton(onClick = { viewModel.dismissConflict() }) {
                         Text(cancelText)
                     }
                     TextButton(onClick = {
-                        scanViewModel.dismissConflict()
-                        scanViewModel.createSession(
-                            context,
+                        viewModel.dismissConflict()
+                        viewModel.createSession(
                             chosenName,
                             force = true,
                             keepFormats = keptFormats

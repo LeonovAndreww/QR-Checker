@@ -1,41 +1,19 @@
-package com.datools.qrchecker.ui
+package com.datools.qrchecker.ui.edit
 
 import android.net.Uri
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import android.content.ClipData
-import android.os.Build
-import androidx.compose.animation.animateContentSize
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Card
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Scaffold
@@ -48,84 +26,77 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.R
-import com.datools.qrchecker.data.SessionRepository
-import com.datools.qrchecker.util.shortCode
-import com.datools.qrchecker.util.SessionBackup
-import com.datools.qrchecker.model.SessionData
-import com.datools.qrchecker.util.Outcome
-import com.datools.qrchecker.util.formatTimeAgo
 import com.datools.qrchecker.util.rememberFeedback
 import com.datools.qrchecker.util.getFileNameFromUri
-import com.datools.qrchecker.util.readCodesFromFiles
-import com.datools.qrchecker.util.CodeFormat
 import com.datools.qrchecker.util.countFormats
-import com.datools.qrchecker.util.keepFormats
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.isActive
+import com.datools.qrchecker.ui.FullHeightColumn
+import com.datools.qrchecker.ui.resolve
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import android.content.ClipData
+import android.os.Build
+import androidx.compose.animation.animateContentSize
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.Card
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.ClipEntry
+import com.datools.qrchecker.util.shortCode
+import com.datools.qrchecker.util.Outcome
+import com.datools.qrchecker.util.formatTimeAgo
+import com.datools.qrchecker.ui.FormatFilter
+import com.datools.qrchecker.ui.SwipeAction
+import com.datools.qrchecker.ui.SwipeActionRow
+import com.datools.qrchecker.ui.asString
 
-private const val TAG = "QRChecker"
-
-/**
- * A failure to show, kept as a resource id so the text is resolved during composition and
- * follows a locale change, instead of being baked in from a Context at the time it happened.
- */
-private data class ScreenError(@param:StringRes val resId: Int, val detail: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditSessionScreen(
-    navController: NavController,
-    sessionId: String
+    navController: NavController
 ) {
     val context = LocalContext.current
-    val repo = remember { SessionRepository(context) }
+    val viewModel: EditSessionViewModel = hiltViewModel()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    // разбор выбранных файлов: живёт между выборами, чтобы прежний можно было отменить
-    var parseJob by remember { mutableStateOf<Job?>(null) }
-
-    var original by remember { mutableStateOf<SessionData?>(null) }
-
-    // form states
-    var name by remember { mutableStateOf("") }
-
-    // file picker states
-    var selectedNames by remember { mutableStateOf(listOf<String>()) }
-
-    // parsed codes from newly selected PDF (null = nothing selected, empty list = parsed but no codes)
-    var parsedCodes by remember { mutableStateOf<List<String>?>(null) }
-    // чем записан каждый разобранный код и какие виды человек оставил - как при создании
-    var parsedFormats by remember { mutableStateOf<Map<String, CodeFormat>>(emptyMap()) }
-    var keptFormats by remember { mutableStateOf<Set<CodeFormat>>(emptySet()) }
-    val formatCounts = remember(parsedCodes, parsedFormats) {
-        parsedCodes?.let { countFormats(it, parsedFormats) }.orEmpty()
+    val original = state.original
+    val name = state.name
+    val selectedNames = state.selectedNames
+    val keptFormats = state.keptFormats
+    val isLoading = state.isLoading
+    val binned = state.binned
+    val formatCounts = remember(state.parsedCodes, state.parsedFormats) {
+        state.parsedCodes?.let { countFormats(it, state.parsedFormats) }.orEmpty()
     }
-    // то, что реально ляжет в сессию: разобранное минус снятые виды
-    val keptCodes = remember(parsedCodes, parsedFormats, keptFormats) {
-        parsedCodes?.let { keepFormats(it, parsedFormats, keptFormats) }
+    val keptCodes = remember(state.parsedCodes, state.parsedFormats, state.keptFormats) {
+        state.keptCodes
     }
-
-    // loading / error
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<ScreenError?>(null) }
 
     // корзина: что убрали из сессии и когда
-    var binned by remember { mutableStateOf<List<Pair<String, Long>>>(emptyList()) }
     var showEmptyBinConfirm by remember { mutableStateOf(false) }
     // раскрытые коды корзины, сколько угодно сразу
     var expandedBinCodes by remember { mutableStateOf(setOf<String>()) }
@@ -147,65 +118,17 @@ fun EditSessionScreen(
     val binEmptyText = stringResource(id = R.string.bin_empty)
     val binEmptyTitle = stringResource(id = R.string.bin_empty_title)
     val binEmptyConfirm = stringResource(id = R.string.bin_empty_confirm)
-    val binDeletedText = stringResource(id = R.string.bin_deleted)
     val binDeleteCd = stringResource(id = R.string.cd_swipe_delete)
     val copyCodeText = stringResource(id = R.string.cd_copy_code)
     val codeCopiedText = stringResource(id = R.string.code_copied)
 
-    suspend fun reloadBin() {
-        binned = try {
-            repo.binnedCodes(sessionId)
-        } catch (t: Throwable) {
-            Log.e(TAG, "Can't read the bin of session $sessionId", t)
-            emptyList()
-        }
+    LaunchedEffect(state.finished) {
+        if (state.finished) navController.popBackStackOnce()
     }
-
-    // Сессия и её корзина читаются при входе на экран.
-    //
-    // Загрузка пропала при выносе разбора файлов в FileCodes.kt, и экран правки с тех
-    // пор открывался с пустым полем имени, а «Сохранить» молча ничего не делал: сохранять
-    // было нечего, original так и оставался пустым.
-    LaunchedEffect(sessionId) {
-        isLoading = true
-        try {
-            val loaded = repo.getById(sessionId)
-            original = loaded
-            if (loaded != null) {
-                name = loaded.name
-                reloadBin()
-            } else {
-                navController.popBackStackOnce()
-            }
-        } catch (t: Throwable) {
-            Log.e(TAG, "Can't load session $sessionId", t)
-            errorMessage = ScreenError(R.string.error_loading_session, t.message ?: "")
-        } finally {
-            isLoading = false
-        }
-    }
-
-    /** [newCodes] is null when only the name changed, so the code rows are left alone. */
-    fun saveAndClose(newCodes: List<String>?) {
-        val current = original ?: return
-        scope.launch {
-            isLoading = true
-            try {
-                if (newCodes == null) {
-                    repo.rename(current.id, name)
-                } else {
-                    // the repository keeps the scanned state of the codes that survive
-                    repo.replaceCodes(current.id, name, newCodes)
-                }
-                // копия снимается с того, что легло в базу, а не с того, что было на экране
-                repo.getById(current.id)?.let { SessionBackup.scheduleSave(context, it) }
-                navController.popBackStackOnce()
-            } catch (t: Throwable) {
-                Log.e(TAG, "Can't save session", t)
-                errorMessage = ScreenError(R.string.error_saving_session, t.message ?: "")
-            } finally {
-                isLoading = false
-            }
+    LaunchedEffect(viewModel, context) {
+        viewModel.messages.collect { message ->
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(message.resolve(context))
         }
     }
 
@@ -214,46 +137,7 @@ fun EditSessionScreen(
     ) { uris: List<Uri> ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
         val files = uris.map { it to getFileNameFromUri(it, context) }
-        selectedNames = files.map { it.second }
-        // Прежний разбор отменяется. Без этого два выбора шли параллельно, и результат
-        // побеждал не тот, что выбран последним, а тот, что дочитался последним: на
-        // экране стояло имя нового файла, а в сессию сохранялись коды старого.
-        parseJob?.cancel()
-        parseJob = scope.launch {
-            isLoading = true
-            errorMessage = null
-            try {
-                // тот же разбор, что и при создании сессии: документы, картинки и списки
-                // вперемешку. Раньше здесь принимался только PDF, и одно и то же действие
-                // в двух местах приложения работало по-разному
-                // Пустой разбор - это ошибка, а не «новый список кодов».
-                //
-                // Пока сюда клался пустой список, «Сохранить» предлагало заменить им всю
-                // сессию: один нечитаемый файл стирал партию вместе с отметками.
-                val result = readCodesFromFiles(context, files)
-                if (result.codes.isEmpty()) {
-                    parsedCodes = null
-                    errorMessage = ScreenError(R.string.error_no_codes_in_files, "")
-                } else {
-                    parsedFormats = result.formats
-                    keptFormats = result.codes.mapTo(HashSet()) {
-                        result.formats[it] ?: CodeFormat.OTHER
-                    }
-                    parsedCodes = result.codes
-                }
-            } catch (c: CancellationException) {
-                // Отмена - не ошибка разбора. Пойманная общим catch, она затирала коды
-                // следующего выбора ошибкой «отменено», и «Сохранить» сохраняло одно имя.
-                throw c
-            } catch (t: Throwable) {
-                Log.e(TAG, "Can't read the selected files", t)
-                parsedCodes = null
-                errorMessage = ScreenError(R.string.error_parsing_pdf, t.message ?: "")
-            } finally {
-                // сменённый разбор уже отменён и не трогает спиннер нового
-                if (isActive) isLoading = false
-            }
-        }
+        viewModel.parseFiles(files)
     }
 
     val selectedFilesTemplate = stringResource(id = R.string.selected_files)
@@ -285,7 +169,7 @@ fun EditSessionScreen(
         FullHeightColumn(modifier = Modifier.padding(innerPadding).padding(16.dp)) {
             TextField(
                 value = name,
-                onValueChange = { v -> name = v.filterNot { it == '\n' } },
+                onValueChange = viewModel::setName,
                 label = { Text(nameLabel) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -357,7 +241,7 @@ fun EditSessionScreen(
             }
 
             if (!isLoading) {
-                FormatFilter(formatCounts, keptFormats) { keptFormats = it }
+                FormatFilter(formatCounts, keptFormats, viewModel::setKeptFormats)
             }
 
             if (isLoading) {
@@ -365,10 +249,10 @@ fun EditSessionScreen(
                 CircularProgressIndicator()
             }
 
-            errorMessage?.let { err ->
+            state.error?.let { err ->
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = stringResource(err.resId, err.detail),
+                    text = err.asString(),
                     color = MaterialTheme.colorScheme.error
                 )
             }
@@ -451,17 +335,7 @@ fun EditSessionScreen(
                                     end = SwipeAction(
                                         background = MaterialTheme.colorScheme.errorContainer,
                                         onTrigger = {
-                                            scope.launch {
-                                                try {
-                                                    repo.purgeCode(sessionId, code)
-                                                    reloadBin()
-                                                    snackbarHostState.currentSnackbarData
-                                                        ?.dismiss()
-                                                    snackbarHostState.showSnackbar(binDeletedText)
-                                                } catch (t: Throwable) {
-                                                    Log.e(TAG, "Can't purge $code", t)
-                                                }
-                                            }
+                                            viewModel.purgeCode(code)
                                         },
                                         icon = {
                                             Icon(
@@ -503,17 +377,7 @@ fun EditSessionScreen(
                                                     )
                                                 }
                                             }
-                                            IconButton(onClick = {
-                                                scope.launch {
-                                                    try {
-                                                        repo.restoreCode(sessionId, code)
-                                                        original = repo.getById(sessionId)
-                                                        reloadBin()
-                                                    } catch (t: Throwable) {
-                                                        Log.e(TAG, "Can't restore $code", t)
-                                                    }
-                                                }
-                                            }) {
+                                            IconButton(onClick = { viewModel.restoreCode(code) }) {
                                                 Icon(
                                                     painter = painterResource(
                                                         id = R.drawable.ic_restore
@@ -557,7 +421,7 @@ fun EditSessionScreen(
                         if (willReplace) {
                             showReplaceConfirm = true
                         } else {
-                            saveAndClose(newCodes = null)
+                            viewModel.save(newCodes = null)
                         }
                     },
                     enabled = name.isNotBlank() && !isLoading,
@@ -581,14 +445,7 @@ fun EditSessionScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showEmptyBinConfirm = false
-                    scope.launch {
-                        try {
-                            repo.emptyBin(sessionId)
-                            reloadBin()
-                        } catch (t: Throwable) {
-                            Log.e(TAG, "Can't empty the bin", t)
-                        }
-                    }
+                    viewModel.emptyBin()
                 }) {
                     Text(stringResource(id = R.string.delete_confirm))
                 }
@@ -734,7 +591,7 @@ fun EditSessionScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showReplaceConfirm = false
-                    saveAndClose(newCodes = finalCodes)
+                    viewModel.save(newCodes = finalCodes)
                 }) {
                     Text(saveCodesText)
                 }

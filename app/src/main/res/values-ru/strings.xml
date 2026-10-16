@@ -24,7 +24,7 @@
     <string name="delete_code_binned">Убран в корзину</string>
     <string name="delete_code_unmarked">Отметка снята</string>
     <string name="delete_code_failed">Не удалось удалить код</string>
-    <string name="delete_code_error">Ошибка при удалении</string>
+    <string name="delete_code_error_with_reason">Ошибка при удалении: %1$s</string>
     <string name="cd_export">Экспорт списка</string>
     <string name="search_codes">Поиск</string>
     <string name="cd_clear_search">Очистить поиск</string>
@@ -121,7 +121,6 @@
     <string name="delete_dont_ask">Больше не спрашивать в этой сессии</string>
     <string name="cd_swipe_copy">Копировать</string>
     <string name="cd_swipe_delete">Удалить</string>
-    <string name="manual_entry_button">Вручную</string>
     <string name="export_nothing_to_share">Список пуст</string>
     <string name="backup_pick_folder_first">Сначала выберите папку</string>
     <string name="cd_pdf_icon">Файл</string>

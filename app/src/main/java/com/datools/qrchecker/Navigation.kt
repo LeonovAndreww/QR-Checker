@@ -12,12 +12,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.datools.qrchecker.ui.CodesListScreen
-import com.datools.qrchecker.ui.CreateSessionScreen
-import com.datools.qrchecker.ui.EditSessionScreen
-import com.datools.qrchecker.ui.HomeScreen
-import com.datools.qrchecker.ui.ScanScreen
-import com.datools.qrchecker.ui.SettingsScreen
+import com.datools.qrchecker.ui.codes.CodesListScreen
+import com.datools.qrchecker.ui.create.CreateSessionScreen
+import com.datools.qrchecker.ui.edit.EditSessionScreen
+import com.datools.qrchecker.ui.home.HomeScreen
+import com.datools.qrchecker.ui.scan.ScanScreen
+import com.datools.qrchecker.ui.settings.SettingsScreen
 
 const val ARG_SESSION_ID = "sessionId"
 const val ARG_TYPE = "type"
@@ -80,30 +80,15 @@ fun AppNav() {
             CreateSessionScreen(navController = navController)
         }
 
-        // Scan screen
-        composable(route = Screen.Scan.route, arguments = sessionIdArgument) { backStackEntry ->
-            val sessionId = backStackEntry.arguments?.getString(ARG_SESSION_ID)
-            if (sessionId != null) {
-                ScanScreen(navController = navController, sessionId = sessionId)
-            } else {
-                navController.popBackStack()
-            }
+        // the session id is a required path argument; the view models read it themselves
+        composable(route = Screen.Scan.route, arguments = sessionIdArgument) {
+            ScanScreen(navController = navController)
         }
 
-        // Edit session screen
-        composable(
-            route = Screen.EditSession.route,
-            arguments = sessionIdArgument
-        ) { backStackEntry ->
-            val sessionId = backStackEntry.arguments?.getString(ARG_SESSION_ID)
-            if (sessionId != null) {
-                EditSessionScreen(navController = navController, sessionId = sessionId)
-            } else {
-                navController.popBackStack()
-            }
+        composable(route = Screen.EditSession.route, arguments = sessionIdArgument) {
+            EditSessionScreen(navController = navController)
         }
 
-        // Scanned / not scanned code list
         composable(
             route = Screen.CodesList.route,
             arguments = listOf(
@@ -111,17 +96,10 @@ fun AppNav() {
                 navArgument(ARG_TYPE) { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val sessionId = backStackEntry.arguments?.getString(ARG_SESSION_ID)
-            val type = backStackEntry.arguments?.getString(ARG_TYPE) ?: TYPE_SCANNED
-            if (sessionId != null) {
-                CodesListScreen(
-                    navController = navController,
-                    sessionId = sessionId,
-                    type = type
-                )
-            } else {
-                navController.popBackStack()
-            }
+            CodesListScreen(
+                navController = navController,
+                type = backStackEntry.arguments?.getString(ARG_TYPE) ?: TYPE_SCANNED
+            )
         }
     }
 }

@@ -15,24 +15,11 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
 
     companion object {
-        @Volatile
-        private var INSTANCE: AppDatabase? = null
-
-        fun getInstance(context: Context): AppDatabase {
-            return INSTANCE ?: synchronized(this) {
-                // re-check inside the lock: another thread may have built the instance
-                // while this one was waiting for the monitor
-                INSTANCE ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "sessions.db"
-                )
-                    // Без fallbackToDestructiveMigrationOnDowngrade рядом: оба метода
-                    // пишут в одно поле requireMigration, и вызванный вторым ставит его
-                    // обратно в true - приложение снова требует миграцию и падает.
-                    .fallbackToDestructiveMigration(dropAllTables = true)
-                    .build().also { INSTANCE = it }
-            }
-        }
+        fun build(context: Context): AppDatabase =
+            Room.databaseBuilder(context, AppDatabase::class.java, "sessions.db")
+                // Do not add fallbackToDestructiveMigrationOnDowngrade next to this: both
+                // write the same requireMigration flag, and whichever is called second wins.
+                .fallbackToDestructiveMigration(dropAllTables = true)
+                .build()
     }
 }

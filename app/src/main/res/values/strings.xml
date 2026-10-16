@@ -27,7 +27,7 @@
     <string name="delete_code_binned">Moved to the bin</string>
     <string name="delete_code_unmarked">Mark removed</string>
     <string name="delete_code_failed">Failed to delete code</string>
-    <string name="delete_code_error">Error while deleting</string>
+    <string name="delete_code_error_with_reason">Error while deleting: %1$s</string>
     <string name="cd_export">Export list</string>
     <string name="search_codes">Search</string>
     <string name="cd_clear_search">Clear search</string>
@@ -123,7 +123,6 @@
     <string name="delete_dont_ask">Do not ask again in this session</string>
     <string name="cd_swipe_copy">Copy</string>
     <string name="cd_swipe_delete">Delete</string>
-    <string name="manual_entry_button">By hand</string>
     <string name="export_nothing_to_share">The list is empty</string>
     <string name="backup_pick_folder_first">Pick a folder first</string>
     <string name="cd_pdf_icon">File</string>
