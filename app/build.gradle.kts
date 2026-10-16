@@ -73,6 +73,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Robolectric needs the merged resources and manifest to run Room on the JVM
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 // the exported schema is the reference the migrations are written against, and
@@ -96,6 +101,9 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.mlkit.barcode.scanning)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
