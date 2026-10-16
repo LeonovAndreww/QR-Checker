@@ -82,9 +82,15 @@ private fun parsePrimaryAndRest(data: String): Hibc? {
     )
 }
 
-/** Вторичный код отдельным символом: «+», данные и знак связи с основным в конце. */
+/**
+ * Вторичный код отдельным символом: «+», данные и знак связи с основным в конце.
+ *
+ * Принимается только запись с «$». Устаревшая запись «+» и пять цифр даты - это ровно
+ * то, как выглядит телефонный номер: из номеров +7 9xx примерно каждый пятидесятый
+ * проходил контрольный знак и показывался изделием со сроком годности 1979 года.
+ */
 private fun parseSecondaryAlone(data: String): Hibc? {
-    if (data.length < 3) return null
+    if (data.length < 3 || data[1] != '$') return null
     val body = data.substring(1, data.length - 1)
     val secondary = parseSecondary(body) ?: return null
     return Hibc(null, null, secondary.lot, secondary.serial, secondary.expiry)
@@ -137,7 +143,15 @@ private fun parseSecondaryCore(core: String): Secondary? = when {
  * 0 и 1 - это уже первая цифра месяца в ММГГ, 2 - ММДДГГ, 3 - ГГММДД, 4 - ГГММДДЧЧ,
  * 5 - ГГДДД (день года), 6 - ГГДДДЧЧ, 7 - срока нет.
  */
-private inline fun withDate(text: String, make: (String?, String?) -> Secondary): Secondary? {
+private fun withDate(text: String, make: (String?, String?) -> Secondary): Secondary? {
+    // Версии стандарта до 2.6 ставили перед форматом даты количество: 8 и две цифры
+    // или 9 и пять. В 2.6 его убрали, но такие этикетки ещё в обороте (Note 3).
+    when (text.firstOrNull()) {
+        '8' -> return text.drop(1).takeIf { it.take(2).allDigits(2) }
+            ?.let { withDate(it.drop(2), make) }
+        '9' -> return text.drop(1).takeIf { it.take(5).allDigits(5) }
+            ?.let { withDate(it.drop(5), make) }
+    }
     val format = text.firstOrNull() ?: return null
     val (date, idStart) = when (format) {
         '0', '1' -> mmyy(text.take(4)) to 4

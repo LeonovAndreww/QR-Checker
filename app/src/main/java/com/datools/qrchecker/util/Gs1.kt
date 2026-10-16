@@ -36,9 +36,19 @@ private val VARIABLE = setOf(
     "91", "92", "93", "94", "95", "96", "97", "98", "99" // внутренние данные компании
 )
 
-/** Четырёхзначные идентификаторы веса, объёма и размеров: значение всегда шесть цифр. */
+/**
+ * Четырёхзначные идентификаторы с длиной, заданной стандартом.
+ *
+ * 7003 - срок годности с часами и минутами (ггммддччмм): им Честный ЗНАК пишет срок у
+ * молочной продукции с коротким сроком. 8005 - цена за единицу: максимальная розничная
+ * цена на блоке сигарет. Без них разбор таких кодов обрывался на первом же поле.
+ */
+private val FOUR_DIGIT_FIXED = mapOf("7003" to 10, "8005" to 6)
+
+/** Длина значения у четырёхзначного идентификатора: вес, объём, размеры - шесть цифр. */
 private fun fixedLengthOfFourDigitAi(ai: String): Int? =
-    if (ai.length == 4 && ai.take(2) in setOf("31", "32", "33", "34", "35", "36")) 6 else null
+    FOUR_DIGIT_FIXED[ai]
+        ?: if (ai.length == 4 && ai.take(2) in setOf("31", "32", "33", "34", "35", "36")) 6 else null
 
 /**
  * Возвращает пары «идентификатор - значение» в том порядке, в каком они записаны, либо
@@ -96,7 +106,10 @@ fun parseGs1(code: String): List<Pair<String, String>>? {
         pos += ai.length
         val value = if (length != null) {
             if (pos + length > code.length) return null
+            // все поля фиксированной длины, что знает разбор, - числовые: номер, дата,
+            // вес, цена. Буква в таком поле значит, что это вовсе не GS1
             code.substring(pos, pos + length).also { pos += length }
+                .takeIf { v -> v.all { it.isDigit() } } ?: return null
         } else {
             val end = code.indexOf(GROUP_SEPARATOR, pos).let { if (it < 0) code.length else it }
             code.substring(pos, end).also { pos = end }
@@ -213,9 +226,10 @@ fun parseDigitalLink(code: String): List<Pair<String, String>>? {
     if (!isHttpUrl(code)) return null
 
     val afterScheme = code.substringAfter("://")
-    val pathAndQuery = afterScheme.substringAfter('/', "")
-    val path = pathAndQuery.substringBefore('?').substringBefore('#')
-    val query = pathAndQuery.substringAfter('?', "").substringBefore('#')
+    // якорь после «#» к адресу не относится, и «?» внутри него - не параметры
+    val pathAndQuery = afterScheme.substringAfter('/', "").substringBefore('#')
+    val path = pathAndQuery.substringBefore('?')
+    val query = pathAndQuery.substringAfter('?', "")
 
     val segments = path.split('/').filter { it.isNotEmpty() }.map { decodeUrlPart(it) }
     val start = segments.indexOfFirst { (DIGITAL_LINK_ALIASES[it] ?: it) == "01" }
@@ -282,41 +296,28 @@ private fun decodeUrlPart(part: String, plusAsSpace: Boolean = false): String {
 }
 
 /** Идентификаторы, которыми код GS1 называет предмет: SSCC, GTIN, GTIN содержимого. */
-private val GS1_KEYS = setOf("00", "01", "02")
+internal val GS1_KEYS = setOf("00", "01", "02")
 
 /** Номер товара и серийник в той записи, что напечатана на коробке: 01…21… */
 internal fun gtinSerial(gtin: String, serial: String?): String =
     if (serial != null) "01$gtin" + "21$serial" else "01$gtin"
 
-/** Пары «идентификатор - значение» из кода GS1 любого вида записи. */
-private fun gs1Pairs(code: String): List<Pair<String, String>>? =
-    parseGs1(code) ?: parseDigitalLink(code)
-
-/** Немецкий аптечный код IFA PPN. */
-internal fun isPpn(code: String): Boolean = parsePpn(code) != null
-
 /** Поля кода, каким бы словарём он ни был записан. null - разобрать не удалось. */
-fun codeFields(raw: String): CodeFields? {
-    val code = normalizeCode(raw)
+fun codeFields(raw: String): CodeFields? = describeCode(raw).fields
 
-    // Без номера товара или упаковки строка цифр - не код GS1, а, скорее всего, обычный
-    // штрихкод: EAN, начинающийся на 10 или 17, иначе разбирался как «партия» или «срок».
-    gs1Pairs(code)?.takeIf { parsed -> parsed.any { it.first in GS1_KEYS } }?.let { parsed ->
-        return CodeFields(
-            product = (parsed.firstOrNull { it.first == "01" } ?: parsed.firstOrNull { it.first == "02" })
-                ?.second,
-            serial = parsed.firstOrNull { it.first == "21" }?.second,
-            batch = parsed.firstOrNull { it.first == "10" }?.second,
-            expiry = parsed.firstOrNull { it.first == "17" }?.second
-        ).takeIf { !it.isEmpty }
-    }
-
-    parsePpn(code)?.let { return it }
-
-    return parseHibc(code)?.let {
-        CodeFields(product = it.product, serial = it.serial, batch = it.lot, expiry = it.expiry)
-    }
+/** Поля из пар GS1. Срок - из (17), а если его нет, из даты-времени (7003). */
+internal fun fieldsOfGs1(parsed: List<Pair<String, String>>): CodeFields? {
+    fun value(ai: String) = parsed.firstOrNull { it.first == ai }?.second
+    return CodeFields(
+        product = value("01") ?: value("02"),
+        serial = value("21"),
+        batch = value("10"),
+        expiry = value("17") ?: value("7003")?.take(6)
+    ).takeIf { !it.isEmpty }
 }
+
+/** Разбор PPN наружу - для общего определения вида кода. */
+internal fun ppnFields(code: String): CodeFields? = parsePpn(code)
 
 /**
  * Опознающая пара для немецкого PPN и для Digital Link, в той же записи, что у GS1:
@@ -332,8 +333,17 @@ internal fun shortCodeOfOther(code: String): String? {
             parsed.firstOrNull { it.first == "21" }?.second
         )
     }
-    // HIBC: основная часть без контрольного знака, как она напечатана под кодом
-    if (code.startsWith("+") || code.startsWith("*+")) return parseHibc(code)?.primary
+    // HIBC: основная часть, как она напечатана под кодом, и серийник или партия. Без
+    // них два изделия одного артикула выглядели бы в списке одинаково
+    if (code.startsWith("+") || code.startsWith("*+")) {
+        val hibc = parseHibc(code) ?: return null
+        val primary = hibc.primary ?: return null
+        return when {
+            hibc.serial != null -> "$primary/S${hibc.serial}"
+            hibc.lot != null -> "$primary/\$${hibc.lot}"
+            else -> primary
+        }
+    }
 
     if (!code.startsWith("[)>") && !code.startsWith("9N")) return null
     val ppn = parsePpn(code) ?: return null

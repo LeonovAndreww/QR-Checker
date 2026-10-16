@@ -227,4 +227,37 @@ class Gs1Test {
             codeFields(code)
         )
     }
+
+    @Test
+    fun `молочка честного знака - срок в 7003 с часами`() {
+        val code = "0104600439931256215ABCDE${gs}937a8b${gs}7003261231120${gs}"
+        // (7003) - ггммддччмм, срок берётся из первых шести цифр
+        val fixed = "0104600439931256215ABCDE${gs}937a8b${gs}70032612311200"
+        assertEquals("261231", codeFields(fixed)?.expiry)
+        assertEquals(CodeKind.CHESTNY_ZNAK, codeKind(fixed))
+        assertNull(codeFields(code)?.expiry)
+    }
+
+    @Test
+    fun `блок сигарет с ценой 8005 разбирается`() {
+        val code = "0104600439931256215ABCDE${gs}8005012500${gs}93abcd"
+        assertEquals(CodeKind.CHESTNY_ZNAK, codeKind(code))
+        assertEquals("04600439931256", codeFields(code)?.product)
+    }
+
+    @Test
+    fun `буквы в поле фиксированной длины - не gs1`() {
+        assertNull(parseGs1("01ABCDEFGHIJKLMN"))
+        assertNull(codeKind("01ABCDEFGHIJKLMN"))
+    }
+
+    @Test
+    fun `логистическая этикетка с gtin содержимого получает вид gs1`() {
+        assertEquals(CodeKind.GS1, codeKind("0204612345678904${gs}10LOT1${gs}17261231"))
+    }
+
+    @Test
+    fun `параметры в якоре digital link не читаются`() {
+        assertNull(codeFields("https://id.example/01/09506000134376#x?17=251231")?.expiry)
+    }
 }

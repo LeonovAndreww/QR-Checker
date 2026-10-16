@@ -80,15 +80,54 @@ class HibcTest {
     @Test
     fun `телефон и формула - не hibc`() {
         assertNull(parseHibc("+79991234567"))
+        // этот номер сходится по контрольному знаку - его отсекает только запрет
+        // устаревшей записи без «$» у отдельного вторичного кода
+        assertNull(parseHibc("+79007081940"))
         assertNull(parseHibc("+SUM(A1:A9)"))
         assertNull(codeKind("+79991234567"))
+    }
+
+    @Test
+    fun `ни один мобильный номер россии не принимается за hibc`() {
+        val random = java.util.Random(42)
+        repeat(50_000) {
+            val number = "+79" + (0 until 9).joinToString("") { random.nextInt(10).toString() }
+            assertNull(number, parseHibc(number))
+        }
+    }
+
+    @Test
+    fun `количество перед датой из версий до 2,6`() {
+        fun withCheck(body: String): String {
+            val charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. \$/+%"
+            return body + charset[body.sumOf { charset.indexOf(it) } % 43]
+        }
+        // 8 и две цифры количества, 9 и пять; дальше обычный формат даты
+        val two = parseHibc(withCheck("+\$\$8053050928LOT1G"))
+        assertEquals("050928", two?.expiry)
+        assertEquals("LOT1", two?.lot)
+        assertEquals("050928", parseHibc(withCheck("+\$\$9000253050928LOT1G"))?.expiry)
+    }
+
+    @Test
+    fun `в списке видно серийник, а не только артикул`() {
+        val a = "+A99912345/\$\$52001510X3/S0001"
+        val charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. \$/+%"
+        fun withCheck(body: String) = body + charset[body.sumOf { charset.indexOf(it) } % 43]
+        assertEquals("+A99912345/S0001", shortCode(withCheck(a)))
+        assertEquals("+A99912345/\$10X3", shortCode("+A99912345/\$\$52001510X33"))
+    }
+
+    @Test
+    fun `звёздочки code 39 не мешают опознать вид`() {
+        assertEquals(CodeKind.HIBC, codeKind("*+A99912345/\$\$52001510X3/16D20111212/S77DEFG457*"))
     }
 
     @Test
     fun `в общих полях и короткой записи`() {
         val code = "+A99912345/\$\$52001510X33"
         assertEquals(CodeFields(product = "A9991234", batch = "10X3", expiry = "200115"), codeFields(code))
-        assertEquals("+A99912345", shortCode(code))
+        assertEquals("+A99912345/\$10X3", shortCode(code))
         assertEquals(CodeKind.HIBC, codeKind(code))
     }
 

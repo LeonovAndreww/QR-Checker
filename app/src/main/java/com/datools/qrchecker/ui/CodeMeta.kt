@@ -11,8 +11,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.datools.qrchecker.R
-import com.datools.qrchecker.util.codeFields
-import com.datools.qrchecker.util.codeKind
+import com.datools.qrchecker.util.describeCode
 import com.datools.qrchecker.util.formatExpiry
 
 /**
@@ -32,8 +31,10 @@ fun CodeMetaLine(
     textAlign: TextAlign? = null
 ) {
     val context = LocalContext.current
-    val kind = remember(code, showKind) { if (showKind) codeKind(code) else null }
-    val fields = remember(code, showFields) { if (showFields) codeFields(code) else null }
+    // один разбор на строку: вид и поля берутся из него оба
+    val description = remember(code) { describeCode(code) }
+    val kind = description.kind.takeIf { showKind }
+    val fields = description.fields.takeIf { showFields }
     val expiryLabel = stringResource(id = R.string.field_expiry)
     val batchLabel = stringResource(id = R.string.field_batch)
     val kindLabel = kind?.let { stringResource(id = it.label) }
