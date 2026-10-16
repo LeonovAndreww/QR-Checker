@@ -95,6 +95,8 @@ import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.util.normalizeCode
 import com.datools.qrchecker.util.CodeFormat
 import com.datools.qrchecker.util.LinearReadVote
+import com.datools.qrchecker.util.OneEuroFilter
+import androidx.compose.ui.platform.LocalDensity
 import android.hardware.display.DisplayManager
 import android.os.Handler
 import android.os.Looper
@@ -150,6 +152,38 @@ private enum class ViewfinderStyle {
 }
 
 private val VIEWFINDER_STYLE = ViewfinderStyle.FIXED
+
+/** Как далеко от кода касание ещё считается касанием этого кода. */
+private val TAP_REACH = 24.dp
+
+/** Сколько после касания кадры ищут код под пальцем. */
+private const val TAP_WINDOW_MS = 1_500L
+
+/**
+ * Сколько в режиме «по касанию» камера работает после касания: найти код под пальцем,
+ * ответить и проводить его рамкой. Потом засыпает до следующего касания - иначе
+ * направленная на коробку камера разбирала бы кадры без конца.
+ */
+private const val TAP_AWAKE_MS = 3_000L
+
+/** Четыре края рамки кода, каждый через свой фильтр 1€. */
+private class BoxSmoother {
+    private val left = OneEuroFilter()
+    private val top = OneEuroFilter()
+    private val right = OneEuroFilter()
+    private val bottom = OneEuroFilter()
+
+    fun reset() {
+        left.reset(); top.reset(); right.reset(); bottom.reset()
+    }
+
+    fun smooth(box: androidx.compose.ui.geometry.Rect, now: Long) = androidx.compose.ui.geometry.Rect(
+        left.filter(box.left.toDouble(), now).toFloat(),
+        top.filter(box.top.toDouble(), now).toFloat(),
+        right.filter(box.right.toDouble(), now).toFloat(),
+        bottom.filter(box.bottom.toDouble(), now).toFloat()
+    )
+}
 
 /** Сколько висит пузырёк с кратностью после того, как щипок закончился. */
 private const val ZOOM_BUBBLE_MS = 1200L
@@ -234,6 +268,7 @@ fun ScanScreen(
     var presentCode by remember { mutableStateOf<String?>(null) }
     val showScanCode by AppSettings.scanCodeState(context)
     val showCodeFields by AppSettings.codeFieldsState(context)
+    val scanOnTap by AppSettings.scanOnTapState(context)
     var presentSeenAt by remember { mutableLongStateOf(0L) }
 
     // a torn or smudged label is otherwise a dead end
@@ -574,6 +609,7 @@ fun ScanScreen(
                     },
                     torchOn = torchOn,
                     onTorchAvailable = { hasTorch = it },
+                    scanOnTap = scanOnTap,
                     // нажали по кадру - спрашиваем заново даже про тот же код
                     onTapped = {
                         presentCode = null
@@ -988,6 +1024,24 @@ fun ScanScreen(
                     )
                 }
 
+                // В режиме «по касанию» камера молчит, пока её не попросят, - без
+                // подсказки молчание читалось бы как поломка
+                if (scanOnTap && feedback == null && hasPermission) {
+                    Text(
+                        text = stringResource(id = R.string.scan_on_tap_hint),
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = padding.calculateTopPadding() + 64.dp)
+                            .background(
+                                color = Color.Black.copy(alpha = 0.55f),
+                                shape = MaterialTheme.shapes.large
+                            )
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    )
+                }
+
                 // FEEDBACK OVERLAY (animated)
                 AnimatedVisibility(
                     visible = feedback != null,
@@ -1087,7 +1141,9 @@ data class DetectedCode(
     val imageWidth: Int,
     val imageHeight: Int,
     /** Линейный штрихкод: у него нет исправления ошибок, и он бывает прочитан неверно. */
-    val linear: Boolean = false
+    val linear: Boolean = false,
+    /** Когда снят кадр, мс. По нему считается сглаживание, а не по времени разбора. */
+    val frameTimeMs: Long = 0L
 )
 
 /** Доля короткой стороны экрана, которую занимает сторона рамки видоискателя. */
@@ -1143,6 +1199,8 @@ private fun CameraPreview(
     torchOn: Boolean,
     onTorchAvailable: (Boolean) -> Unit,
     onTapped: () -> Unit,
+    /** Читать код только по касанию, а не на каждом кадре. */
+    scanOnTap: Boolean,
     /** Текущая кратность - её показывает уже сам экран. */
     onZoomChanged: (Float) -> Unit,
     /** Код виден в кадре - неважно, попал он в рамку или нет. */
@@ -1162,6 +1220,18 @@ private fun CameraPreview(
     }
     val currentOnCodeScanned by rememberUpdatedState(onCodeScanned)
     val currentOnTapped by rememberUpdatedState(onTapped)
+    val currentScanOnTap by rememberUpdatedState(scanOnTap)
+    val currentDensity by rememberUpdatedState(LocalDensity.current)
+    // рамка кода без дрожи: распознаватель на каждом кадре находит её чуть по-разному
+    val boxSmoother = remember { BoxSmoother() }
+    // куда и когда коснулись: ближайшие кадры берут код под пальцем
+    var tapAt by remember { mutableStateOf(Offset.Zero) }
+    var tapUntil by remember { mutableLongStateOf(0L) }
+    // анализатор живёт в эффекте камеры; ссылка нужна, чтобы будить его касанием
+    var analyzerGate by remember { mutableStateOf<MlKitQrCodeAnalyzer?>(null) }
+    LaunchedEffect(scanOnTap, analyzerGate) {
+        analyzerGate?.activeUntil = if (scanOnTap) 0L else Long.MAX_VALUE
+    }
     val currentOnCodeSeen by rememberUpdatedState(onCodeSeen)
     val currentOnZoomChanged by rememberUpdatedState(onZoomChanged)
     val mainExecutor = remember(context) { ContextCompat.getMainExecutor(context) }
@@ -1201,46 +1271,88 @@ private fun CameraPreview(
     DisposableEffect(lifecycleOwner) {
         // owned by this effect: restarting it must not reuse an executor already shut down
         val analysisExecutor = Executors.newSingleThreadExecutor()
-        val analyzer = MlKitQrCodeAnalyzer { detected ->
+        val analyzer = MlKitQrCodeAnalyzer { codes ->
             mainExecutor.execute {
                 val size = currentViewSize
                 if (size == IntSize.Zero) return@execute
+                val now = System.currentTimeMillis()
+                // время съёмки кадра, если камера его даёт: по нему сглаживание не
+                // зависит от того, когда главный поток дошёл до результата
+                val frameTime = codes.first().frameTimeMs.takeIf { it > 0L } ?: now
 
-                val mapping = PreviewMapping(detected.imageWidth, detected.imageHeight, size)
-                // отбор идёт по неподвижному квадрату в центре, а не по нарисованной
-                // рамке: та переезжает к коду, и вместе с ней уезжала бы область,
-                // в которой приложение вообще что-либо принимает
+                val first = codes.first()
+                val mapping = PreviewMapping(first.imageWidth, first.imageHeight, size)
+                val placed = codes.map { it to mapping.toView(it.box) }
                 val target = viewfinderRect(size)
-                val onScreen = mapping.toView(detected.box)
+                val nearestToCenter =
+                    placed.minByOrNull { (_, box) -> (box.center - target.center).getDistanceSquared() }
+                val accepted = placed.firstOrNull { it.first.value == acceptedCode }
 
-                // принимается только то, что человек навёл: центр кода внутри рамки.
-                // Иначе соседняя коробка в кадре отмечалась бы молча и незаметно
+                // рамка уже принятого кода едет за ним, пока он в кадре, - один раз за
+                // кадр и через фильтр: распознаватель находит её каждый раз чуть иначе
+                fun follow() {
+                    accepted?.let { (_, box) ->
+                        acceptedBox = boxSmoother.smooth(box, frameTime)
+                        acceptedSeenAt = now
+                    }
+                }
+
+                if (currentScanOnTap) {
+                    // В режиме «по касанию» отвечает только касание - один раз и на код
+                    // под пальцем. Остальные кадры лишь ведут рамку и держат плашку.
+                    accepted?.let { currentOnCodeSeen(it.first.value) }
+                    val tap = tapAt.takeIf { now < tapUntil }
+                    val underFinger = tap?.let { at ->
+                        val reach = with(currentDensity) { TAP_REACH.toPx() }
+                        placed.filter { (_, box) -> box.inflate(reach).contains(at) }
+                            .minByOrNull { (_, box) -> (box.center - at).getDistanceSquared() }
+                    }
+                    if (underFinger == null) {
+                        follow()
+                        return@execute
+                    }
+                    val (detected, onScreen) = underFinger
+                    if (detected.linear && !linearVote.offer(detected.value, now)) {
+                        follow()
+                        return@execute
+                    }
+                    if (detected.value != acceptedCode) boxSmoother.reset()
+                    acceptedCode = detected.value
+                    acceptedBox = boxSmoother.smooth(onScreen, frameTime)
+                    acceptedSeenAt = now
+                    tapUntil = 0L
+                    currentOnCodeScanned(detected.value)
+                    return@execute
+                }
+
                 // Код в кадре - этого довольно, чтобы считать его тем же самым.
                 //
                 // Раньше это считалось только по кодам внутри рамки, и стоило коробке
                 // чуть сместиться, как приложение решало, что её унесли и принесли
                 // обратно, - и отвечало заново. Отсюда и попискивание над неподвижной
                 // коробкой.
+                val (detected, onScreen) = nearestToCenter ?: return@execute
                 currentOnCodeSeen(detected.value)
 
-                // рамка уже принятого кода едет за ним, пока он в кадре
-                if (detected.value == acceptedCode) {
-                    acceptedBox = onScreen
-                    acceptedSeenAt = System.currentTimeMillis()
+                // принимается только то, что человек навёл: центр кода внутри рамки.
+                // Иначе соседняя коробка в кадре отмечалась бы молча и незаметно
+                if (!target.contains(onScreen.center) ||
+                    (detected.linear && detected.value != acceptedCode &&
+                        !linearVote.offer(detected.value, now))
+                ) {
+                    follow()
+                    return@execute
                 }
 
-                if (!target.contains(onScreen.center)) return@execute
-
-                if (detected.linear && detected.value != acceptedCode &&
-                    !linearVote.offer(detected.value, System.currentTimeMillis())
-                ) return@execute
-
+                if (detected.value != acceptedCode) boxSmoother.reset()
                 acceptedCode = detected.value
-                acceptedBox = onScreen
-                acceptedSeenAt = System.currentTimeMillis()
+                acceptedBox = boxSmoother.smooth(onScreen, frameTime)
+                acceptedSeenAt = now
                 currentOnCodeScanned(detected.value)
             }
         }
+        analyzer.activeUntil = if (currentScanOnTap) 0L else Long.MAX_VALUE
+        analyzerGate = analyzer
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         var boundProvider: ProcessCameraProvider? = null
 
@@ -1433,6 +1545,12 @@ private fun CameraPreview(
                     // означало бы, что приложение его не услышало
                     currentOnTapped()
                     focusAt = at
+                    if (currentScanOnTap) {
+                        val now = System.currentTimeMillis()
+                        tapAt = at
+                        tapUntil = now + TAP_WINDOW_MS
+                        analyzerGate?.activeUntil = now + TAP_AWAKE_MS
+                    }
 
                     val control = camera?.cameraControl ?: return@detectTapGestures
                     val point = previewView.meteringPointFactory.createPoint(at.x, at.y)
@@ -1582,8 +1700,16 @@ private fun DrawScope.drawCorners(
  * orientation without copying and rebuilding the luminance plane by hand.
  */
 class MlKitQrCodeAnalyzer(
-    private val onQrCodeDetected: (DetectedCode) -> Unit
+    private val onCodesDetected: (List<DetectedCode>) -> Unit
 ) : ImageAnalysis.Analyzer, AutoCloseable {
+
+    /**
+     * До какого момента кадры разбираются. В режиме «по касанию» распознаватель стоит,
+     * пока человек не коснётся экрана: кадр закрывается сразу, не доходя до ML Kit, -
+     * а разбор кадра и есть то, что ест батарею.
+     */
+    @Volatile
+    var activeUntil: Long = Long.MAX_VALUE
 
     private val scanner = BarcodeScanning.getClient(
         BarcodeScannerOptions.Builder()
@@ -1598,12 +1724,15 @@ class MlKitQrCodeAnalyzer(
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
         val mediaImage = imageProxy.image
-        if (mediaImage == null) {
+        if (mediaImage == null || System.currentTimeMillis() > activeUntil) {
             imageProxy.close()
             return
         }
 
         val rotation = imageProxy.imageInfo.rotationDegrees
+        // время съёмки, а не момент, когда результат доберётся до экрана: главный поток
+        // бывает занят, и два кадра подряд пришли бы к нему с разницей в миллисекунду
+        val frameTimeMs = imageProxy.imageInfo.timestamp / 1_000_000
         // ML Kit отдаёт координаты уже повёрнутого кадра - того, что видно на экране,
         // поэтому при повороте на четверть стороны меняются местами
         val upright = rotation == 90 || rotation == 270
@@ -1613,8 +1742,8 @@ class MlKitQrCodeAnalyzer(
         val image = InputImage.fromMediaImage(mediaImage, rotation)
         scanner.process(image)
             .addOnSuccessListener { barcodes ->
-                // из нескольких кодов в кадре берётся ближайший к центру: человек
-                // целится серединой экрана, а не краем
+                // отдаются все коды кадра: какой из них брать - ближайший к центру или
+                // тот, которого коснулись, - решает экран
                 barcodes
                     .mapNotNull { barcode ->
                         // Нормализуется здесь, а не только при отметке: с этим значением
@@ -1625,14 +1754,10 @@ class MlKitQrCodeAnalyzer(
                             ?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
                         val box = barcode.boundingBox ?: return@mapNotNull null
                         val linear = CodeFormat.of(barcode.format) == CodeFormat.LINEAR
-                        DetectedCode(value, box, width, height, linear)
+                        DetectedCode(value, box, width, height, linear, frameTimeMs)
                     }
-                    .minByOrNull { detected ->
-                        val dx = detected.box.exactCenterX() - width / 2f
-                        val dy = detected.box.exactCenterY() - height / 2f
-                        dx * dx + dy * dy
-                    }
-                    ?.let(onQrCodeDetected)
+                    .takeIf { it.isNotEmpty() }
+                    ?.let(onCodesDetected)
             }
             .addOnFailureListener { Log.w(TAG, "Frame analysis failed", it) }
             // the frame must stay open until ML Kit is done with it

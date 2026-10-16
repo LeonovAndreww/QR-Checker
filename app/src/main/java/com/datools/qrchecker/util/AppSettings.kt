@@ -38,6 +38,7 @@ object AppSettings {
     private const val KEY_SCAN_CODE = "scan_code"
     private const val KEY_CODE_KIND = "code_kind"
     private const val KEY_SCROLLBAR = "scrollbar"
+    private const val KEY_SCAN_ON_TAP = "scan_on_tap"
 
     // не applicationContext: язык читается из attachBaseContext приложения, когда
     // applicationContext ещё не существует
@@ -53,6 +54,7 @@ object AppSettings {
     private var scanCodeState: MutableState<Boolean>? = null
     private var codeKindState: MutableState<Boolean>? = null
     private var scrollbarState: MutableState<Boolean>? = null
+    private var scanOnTapState: MutableState<Boolean>? = null
 
     fun themeState(context: Context): MutableState<ThemeChoice> =
         themeState ?: mutableStateOf(
@@ -174,6 +176,20 @@ object AppSettings {
     fun setScrollbar(context: Context, on: Boolean) {
         scrollbarState(context).value = on
         prefs(context).edit { putBoolean(KEY_SCROLLBAR, on) }
+    }
+
+    /**
+     * Читать код только по касанию экрана. Выключено по умолчанию: обычно коробку просто
+     * подносят, и лишнее касание на каждую - лишняя работа. Включают, когда в кадре
+     * много кодов рядом, - и тогда распознаватель не работает впустую между касаниями.
+     */
+    fun scanOnTapState(context: Context): MutableState<Boolean> =
+        scanOnTapState ?: mutableStateOf(prefs(context).getBoolean(KEY_SCAN_ON_TAP, false))
+            .also { scanOnTapState = it }
+
+    fun setScanOnTap(context: Context, on: Boolean) {
+        scanOnTapState(context).value = on
+        prefs(context).edit { putBoolean(KEY_SCAN_ON_TAP, on) }
     }
 
     private inline fun <T> read(context: Context, key: String, fallback: T, parse: (String) -> T): T =

@@ -151,8 +151,8 @@
     <string name="clock_system">System</string>
     <string name="clock_24">24 h</string>
     <string name="clock_12">12 h</string>
-    <string name="feedback_title">Feedback</string>
-    <string name="feedback_why">How the phone answers a scanned code.</string>
+    <string name="feedback_title">Scanning</string>
+    <string name="feedback_why">How codes are read and how the phone answers them.</string>
     <string name="feedback_haptics">Vibration</string>
     <string name="feedback_sound">Sound</string>
 
@@ -244,4 +244,7 @@
     <string name="kind_ean8" translatable="false">EAN-8</string>
     <string name="kind_upca" translatable="false">UPC-A</string>
     <string name="kind_link">Link</string>
+    <string name="scan_on_tap">Scan on tap</string>
+    <string name="scan_on_tap_why">A code is read only when you tap it on the screen. Handy when many codes are in view, and easier on the battery.</string>
+    <string name="scan_on_tap_hint">Tap a code to scan it</string>
 </resources>

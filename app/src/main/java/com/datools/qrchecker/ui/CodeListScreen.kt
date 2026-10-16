@@ -195,15 +195,20 @@ fun CodesListScreen(
 
     // the search narrows what is shown; the export always writes the whole list, so a
     // forgotten filter cannot quietly turn "what is missing" into a shorter answer
+    // Короткая запись для поиска считается один раз на сессию и вид списка, а не на
+    // каждую нажатую букву, - и только когда в поиск что-то вписали: открытие списка
+    // на тысячи кодов не должно разбирать их все заранее.
+    val shortCodes = remember(session, type) { lazy { exportableCodes.associateWith { shortCode(it) } } }
     val visibleCodes = remember(exportableCodes, query) {
         if (query.isBlank()) {
             exportableCodes
         } else {
-            // ищется и по полному коду, и по тому, что показано в строке: у немецкого PPN
-            // и Digital Link это пересобранная запись, которой в самом коде нет
+            // ищется и по полному коду, и по тому, что показано в строке: у немецкого PPN,
+            // HIBC и Digital Link это пересобранная запись, которой в самом коде нет
             val q = query.trim()
             exportableCodes.filter {
-                it.contains(q, ignoreCase = true) || shortCode(it).contains(q, ignoreCase = true)
+                it.contains(q, ignoreCase = true) ||
+                    shortCodes.value[it].orEmpty().contains(q, ignoreCase = true)
             }
         }
     }

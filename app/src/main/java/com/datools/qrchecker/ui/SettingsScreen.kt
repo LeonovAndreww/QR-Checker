@@ -104,6 +104,7 @@ fun SettingsScreen(navController: NavController) {
     val codeFieldsWhy = stringResource(id = R.string.show_code_fields_why)
     val codeKindShown by AppSettings.codeKindState(context)
     val scrollbarShown by AppSettings.scrollbarState(context)
+    val scanOnTap by AppSettings.scanOnTapState(context)
     val themeOptions = listOf(
         ThemeChoice.SYSTEM to stringResource(id = R.string.theme_system),
         ThemeChoice.LIGHT to stringResource(id = R.string.theme_light),
@@ -249,6 +250,14 @@ fun SettingsScreen(navController: NavController) {
                         text = feedbackWhy,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    SwitchRow(
+                        label = stringResource(id = R.string.scan_on_tap),
+                        description = stringResource(id = R.string.scan_on_tap_why),
+                        checked = scanOnTap,
+                        onCheckedChange = { AppSettings.setScanOnTap(context, it) }
                     )
 
                     SwitchRow(

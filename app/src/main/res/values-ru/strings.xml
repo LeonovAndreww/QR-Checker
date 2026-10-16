@@ -149,8 +149,8 @@
     <string name="clock_system">Системное</string>
     <string name="clock_24">24 ч</string>
     <string name="clock_12">12 ч</string>
-    <string name="feedback_title">Отклик</string>
-    <string name="feedback_why">Чем телефон отвечает на отсканированный код.</string>
+    <string name="feedback_title">Сканирование</string>
+    <string name="feedback_why">Как читаются коды и чем телефон на них отвечает.</string>
     <string name="feedback_haptics">Вибрация</string>
     <string name="feedback_sound">Звук</string>
 
@@ -241,4 +241,7 @@
     <string name="show_scrollbar_why">В длинных списках: где вы и сколько всего. Её можно тянуть.</string>
     <string name="kind_chestny_znak">Честный ЗНАК</string>
     <string name="kind_link">Ссылка</string>
+    <string name="scan_on_tap">Сканировать по касанию</string>
+    <string name="scan_on_tap_why">Код читается, только когда коснётесь его на экране. Удобно, когда кодов в кадре много, и бережёт батарею.</string>
+    <string name="scan_on_tap_hint">Коснитесь кода, чтобы отсканировать</string>
 </resources>
