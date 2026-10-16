@@ -18,7 +18,7 @@ private val NOISE = Regex("[\\p{C}&&[^\\u001D]]")
 fun normalizeCode(raw: String): String = NOISE.replace(raw, "").trim()
 
 /** Код маркировки, у которого кодировщик не проставил разделители. */
-private val GS1_WITHOUT_SEPARATORS = Regex("^(01\\d{14}21.+?)91.{4}92.+$")
+internal val GS1_WITHOUT_SEPARATORS = Regex("^(01\\d{14}21.+?)91.{4}92.+$")
 
 /**
  * (01)GTIN(21)серийник - ровно то, что напечатано под кодом на коробке.
@@ -41,6 +41,9 @@ private val GS1_WITHOUT_SEPARATORS = Regex("^(01\\d{14}21.+?)91.{4}92.+$")
 fun shortCode(raw: String): String {
     val code = normalizeCode(raw)
 
+    // немецкий PPN и Digital Link: иначе первым попадался конверт «[)>06» или адрес
+    shortCodeOfOther(code)?.let { return it }
+
     if (code.indexOf(GROUP_SEPARATOR) < 0) {
         return GS1_WITHOUT_SEPARATORS.matchEntire(code)?.groupValues?.get(1) ?: code
     }
@@ -49,5 +52,5 @@ fun shortCode(raw: String): String {
     val gtin = parsed.firstOrNull { it.first == "01" }?.second ?: return code.substringBefore(GROUP_SEPARATOR)
     val serial = parsed.firstOrNull { it.first == "21" }?.second
 
-    return if (serial != null) "01$gtin" + "21$serial" else "01$gtin"
+    return gtinSerial(gtin, serial)
 }

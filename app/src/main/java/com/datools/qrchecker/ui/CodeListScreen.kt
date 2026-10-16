@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,8 +39,6 @@ import com.datools.qrchecker.util.buildCsv
 import com.datools.qrchecker.util.formatScanTimeForScreen
 import com.datools.qrchecker.util.formatTimeAgo
 import com.datools.qrchecker.util.shortCode
-import com.datools.qrchecker.util.codeFields
-import com.datools.qrchecker.util.formatExpiry
 import com.datools.qrchecker.util.AppSettings
 import com.datools.qrchecker.util.shareCsv
 import com.datools.qrchecker.model.SessionData
@@ -103,6 +102,9 @@ fun CodesListScreen(
     var dontAskChecked by remember { mutableStateOf(false) }
     var codeToDeleteIsScanned by remember { mutableStateOf(false) }
     val codeDetails by AppSettings.codeFieldsState(context)
+    val codeKindShown by AppSettings.codeKindState(context)
+    val scrollbarShown by AppSettings.scrollbarState(context)
+    val listState = rememberLazyListState()
 
     // LaunchedEffect is already a coroutine tied to this composable, and repo.getById is a
     // suspend Room call that dispatches itself — no extra scope or IO switch needed here
@@ -157,8 +159,6 @@ fun CodesListScreen(
     val copyCodeText = stringResource(id = R.string.cd_copy_code)
     val codeCopiedText = stringResource(id = R.string.code_copied)
     val deleteCodeCd = stringResource(id = R.string.cd_delete_code)
-    val expiryLabel = stringResource(id = R.string.field_expiry)
-    val batchLabel = stringResource(id = R.string.field_batch)
     val csvColumnOnBox = stringResource(id = R.string.csv_column_on_box)
     val csvColumnFull = stringResource(id = R.string.csv_column_full)
     val csvColumnScannedAt = stringResource(id = R.string.csv_column_scanned_at)
@@ -196,8 +196,16 @@ fun CodesListScreen(
     // the search narrows what is shown; the export always writes the whole list, so a
     // forgotten filter cannot quietly turn "what is missing" into a shorter answer
     val visibleCodes = remember(exportableCodes, query) {
-        if (query.isBlank()) exportableCodes
-        else exportableCodes.filter { it.contains(query.trim(), ignoreCase = true) }
+        if (query.isBlank()) {
+            exportableCodes
+        } else {
+            // ищется и по полному коду, и по тому, что показано в строке: у немецкого PPN
+            // и Digital Link это пересобранная запись, которой в самом коде нет
+            val q = query.trim()
+            exportableCodes.filter {
+                it.contains(q, ignoreCase = true) || shortCode(it).contains(q, ignoreCase = true)
+            }
+        }
     }
 
     // Сообщения вытесняют друг друга, а не встают в очередь: десяток действий подряд
@@ -377,168 +385,153 @@ fun CodesListScreen(
                             Text(noSearchResults)
                         }
                     } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ScrollbarBox(
+                            state = listState,
+                            enabled = scrollbarShown,
+                            modifier = Modifier.fillMaxSize()
                         ) {
-                            items(items = visibleCodes, key = { it }) { code ->
-                                val expanded = code in expandedCodes
-                                val isScanned = type == TYPE_SCANNED
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(items = visibleCodes, key = { it }) { code ->
+                                    val expanded = code in expandedCodes
+                                    val isScanned = type == TYPE_SCANNED
 
-                                SwipeActionRow(
-                                    onThresholdCrossed = { feel(Outcome.THRESHOLD) },
-                                    start = SwipeAction(
-                                        background =
-                                            MaterialTheme.colorScheme.secondaryContainer,
-                                        onTrigger = {
-                                            feel(Outcome.ACTION)
-                                            copyCode(code)
-                                        },
-                                        icon = {
-                                            Icon(
-                                                painter = painterResource(
-                                                    id = R.drawable.ic_content_copy
-                                                ),
-                                                contentDescription = swipeCopyCd,
-                                                tint = MaterialTheme.colorScheme
-                                                    .onSecondaryContainer
-                                            )
-                                        }
-                                    ),
-                                    end = SwipeAction(
-                                        background = MaterialTheme.colorScheme.errorContainer,
-                                        onTrigger = { requestDelete(code, isScanned) },
-                                        icon = {
-                                            Icon(
-                                                imageVector = Icons.Default.Delete,
-                                                contentDescription = swipeDeleteCd,
-                                                tint = MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                        }
-                                    )
-                                ) {
-                                Card(
-                                    onClick = {
-                                        expandedCodes =
-                                            if (expanded) expandedCodes - code else expandedCodes + code
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .animateContentSize()
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 10.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            // свёрнуто видно ровно то, что напечатано на
-                                            // коробке; криптохвост кода маркировки на
-                                            // этикетку не выводят и глазами не сверяют
-                                            Column(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .padding(end = 8.dp)
-                                            ) {
-                                                Text(
-                                                    text = if (expanded) code else shortCode(code),
-                                                    maxLines = if (expanded) Int.MAX_VALUE else 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    style = MaterialTheme.typography.bodyLarge
-                                                )
-                                                // свёрнуто - «как давно», развёрнуто -
-                                                // точная дата: свёрнутый список читают
-                                                // глазами на ходу, а точное время нужно,
-                                                // только когда в него вглядываются
-                                                if (!expanded) {
-                                                    session?.scanTimes?.get(code)?.let { at ->
-                                                        Text(
-                                                            text = formatTimeAgo(context, at, now),
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                    }
-                                                }
-                                            }
-
-                                            IconButton(
-                                                onClick = {
-                                                    requestDelete(code, type == TYPE_SCANNED)
-                                                }
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Delete,
-                                                    contentDescription = deleteCodeCd
-                                                )
-                                            }
-                                        }
-
-                                        // то, что записано в коде помимо номера:
-                                        // срок годности и партию на складе сверяют
-                                        // глазами, а из самого кода их не вычитать
-                                        if (expanded && codeDetails) {
-                                            val fields = remember(code) { codeFields(code) }
-                                            val expiry = fields?.expiry
-                                                ?.let { formatExpiry(context, it) }
-                                            val batch = fields?.batch
-
-                                            if (expiry != null || batch != null) {
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                expiry?.let {
-                                                    Text(
-                                                        text = "$expiryLabel: $it",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                }
-                                                batch?.let {
-                                                    Text(
-                                                        text = "$batchLabel: $it",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        if (expanded) {
-                                            // дата встаёт в одну строку с кнопкой и
-                                            // прижимается вправо: строкой выше она
-                                            // нагромождалась на сам код и растила плашку
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                            TextButton(onClick = { copyCode(code) }) {
+                                    SwipeActionRow(
+                                        onThresholdCrossed = { feel(Outcome.THRESHOLD) },
+                                        start = SwipeAction(
+                                            background =
+                                                MaterialTheme.colorScheme.secondaryContainer,
+                                            onTrigger = {
+                                                feel(Outcome.ACTION)
+                                                copyCode(code)
+                                            },
+                                            icon = {
                                                 Icon(
                                                     painter = painterResource(
                                                         id = R.drawable.ic_content_copy
                                                     ),
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text(copyCodeText)
-                                            }
-                                            Spacer(modifier = Modifier.weight(1f))
-                                            session?.scanTimes?.get(code)?.let { at ->
-                                                Text(
-                                                    text = formatScanTimeForScreen(context, at),
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    contentDescription = swipeCopyCd,
+                                                    tint = MaterialTheme.colorScheme
+                                                        .onSecondaryContainer
                                                 )
                                             }
+                                        ),
+                                        end = SwipeAction(
+                                            background = MaterialTheme.colorScheme.errorContainer,
+                                            onTrigger = { requestDelete(code, isScanned) },
+                                            icon = {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = swipeDeleteCd,
+                                                    tint = MaterialTheme.colorScheme.onErrorContainer
+                                                )
+                                            }
+                                        )
+                                    ) {
+                                    Card(
+                                        onClick = {
+                                            expandedCodes =
+                                                if (expanded) expandedCodes - code else expandedCodes + code
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .animateContentSize()
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                // свёрнуто видно ровно то, что напечатано на
+                                                // коробке; криптохвост кода маркировки на
+                                                // этикетку не выводят и глазами не сверяют
+                                                Column(
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .padding(end = 8.dp)
+                                                ) {
+                                                    Text(
+                                                        text = if (expanded) code else remember(code) { shortCode(code) },
+                                                        maxLines = if (expanded) Int.MAX_VALUE else 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        style = MaterialTheme.typography.bodyLarge
+                                                    )
+                                                    CodeMetaLine(
+                                                        code = code,
+                                                        showKind = codeKindShown,
+                                                        showFields = codeDetails,
+                                                        singleLine = !expanded
+                                                    )
+                                                    // свёрнуто - «как давно», развёрнуто -
+                                                    // точная дата: свёрнутый список читают
+                                                    // глазами на ходу, а точное время нужно,
+                                                    // только когда в него вглядываются
+                                                    if (!expanded) {
+                                                        session?.scanTimes?.get(code)?.let { at ->
+                                                            Text(
+                                                                text = formatTimeAgo(context, at, now),
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
+                                                    }
+                                                }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        requestDelete(code, type == TYPE_SCANNED)
+                                                    }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = deleteCodeCd
+                                                    )
+                                                }
+                                            }
+
+                                            if (expanded) {
+                                                // дата встаёт в одну строку с кнопкой и
+                                                // прижимается вправо: строкой выше она
+                                                // нагромождалась на сам код и растила плашку
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                TextButton(onClick = { copyCode(code) }) {
+                                                    Icon(
+                                                        painter = painterResource(
+                                                            id = R.drawable.ic_content_copy
+                                                        ),
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(copyCodeText)
+                                                }
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                session?.scanTimes?.get(code)?.let { at ->
+                                                    Text(
+                                                        text = formatScanTimeForScreen(context, at),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                                }
                                             }
                                         }
                                     }
-                                }
+                                    }
                                 }
                             }
                         }

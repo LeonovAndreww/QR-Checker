@@ -36,8 +36,15 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.QRChecker">
+        <!--
+            Поворот экрана приложение принимает само, без пересоздания: Compose и так
+            перестраивает экран под новый размер. Пересоздание отвязывало камеру и
+            запускало её заново, и на поворот экран сканирования на миг становился
+            чёрным.
+        -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.QRChecker"

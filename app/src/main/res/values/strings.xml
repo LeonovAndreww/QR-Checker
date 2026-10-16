@@ -212,7 +212,7 @@
     <string name="show_scan_code">Code on the scanning screen</string>
     <string name="show_scan_code_why">Under the answer after a scan.</string>
     <string name="show_code_fields">Expiry date and batch</string>
-    <string name="show_code_fields_why">Under an expanded code in the lists, when the code carries them (EU medicines, German PPN).</string>
+    <string name="show_code_fields_why">Under a code in the lists and on the scanning screen, when the code carries them (EU medicines, German PPN).</string>
 
     <!-- сессия без файла -->
     <string name="msg_recorded">Recorded</string>
@@ -231,4 +231,16 @@
     <string name="manual_entry_will_record">The session has no such code. \"Record\" will add it.</string>
     <string name="manual_entry_record">Record</string>
     <string name="msg_save_failed">Not saved, scan it again</string>
+    <string name="show_code_kind">Code type</string>
+    <string name="show_code_kind_why">Under a code in the lists: Chestny ZNAK, GS1, EAN-13 and so on.</string>
+    <string name="show_scrollbar">Scrollbar</string>
+    <string name="show_scrollbar_why">In long lists: where you are and how long the list is. Drag it to jump.</string>
+    <string name="kind_chestny_znak">Chestny ZNAK</string>
+    <string name="kind_gs1" translatable="false">GS1</string>
+    <string name="kind_gs1_digital_link" translatable="false">GS1 Digital Link</string>
+    <string name="kind_ifa_ppn" translatable="false">IFA PPN</string>
+    <string name="kind_ean13" translatable="false">EAN-13</string>
+    <string name="kind_ean8" translatable="false">EAN-8</string>
+    <string name="kind_upca" translatable="false">UPC-A</string>
+    <string name="kind_link">Link</string>
 </resources>

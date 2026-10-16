@@ -102,6 +102,8 @@ fun SettingsScreen(navController: NavController) {
     val scanCodeWhy = stringResource(id = R.string.show_scan_code_why)
     val codeFieldsLabel = stringResource(id = R.string.show_code_fields)
     val codeFieldsWhy = stringResource(id = R.string.show_code_fields_why)
+    val codeKindShown by AppSettings.codeKindState(context)
+    val scrollbarShown by AppSettings.scrollbarState(context)
     val themeOptions = listOf(
         ThemeChoice.SYSTEM to stringResource(id = R.string.theme_system),
         ThemeChoice.LIGHT to stringResource(id = R.string.theme_light),
@@ -217,6 +219,22 @@ fun SettingsScreen(navController: NavController) {
                         description = codeFieldsWhy,
                         checked = codeDetails,
                         onCheckedChange = { AppSettings.setCodeFields(context, it) }
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    SwitchRow(
+                        label = stringResource(id = R.string.show_code_kind),
+                        description = stringResource(id = R.string.show_code_kind_why),
+                        checked = codeKindShown,
+                        onCheckedChange = { AppSettings.setCodeKind(context, it) }
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                    SwitchRow(
+                        label = stringResource(id = R.string.show_scrollbar),
+                        description = stringResource(id = R.string.show_scrollbar_why),
+                        checked = scrollbarShown,
+                        onCheckedChange = { AppSettings.setScrollbar(context, it) }
                     )
                 }
             }

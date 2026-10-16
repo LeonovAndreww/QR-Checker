@@ -489,7 +489,7 @@ fun EditSessionScreen(
                                         ) {
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(
-                                                    text = if (expanded) code else shortCode(code),
+                                                    text = if (expanded) code else remember(code) { shortCode(code) },
                                                     style = MaterialTheme.typography.bodyMedium,
                                                     maxLines = if (expanded) Int.MAX_VALUE else 1,
                                                     overflow = TextOverflow.Ellipsis

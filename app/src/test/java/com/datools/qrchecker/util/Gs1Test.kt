@@ -168,4 +168,63 @@ class Gs1Test {
         assertNull(fields?.expiry)
         assertNull(fields?.batch)
     }
+
+    @Test
+    fun `digital link - поля из пути и срок из параметров`() {
+        // ровно то, что даёт генератор GS1 Digital Link Data Matrix
+        val code = "https://dalgiardino.com/01/09506000134376/10/ABC/21/123456?17=221231"
+        assertEquals(
+            CodeFields(product = "09506000134376", serial = "123456", batch = "ABC", expiry = "221231"),
+            codeFields(code)
+        )
+        assertEquals("0109506000134376" + "21123456", shortCode(code))
+    }
+
+    @Test
+    fun `digital link - короткие имена и gtin-13 добиваются нулём`() {
+        val code = "https://id.example.org/gtin/9506000134376/lot/A%2F1/ser/77?exp=270101&utm=x"
+        assertEquals(
+            CodeFields(product = "09506000134376", serial = "77", batch = "A/1", expiry = "270101"),
+            codeFields(code)
+        )
+    }
+
+    @Test
+    fun `обычная ссылка - не digital link`() {
+        assertNull(parseDigitalLink("https://example.com/a/b?c=1"))
+        assertNull(parseDigitalLink("https://example.com/01/abc"))
+        assertEquals("https://example.com/01/abc", shortCode("https://example.com/01/abc"))
+    }
+
+    @Test
+    fun `немецкий ppn - короткая форма без конверта`() {
+        val raw = "[)>\u001E06${gs}9N111234567842${gs}1TCH42B${gs}D270630${gs}SRX5TT8Q3MZ\u001E\u0004"
+        assertEquals("9N111234567842SRX5TT8Q3MZ", shortCode(raw))
+    }
+
+    @Test
+    fun `ссылка с 01 в адресе - не digital link, если номер не сходится`() {
+        // контрольная цифра у 12345678 - 0, а не 8
+        assertNull(parseDigitalLink("https://shop.example/catalog/01/12345678"))
+        // после номера идёт не идентификатор GS1, а просто путь
+        assertNull(parseDigitalLink("https://site.example/01/09506000134376/2024/05"))
+        assertEquals("https://shop.example/catalog/01/12345678", shortCode("https://shop.example/catalog/01/12345678"))
+    }
+
+    @Test
+    fun `digital link - кириллица в процентах и плюс в параметрах`() {
+        val code = "https://id.example/01/09506000134376/10/%D0%9F%D0%B0%D1%80%D1%82%D0%B8%D1%8F?21=A+B"
+        val fields = codeFields(code)
+        assertEquals("Партия", fields?.batch)
+        assertEquals("A B", fields?.serial)
+    }
+
+    @Test
+    fun `логистическая этикетка с sscc и gtin содержимого тоже даёт срок и партию`() {
+        val code = "00123456789012345678${gs}0204612345678904${gs}10LOT1${gs}17261231"
+        assertEquals(
+            CodeFields(product = "04612345678904", batch = "LOT1", expiry = "261231"),
+            codeFields(code)
+        )
+    }
 }

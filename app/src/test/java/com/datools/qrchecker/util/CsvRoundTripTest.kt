@@ -106,6 +106,13 @@ class CsvRoundTripTest {
     }
 
     @Test
+    fun `немецкий ppn и digital link возвращаются целиком`() {
+        val ppn = normalizeCode("[)>\u001E06${gs}9N111234567842${gs}1TCH42B${gs}D270630${gs}SRX5TT8Q3MZ\u001E\u0004")
+        val link = "https://dalgiardino.com/01/09506000134376/10/ABC/21/123456?17=221231"
+        assertEquals(listOf(ppn, link), roundTrip(listOf(ppn, link)))
+    }
+
+    @Test
     fun `значение с экранированной кавычкой теряет только обрамление`() {
         assertEquals(listOf("ABC\"DEF12345"), parseCodeList("\"ABC\"\"DEF12345\""))
     }

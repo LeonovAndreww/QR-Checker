@@ -216,7 +216,7 @@
     <string name="show_scan_code">Код на экране сканирования</string>
     <string name="show_scan_code_why">Под ответом после сканирования.</string>
     <string name="show_code_fields">Срок годности и партия</string>
-    <string name="show_code_fields_why">Под развёрнутым кодом в списках, если код их содержит (лекарства ЕС, немецкий PPN).</string>
+    <string name="show_code_fields_why">Под кодом в списках и на экране сканирования, если код их содержит (лекарства ЕС, немецкий PPN).</string>
 
     <!-- сессия без файла -->
     <string name="msg_recorded">Записан</string>
@@ -235,4 +235,10 @@
     <string name="manual_entry_will_record">Такого кода в сессии нет. «Записать» добавит его.</string>
     <string name="manual_entry_record">Записать</string>
     <string name="msg_save_failed">Не сохранён, отсканируйте ещё раз</string>
+    <string name="show_code_kind">Тип кода</string>
+    <string name="show_code_kind_why">Под кодом в списках: Честный ЗНАК, GS1, EAN-13 и т. п.</string>
+    <string name="show_scrollbar">Полоса прокрутки</string>
+    <string name="show_scrollbar_why">В длинных списках: где вы и сколько всего. Её можно тянуть.</string>
+    <string name="kind_chestny_znak">Честный ЗНАК</string>
+    <string name="kind_link">Ссылка</string>
 </resources>

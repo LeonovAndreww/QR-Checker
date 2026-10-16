@@ -95,6 +95,9 @@ import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.util.normalizeCode
 import com.datools.qrchecker.util.CodeFormat
 import com.datools.qrchecker.util.LinearReadVote
+import android.hardware.display.DisplayManager
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -161,6 +164,10 @@ internal fun formatZoom(ratio: Float): String {
 /** Как часто проверяется, держат ли ту же коробку перед камерой. */
 private const val FEEDBACK_HOLD_CHECK_MS = 150L
 
+/** Сколько экран держится включённым без единого кода в кадре. */
+private const val SCREEN_AWAKE_IDLE_MS = 5 * 60_000L
+private const val SCREEN_AWAKE_CHECK_MS = 5_000L
+
 /** Насколько плавно рамка переезжает к найденному коду и обратно в центр. */
 private const val FRAME_SNAP_MS = 260
 
@@ -226,6 +233,7 @@ fun ScanScreen(
     // какой код камера видит прямо сейчас и когда она его видела в последний раз
     var presentCode by remember { mutableStateOf<String?>(null) }
     val showScanCode by AppSettings.scanCodeState(context)
+    val showCodeFields by AppSettings.codeFieldsState(context)
     var presentSeenAt by remember { mutableLongStateOf(0L) }
 
     // a torn or smudged label is otherwise a dead end
@@ -271,8 +279,22 @@ fun ScanScreen(
         if (!hasPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
+    // Экран не гаснет, пока идёт работа, но и не горит вечно над столом, где телефон
+    // забыли: через пять минут без единого кода в кадре решает обычный тайм-аут
+    // системы. Вернулись к телефону - отсчёт начинается заново.
+    var lastActiveAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        lifecycleOwner.lifecycle.currentStateFlow.collect { state ->
+            if (state == Lifecycle.State.RESUMED) lastActiveAt = System.currentTimeMillis()
+        }
+    }
+    LaunchedEffect(Unit) {
+        while (true) {
+            view.keepScreenOn = System.currentTimeMillis() - lastActiveAt < SCREEN_AWAKE_IDLE_MS
+            delay(SCREEN_AWAKE_CHECK_MS)
+        }
+    }
     DisposableEffect(Unit) {
-        view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
     }
 
@@ -553,13 +575,18 @@ fun ScanScreen(
                     torchOn = torchOn,
                     onTorchAvailable = { hasTorch = it },
                     // нажали по кадру - спрашиваем заново даже про тот же код
-                    onTapped = { presentCode = null },
+                    onTapped = {
+                        presentCode = null
+                        lastActiveAt = System.currentTimeMillis()
+                    },
                     onZoomChanged = { ratio ->
                         zoomRatio = ratio
                         zoomShownAt = System.currentTimeMillis()
                     },
                     onCodeSeen = { code ->
-                        if (code == presentCode) presentSeenAt = System.currentTimeMillis()
+                        val now = System.currentTimeMillis()
+                        lastActiveAt = now
+                        if (code == presentCode) presentSeenAt = now
                     },
                     onCodeScanned = { code -> onCodeScanned(code) }
                 )
@@ -594,439 +621,449 @@ fun ScanScreen(
                 )
             }
 
-            // Одна полоса поверх камеры: слева «назад», справа действия, название -
-            // ровно по центру экрана.
-            //
-            // Раньше название стояло в общем ряду и делило место с кнопками: слева от
-            // него была одна стрелка, справа - значок и кнопка, и центр названия уезжал
-            // влево тем сильнее, чем шире кнопка. Здесь кнопки лежат поверх, а название
-            // центрируется по всей ширине и отступает от краёв на ширину самой широкой
-            // стороны - так оно и по центру, и ни на что не налезает.
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .then(sides)
-                    .fillMaxWidth()
-                    .padding(top = padding.calculateTopPadding() + 4.dp)
-                    .padding(horizontal = 4.dp)
-            ) {
-                Text(
-                    loaded.name,
+            // Всё управление - внутри отступов от боковых системных панелей, камера под ними
+            // остаётся во весь экран. Отступ один на всех, чтобы ни один новый элемент
+            // не мог про него забыть.
+            Box(modifier = Modifier.fillMaxSize().then(sides)) {
+                // Одна полоса поверх камеры: слева «назад», справа действия, название -
+                // ровно по центру экрана.
+                //
+                // Раньше название стояло в общем ряду и делило место с кнопками: слева от
+                // него была одна стрелка, справа - значок и кнопка, и центр названия уезжал
+                // влево тем сильнее, чем шире кнопка. Здесь кнопки лежат поверх, а название
+                // центрируется по всей ширине и отступает от краёв на ширину самой широкой
+                // стороны - так оно и по центру, и ни на что не налезает.
+                Box(
                     modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(horizontal = TOP_BAR_SIDE),
-                    color = Color.White,
-                    style = MaterialTheme.typography.headlineSmall,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                IconButton(
-                    // то же, что и системная «назад»: на список сессий. Обычный
-                    // popBackStack возвращал на создание сессии, если пришли оттуда,
-                    // и два способа уйти с экрана вели в разные места
-                    onClick = {
-                        navController.navigateOnce(Screen.Home.route) {
-                            popUpTo(Screen.Home.route) { inclusive = true }
-                        }
-                    },
-                    modifier = Modifier.align(Alignment.CenterStart)
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .padding(top = padding.calculateTopPadding() + 4.dp)
+                        .padding(horizontal = 4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = backCd,
-                        tint = Color.White
+                    Text(
+                        loaded.name,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = TOP_BAR_SIDE),
+                        color = Color.White,
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                }
 
-                Row(
-                    modifier = Modifier.align(Alignment.CenterEnd),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Фонарь - первым: на складе между стеллажами и в кузове темно, а
-                    // без света Data Matrix не читается вообще никак. Кнопка есть
-                    // только там, где вспышка есть у камеры.
-                    if (hasTorch) {
-                        IconButton(onClick = { torchOn = !torchOn }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_torch_on),
-                                contentDescription = if (torchOn) torchOffCd else torchOnCd,
-                                tint = if (torchOn) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    Color.White
+                    IconButton(
+                        // то же, что и системная «назад»: на список сессий. Обычный
+                        // popBackStack возвращал на создание сессии, если пришли оттуда,
+                        // и два способа уйти с экрана вели в разные места
+                        onClick = {
+                            navController.navigateOnce(Screen.Home.route) {
+                                popUpTo(Screen.Home.route) { inclusive = true }
+                            }
+                        },
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = backCd,
+                            tint = Color.White
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Фонарь - первым: на складе между стеллажами и в кузове темно, а
+                        // без света Data Matrix не читается вообще никак. Кнопка есть
+                        // только там, где вспышка есть у камеры.
+                        if (hasTorch) {
+                            IconButton(onClick = { torchOn = !torchOn }) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_torch_on),
+                                    contentDescription = if (torchOn) torchOffCd else torchOnCd,
+                                    tint = if (torchOn) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        Color.White
+                                    }
+                                )
+                            }
+                        }
+
+                        // «Поделиться» живёт здесь, а не в правке сессии: это действие над
+                        // той сессией, с которой человек сейчас работает, и искать его в
+                        // настройках никто не станет
+                        IconButton(onClick = {
+                            scope.launch {
+                                try {
+                                    context.startActivity(shareSessionFile(context, loaded))
+                                } catch (c: CancellationException) {
+                                    throw c
+                                } catch (t: Throwable) {
+                                    // молчать нельзя: нажатие без единого следа читается как
+                                    // сломанная кнопка
+                                    Log.e(TAG, "Can't share the session", t)
+                                    snackbarHostState.showSnackbar(shareFailedText)
                                 }
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = shareSessionCd,
+                                tint = Color.White
+                            )
+                        }
+
+                        // клавиатура вместо карандаша и подписи: карандаш - это «поправить
+                        // то, что есть», а здесь код набирают с нуля, и по клавиатуре это
+                        // видно без слов. Заодно с экрана уходит синяя плашка, которая
+                        // закрывала кадр и спорила со всем вокруг
+                        IconButton(onClick = { manualCode = "" }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_keyboard),
+                                contentDescription = manualEntryCd,
+                                tint = Color.White
                             )
                         }
                     }
+                }
 
-                    // «Поделиться» живёт здесь, а не в правке сессии: это действие над
-                    // той сессией, с которой человек сейчас работает, и искать его в
-                    // настройках никто не станет
-                    IconButton(onClick = {
-                        scope.launch {
-                            try {
-                                context.startActivity(shareSessionFile(context, loaded))
-                            } catch (c: CancellationException) {
-                                throw c
-                            } catch (t: Throwable) {
-                                // молчать нельзя: нажатие без единого следа читается как
-                                // сломанная кнопка
-                                Log.e(TAG, "Can't share the session", t)
-                                snackbarHostState.showSnackbar(shareFailedText)
-                            }
-                        }
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = shareSessionCd,
-                            tint = Color.White
-                        )
-                    }
-
-                    // клавиатура вместо карандаша и подписи: карандаш - это «поправить
-                    // то, что есть», а здесь код набирают с нуля, и по клавиатуре это
-                    // видно без слов. Заодно с экрана уходит синяя плашка, которая
-                    // закрывала кадр и спорила со всем вокруг
-                    IconButton(onClick = { manualCode = "" }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_keyboard),
-                            contentDescription = manualEntryCd,
-                            tint = Color.White
-                        )
+                // Кратность показывается пузырьком, а не полосой с делениями: пальцы уже
+                // заняты щипком, а знать нужно ровно одно - на какой объектив попал.
+                LaunchedEffect(zoomShownAt) {
+                    if (zoomShownAt == 0L) return@LaunchedEffect
+                    zoomVisible = true
+                    delay(ZOOM_BUBBLE_MS)
+                    if (System.currentTimeMillis() - zoomShownAt >= ZOOM_BUBBLE_MS) {
+                        zoomVisible = false
                     }
                 }
-            }
 
-            // Кратность показывается пузырьком, а не полосой с делениями: пальцы уже
-            // заняты щипком, а знать нужно ровно одно - на какой объектив попал.
-            LaunchedEffect(zoomShownAt) {
-                if (zoomShownAt == 0L) return@LaunchedEffect
-                zoomVisible = true
-                delay(ZOOM_BUBBLE_MS)
-                if (System.currentTimeMillis() - zoomShownAt >= ZOOM_BUBBLE_MS) {
-                    zoomVisible = false
-                }
-            }
-
-            AnimatedVisibility(
-                visible = zoomVisible,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .then(sides)
-                    .padding(bottom = padding.calculateBottomPadding() + 88.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = Color.Black.copy(alpha = 0.55f),
-                            shape = MaterialTheme.shapes.large
-                        )
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = formatZoom(zoomRatio),
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-            }
-
-            // У собирающей сессии список один, и кнопка одна - посередине, со счётчиком
-            // второй строкой. Отдельная подпись «записано» рядом с кнопкой «записанные»
-            // говорила одно и то же дважды и перекашивала низ экрана.
-            if (loaded.collecting) {
-                Button(
-                    onClick = {
-                        navController.navigateOnce(Screen.CodesList.createRoute(sessionId, TYPE_SCANNED))
-                    },
+                AnimatedVisibility(
+                    visible = zoomVisible,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .then(sides)
-                        .padding(bottom = padding.calculateBottomPadding() + 8.dp)
-                        .fillMaxWidth(0.6f)
-                        .height(64.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp),
-                    shape = MaterialTheme.shapes.small
+                        .padding(bottom = padding.calculateBottomPadding() + 88.dp)
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = Color.Black.copy(alpha = 0.55f),
+                                shape = MaterialTheme.shapes.large
+                            )
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
                         Text(
-                            text = collectedButtonText,
-                            maxLines = 1,
-                            autoSize = BUTTON_TEXT_SIZE,
-                            style = MaterialTheme.typography.titleMedium,
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = loaded.scannedCodes.size.toString(),
+                            text = formatZoom(zoomRatio),
+                            color = Color.White,
                             style = MaterialTheme.typography.titleMedium
                         )
                     }
                 }
-            } else Row(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .then(sides)
-                    .padding(
-                        start = 4.dp,
-                        end = 4.dp,
-                        bottom = padding.calculateBottomPadding() + 8.dp
-                    )
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                Button(
-                    onClick = {
-                        navController.navigateOnce(Screen.CodesList.createRoute(sessionId, TYPE_SCANNED))
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text = scannedButtonText,
-                        maxLines = 1,
-                        // подпись занимает столько, сколько влезло, а не обрезается:
-                        // «Неотсканирован...» - это не название кнопки
-                        autoSize = BUTTON_TEXT_SIZE,
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
 
-                Text(
-                    text = progressText,
-                    textAlign = TextAlign.Center,
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-
-                Button(
-                    onClick = {
-                        navController.navigateOnce(
-                            Screen.CodesList.createRoute(sessionId, TYPE_NOT_SCANNED)
-                        )
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                    shape = MaterialTheme.shapes.small
-                ) {
-                    Text(
-                        text = notScannedButtonText,
-                        maxLines = 1,
-                        autoSize = BUTTON_TEXT_SIZE,
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            if (!hasPermission) {
-                Text(
-                    text = noCameraPermissionText,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .then(sides)
-                        .padding(bottom = padding.calculateBottomPadding() + 4.dp),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.displayMedium
-                )
-            }
-
-            manualCode?.let { typed ->
-                // Набрать 31 знак кода маркировки руками невозможно, поэтому ввод здесь -
-                // это поиск по кодам сессии, а не набор. Неотмеченные идут первыми: их и
-                // ищут. Отмеченные остаются в списке, потому что коробка могла приехать
-                // дважды, и человеку нужно это увидеть, а не гадать, куда делся код.
-                val query = typed.trim()
-                val suggestions = remember(loaded, query) {
-                    val scanned = loaded.scannedCodes.toHashSet()
-                    loaded.codes
-                        .asSequence()
-                        .filter { query.isEmpty() || it.contains(query, ignoreCase = true) }
-                        .sortedBy { it in scanned }
-                        .take(MANUAL_SUGGESTIONS)
-                        .map { it to (it in scanned) }
-                        .toList()
-                }
-
-                AlertDialog(
-                    onDismissRequest = { manualCode = null },
-                    title = { Text(manualEntryTitle) },
-                    text = {
-                        Column {
-                            OutlinedTextField(
-                                value = typed,
-                                onValueChange = { manualCode = it.filterNot { ch -> ch == '\n' } },
-                                label = { Text(manualEntryLabel) },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = manualEntryHint,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            if (suggestions.isEmpty()) {
-                                Text(
-                                    // в собирающей сессии отсутствие совпадений - не
-                                    // тупик: набранный код в неё запишется
-                                    text = if (loaded.collecting) {
-                                        manualEntryWillRecord
-                                    } else {
-                                        manualEntryNoMatches
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            } else {
-                                LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
-                                    items(suggestions, key = { it.first }) { (code, isScanned) ->
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable {
-                                                    manualCode = null
-                                                    // тот же путь, что у кадра с камеры,
-                                                    // чтобы отклик был тем же самым
-                                                    onCodeScanned(code, fromCamera = false)
-                                                }
-                                                .padding(vertical = 8.dp)
-                                        ) {
-                                            // Подсказки листаются вбок все разом, одним
-                                            // состоянием на список: код длиннее экрана,
-                                            // и по первым двум десяткам символов от
-                                            // соседа его не отличить. У каждой строки
-                                            // своя прокрутка означала бы, что строки
-                                            // разъезжаются и сравнивать их уже нельзя.
-                                            Text(
-                                                text = shortCode(code),
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                maxLines = 1,
-                                                softWrap = false,
-                                                modifier = Modifier.horizontalScroll(
-                                                    suggestionScroll
-                                                ),
-                                                color = if (isScanned) {
-                                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                                } else {
-                                                    MaterialTheme.colorScheme.onSurface
-                                                }
-                                            )
-                                            if (isScanned) {
-                                                Text(
-                                                    text = alreadyScannedLabel,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        }
-                                        HorizontalDivider()
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        // Диалог - это поиск по кодам сессии, и набранное в нём обычно
-                        // кусок кода, а не код. В сверяющей сессии такой кусок безобиден:
-                        // ответом будет «нет в этой сессии». В собирающей он записался бы
-                        // в неё настоящим кодом, поэтому записать можно только то, что не
-                        // совпало ни с чем, - и кнопка тогда так и называется.
-                        val records = loaded.collecting && suggestions.isEmpty()
-                        TextButton(
-                            enabled = typed.isNotBlank() && (!loaded.collecting || records),
-                            onClick = {
-                                manualCode = null
-                                onCodeScanned(typed, fromCamera = false)
-                            }
-                        ) { Text(if (records) manualEntryRecord else manualEntryConfirm) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { manualCode = null }) { Text(cancelText) }
-                    }
-                )
-            }
-
-            // FEEDBACK OVERLAY (animated)
-            AnimatedVisibility(
-                visible = feedback != null,
-                enter = fadeIn(),
-                exit = fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .then(sides)
-                    .padding(top = padding.calculateTopPadding() + 64.dp)
-            ) {
-                val f = feedback
-                if (f != null) {
-                    Box(
+                // У собирающей сессии список один, и кнопка одна - посередине, со счётчиком
+                // второй строкой. Отдельная подпись «записано» рядом с кнопкой «записанные»
+                // говорила одно и то же дважды и перекашивала низ экрана.
+                if (loaded.collecting) {
+                    Button(
+                        onClick = {
+                            navController.navigateOnce(Screen.CodesList.createRoute(sessionId, TYPE_SCANNED))
+                        },
                         modifier = Modifier
-                            .fillMaxWidth(0.9f)
-                            .wrapContentHeight()
-                            .background(color = f.color.container, shape = MaterialTheme.shapes.small)
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.Center
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = padding.calculateBottomPadding() + 8.dp)
+                            .fillMaxWidth(0.6f)
+                            .height(64.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        shape = MaterialTheme.shapes.small
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = f.message,
-                                color = f.color.content,
-                                style = MaterialTheme.typography.bodyLarge,
-                                textAlign = TextAlign.Center,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                text = collectedButtonText,
+                                maxLines = 1,
+                                autoSize = BUTTON_TEXT_SIZE,
+                                style = MaterialTheme.typography.titleMedium,
+                                textAlign = TextAlign.Center
                             )
-                            // сам код под ответом: подпись под Data Matrix печатают не
-                            // всегда, а глазами он не читается - без строки на экране
-                            // сверить нечем, и особенно когда код оказался чужим
-                            if (showScanCode) {
-                                f.code?.let { scanned ->
-                                    // нажатие кладёт в буфер код целиком, а не
-                                    // укороченный: в учётную систему нужен весь.
-                                    // clickable съедает касание, и наводка фокуса,
-                                    // висящая на видоискателе, его не увидит
-                                    Row(
-                                        modifier = Modifier
-                                            .padding(top = 2.dp)
-                                            .clip(MaterialTheme.shapes.extraSmall)
-                                            .clickable { copyScanned(scanned) }
-                                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = shortCode(scanned),
-                                            color = f.color.content,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            textAlign = TextAlign.Center,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.weight(1f, fill = false)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Icon(
-                                            painter = painterResource(
-                                                id = R.drawable.ic_content_copy
-                                            ),
-                                            contentDescription = copyCodeCd,
-                                            tint = f.color.content,
-                                            modifier = Modifier.size(14.dp)
-                                        )
+                            Text(
+                                text = loaded.scannedCodes.size.toString(),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        }
+                    }
+                } else Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(
+                            start = 4.dp,
+                            end = 4.dp,
+                            bottom = padding.calculateBottomPadding() + 8.dp
+                        )
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            navController.navigateOnce(Screen.CodesList.createRoute(sessionId, TYPE_SCANNED))
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = scannedButtonText,
+                            maxLines = 1,
+                            // подпись занимает столько, сколько влезло, а не обрезается:
+                            // «Неотсканирован...» - это не название кнопки
+                            autoSize = BUTTON_TEXT_SIZE,
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    Text(
+                        text = progressText,
+                        textAlign = TextAlign.Center,
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            navController.navigateOnce(
+                                Screen.CodesList.createRoute(sessionId, TYPE_NOT_SCANNED)
+                            )
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = notScannedButtonText,
+                            maxLines = 1,
+                            autoSize = BUTTON_TEXT_SIZE,
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                if (!hasPermission) {
+                    Text(
+                        text = noCameraPermissionText,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(bottom = padding.calculateBottomPadding() + 4.dp),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.displayMedium
+                    )
+                }
+
+                manualCode?.let { typed ->
+                    // Набрать 31 знак кода маркировки руками невозможно, поэтому ввод здесь -
+                    // это поиск по кодам сессии, а не набор. Неотмеченные идут первыми: их и
+                    // ищут. Отмеченные остаются в списке, потому что коробка могла приехать
+                    // дважды, и человеку нужно это увидеть, а не гадать, куда делся код.
+                    val query = typed.trim()
+                    val suggestions = remember(loaded, query) {
+                        val scanned = loaded.scannedCodes.toHashSet()
+                        loaded.codes
+                            .asSequence()
+                            .filter { query.isEmpty() || it.contains(query, ignoreCase = true) }
+                            .sortedBy { it in scanned }
+                            .take(MANUAL_SUGGESTIONS)
+                            .map { it to (it in scanned) }
+                            .toList()
+                    }
+
+                    AlertDialog(
+                        onDismissRequest = { manualCode = null },
+                        title = { Text(manualEntryTitle) },
+                        text = {
+                            Column {
+                                OutlinedTextField(
+                                    value = typed,
+                                    onValueChange = { manualCode = it.filterNot { ch -> ch == '\n' } },
+                                    label = { Text(manualEntryLabel) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = manualEntryHint,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                if (suggestions.isEmpty()) {
+                                    Text(
+                                        // в собирающей сессии отсутствие совпадений - не
+                                        // тупик: набранный код в неё запишется
+                                        text = if (loaded.collecting) {
+                                            manualEntryWillRecord
+                                        } else {
+                                            manualEntryNoMatches
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
+                                        items(suggestions, key = { it.first }) { (code, isScanned) ->
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        manualCode = null
+                                                        // тот же путь, что у кадра с камеры,
+                                                        // чтобы отклик был тем же самым
+                                                        onCodeScanned(code, fromCamera = false)
+                                                    }
+                                                    .padding(vertical = 8.dp)
+                                            ) {
+                                                // Подсказки листаются вбок все разом, одним
+                                                // состоянием на список: код длиннее экрана,
+                                                // и по первым двум десяткам символов от
+                                                // соседа его не отличить. У каждой строки
+                                                // своя прокрутка означала бы, что строки
+                                                // разъезжаются и сравнивать их уже нельзя.
+                                                Text(
+                                                    text = shortCode(code),
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    maxLines = 1,
+                                                    softWrap = false,
+                                                    modifier = Modifier.horizontalScroll(
+                                                        suggestionScroll
+                                                    ),
+                                                    color = if (isScanned) {
+                                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurface
+                                                    }
+                                                )
+                                                if (isScanned) {
+                                                    Text(
+                                                        text = alreadyScannedLabel,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                            HorizontalDivider()
+                                        }
                                     }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            // Диалог - это поиск по кодам сессии, и набранное в нём обычно
+                            // кусок кода, а не код. В сверяющей сессии такой кусок безобиден:
+                            // ответом будет «нет в этой сессии». В собирающей он записался бы
+                            // в неё настоящим кодом, поэтому записать можно только то, что не
+                            // совпало ни с чем, - и кнопка тогда так и называется.
+                            val records = loaded.collecting && suggestions.isEmpty()
+                            TextButton(
+                                enabled = typed.isNotBlank() && (!loaded.collecting || records),
+                                onClick = {
+                                    manualCode = null
+                                    onCodeScanned(typed, fromCamera = false)
+                                }
+                            ) { Text(if (records) manualEntryRecord else manualEntryConfirm) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { manualCode = null }) { Text(cancelText) }
+                        }
+                    )
+                }
+
+                // FEEDBACK OVERLAY (animated)
+                AnimatedVisibility(
+                    visible = feedback != null,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = padding.calculateTopPadding() + 64.dp)
+                ) {
+                    val f = feedback
+                    if (f != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.9f)
+                                .wrapContentHeight()
+                                .background(color = f.color.container, shape = MaterialTheme.shapes.small)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = f.message,
+                                    color = f.color.content,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                // сам код под ответом: подпись под Data Matrix печатают не
+                                // всегда, а глазами он не читается - без строки на экране
+                                // сверить нечем, и особенно когда код оказался чужим
+                                if (showScanCode) {
+                                    f.code?.let { scanned ->
+                                        // нажатие кладёт в буфер код целиком, а не
+                                        // укороченный: в учётную систему нужен весь.
+                                        // clickable съедает касание, и наводка фокуса,
+                                        // висящая на видоискателе, его не увидит
+                                        Row(
+                                            modifier = Modifier
+                                                .padding(top = 2.dp)
+                                                .clip(MaterialTheme.shapes.extraSmall)
+                                                .clickable { copyScanned(scanned) }
+                                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = shortCode(scanned),
+                                                color = f.color.content,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                textAlign = TextAlign.Center,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f, fill = false)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Icon(
+                                                painter = painterResource(
+                                                    id = R.drawable.ic_content_copy
+                                                ),
+                                                contentDescription = copyCodeCd,
+                                                tint = f.color.content,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                // срок и партия - прямо в ответе: смотрят на них в момент
+                                // сканирования, а не потом в списке
+                                f.code?.let { scanned ->
+                                    CodeMetaLine(
+                                        code = scanned,
+                                        showKind = false,
+                                        showFields = showCodeFields,
+                                        color = f.color.content,
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                             }
                         }
@@ -1206,6 +1243,25 @@ private fun CameraPreview(
         }
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         var boundProvider: ProcessCameraProvider? = null
+
+        // Поворот больше не пересоздаёт экран, и камере надо сказать о нём самим: иначе
+        // кадры анализа приходили бы повёрнутыми по-старому, и рамка рисовалась бы не
+        // там, где код. Слушается сам экран, а не конфигурация: переворот на 180°
+        // конфигурацию не меняет, а кадр переворачивает.
+        var boundPreview: Preview? = null
+        var boundAnalysis: ImageAnalysis? = null
+        val displayManager = context.getSystemService(DisplayManager::class.java)
+        val displayListener = object : DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) = Unit
+            override fun onDisplayRemoved(displayId: Int) = Unit
+            override fun onDisplayChanged(displayId: Int) {
+                val display = previewView.display ?: return
+                if (display.displayId != displayId) return
+                boundPreview?.targetRotation = display.rotation
+                boundAnalysis?.targetRotation = display.rotation
+            }
+        }
+        displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
         // Экран могли закрыть, пока провайдер готовился.
         //
         // Тогда onDispose уже прошёл - анализатор закрыт, исполнитель остановлен, а
@@ -1231,6 +1287,13 @@ private fun CameraPreview(
                     .build()
                     .also { it.setAnalyzer(analysisExecutor, analyzer) }
 
+                previewView.display?.rotation?.let {
+                    preview.targetRotation = it
+                    analysis.targetRotation = it
+                }
+                boundPreview = preview
+                boundAnalysis = analysis
+
                 cameraProvider.unbindAll()
                 camera = cameraProvider.bindToLifecycle(
                     lifecycleOwner,
@@ -1245,6 +1308,7 @@ private fun CameraPreview(
 
         onDispose {
             disposed = true
+            displayManager.unregisterDisplayListener(displayListener)
             boundProvider?.unbindAll()
             camera = null
             analyzer.close()

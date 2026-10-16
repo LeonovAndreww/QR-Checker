@@ -36,6 +36,8 @@ object AppSettings {
     private const val KEY_SOUND = "sound"
     private const val KEY_CODE_FIELDS = "code_fields"
     private const val KEY_SCAN_CODE = "scan_code"
+    private const val KEY_CODE_KIND = "code_kind"
+    private const val KEY_SCROLLBAR = "scrollbar"
 
     // не applicationContext: язык читается из attachBaseContext приложения, когда
     // applicationContext ещё не существует
@@ -49,6 +51,8 @@ object AppSettings {
     private var soundState: MutableState<Boolean>? = null
     private var codeFieldsState: MutableState<Boolean>? = null
     private var scanCodeState: MutableState<Boolean>? = null
+    private var codeKindState: MutableState<Boolean>? = null
+    private var scrollbarState: MutableState<Boolean>? = null
 
     fun themeState(context: Context): MutableState<ThemeChoice> =
         themeState ?: mutableStateOf(
@@ -111,9 +115,9 @@ object AppSettings {
     }
 
     /**
-     * Показывать ли под развёрнутым кодом то, что в нём записано помимо самого номера:
-     * срок годности и партию. Включено по умолчанию - данные уже есть в коде, и на
-     * складе они как раз и нужны.
+     * Показывать ли под кодом то, что в нём записано помимо самого номера: срок годности
+     * и партию. Включено по умолчанию - данные уже есть в коде, и на складе они как раз
+     * и нужны.
      */
     fun codeFieldsState(context: Context): MutableState<Boolean> =
         codeFieldsState ?: mutableStateOf(prefs(context).getBoolean(KEY_CODE_FIELDS, true))
@@ -142,6 +146,34 @@ object AppSettings {
     fun setScanCode(context: Context, on: Boolean) {
         scanCodeState(context).value = on
         prefs(context).edit { putBoolean(KEY_SCAN_CODE, on) }
+    }
+
+    /**
+     * Показывать ли под кодом его вид: Честный ЗНАК, GS1, EAN-13 и так далее.
+     *
+     * Выключено по умолчанию: в списке одной партии вид у всех кодов один и тот же, и
+     * строка про него повторялась бы под каждым.
+     */
+    fun codeKindState(context: Context): MutableState<Boolean> =
+        codeKindState ?: mutableStateOf(prefs(context).getBoolean(KEY_CODE_KIND, false))
+            .also { codeKindState = it }
+
+    fun setCodeKind(context: Context, on: Boolean) {
+        codeKindState(context).value = on
+        prefs(context).edit { putBoolean(KEY_CODE_KIND, on) }
+    }
+
+    /**
+     * Полоса прокрутки в длинных списках. Включена по умолчанию: без неё в партии на
+     * тысячи коробок не видно ни где ты, ни сколько всего.
+     */
+    fun scrollbarState(context: Context): MutableState<Boolean> =
+        scrollbarState ?: mutableStateOf(prefs(context).getBoolean(KEY_SCROLLBAR, true))
+            .also { scrollbarState = it }
+
+    fun setScrollbar(context: Context, on: Boolean) {
+        scrollbarState(context).value = on
+        prefs(context).edit { putBoolean(KEY_SCROLLBAR, on) }
     }
 
     private inline fun <T> read(context: Context, key: String, fallback: T, parse: (String) -> T): T =
