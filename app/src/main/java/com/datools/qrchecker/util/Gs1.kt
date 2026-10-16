@@ -311,7 +311,11 @@ fun codeFields(raw: String): CodeFields? {
         ).takeIf { !it.isEmpty }
     }
 
-    return parsePpn(code)
+    parsePpn(code)?.let { return it }
+
+    return parseHibc(code)?.let {
+        CodeFields(product = it.product, serial = it.serial, batch = it.lot, expiry = it.expiry)
+    }
 }
 
 /**
@@ -328,6 +332,9 @@ internal fun shortCodeOfOther(code: String): String? {
             parsed.firstOrNull { it.first == "21" }?.second
         )
     }
+    // HIBC: основная часть без контрольного знака, как она напечатана под кодом
+    if (code.startsWith("+") || code.startsWith("*+")) return parseHibc(code)?.primary
+
     if (!code.startsWith("[)>") && !code.startsWith("9N")) return null
     val ppn = parsePpn(code) ?: return null
     return "9N${ppn.product}" + (ppn.serial?.let { "S$it" } ?: "")

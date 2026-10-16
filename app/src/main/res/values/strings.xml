@@ -212,7 +212,7 @@
     <string name="show_scan_code">Code on the scanning screen</string>
     <string name="show_scan_code_why">Under the answer after a scan.</string>
     <string name="show_code_fields">Expiry date and batch</string>
-    <string name="show_code_fields_why">Under a code in the lists and on the scanning screen, when the code carries them (EU medicines, German PPN).</string>
+    <string name="show_code_fields_why">Under a code in the lists and on the scanning screen, when the code carries them (EU medicines, German PPN, HIBC medical devices).</string>
 
     <!-- сессия без файла -->
     <string name="msg_recorded">Recorded</string>
@@ -239,6 +239,7 @@
     <string name="kind_gs1" translatable="false">GS1</string>
     <string name="kind_gs1_digital_link" translatable="false">GS1 Digital Link</string>
     <string name="kind_ifa_ppn" translatable="false">IFA PPN</string>
+    <string name="kind_hibc" translatable="false">HIBC</string>
     <string name="kind_ean13" translatable="false">EAN-13</string>
     <string name="kind_ean8" translatable="false">EAN-8</string>
     <string name="kind_upca" translatable="false">UPC-A</string>

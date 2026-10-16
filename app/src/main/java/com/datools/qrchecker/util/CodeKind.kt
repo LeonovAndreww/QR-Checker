@@ -15,6 +15,7 @@ enum class CodeKind(@get:StringRes val label: Int) {
     GS1(R.string.kind_gs1),
     GS1_DIGITAL_LINK(R.string.kind_gs1_digital_link),
     IFA_PPN(R.string.kind_ifa_ppn),
+    HIBC(R.string.kind_hibc),
     EAN13(R.string.kind_ean13),
     EAN8(R.string.kind_ean8),
     UPCA(R.string.kind_upca),
@@ -28,6 +29,7 @@ fun codeKind(raw: String): CodeKind? {
 
     if (parseDigitalLink(code) != null) return CodeKind.GS1_DIGITAL_LINK
     if (isPpn(code)) return CodeKind.IFA_PPN
+    if (code.startsWith("+") && parseHibc(code) != null) return CodeKind.HIBC
 
     // без разделителей криптохвост виден только по своей форме (91)xxxx(92)
     if (code.indexOf(GROUP_SEPARATOR) < 0 && GS1_WITHOUT_SEPARATORS.matches(code)) {
