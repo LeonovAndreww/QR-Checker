@@ -1,4 +1,5 @@
 # QR Checker
+[![CI](https://github.com/LeonovAndreww/QR-Checker/actions/workflows/ci.yml/badge.svg)](https://github.com/LeonovAndreww/QR-Checker/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/LeonovAndreww/QR-Checker)](https://github.com/LeonovAndreww/QR-Checker/releases)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?style=flat&logo=android)](https://www.android.com/)
 [![GitHub Stars](https://img.shields.io/github/stars/LeonovAndreww/QR-Checker)](https://github.com/LeonovAndreww/QR-Checker/stargazers)
@@ -11,9 +12,14 @@ still missing.
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/menu.jpg" width="260" alt="Main menu"/>
-  <img src="screenshots/create.jpg" width="260" alt="Create Session"/>
-  <img src="screenshots/scan.jpg" width="260" alt="QR Scan"/>
+  <img src="docs/screenshots/sessions.jpg" width="240" alt="Sessions with their progress"/>
+  <img src="docs/screenshots/reading-files.jpg" width="240" alt="Reading codes from the picked files"/>
+  <img src="docs/screenshots/scan-ok.jpg" width="240" alt="A code from the list is marked"/>
+</p>
+<p align="center">
+  <img src="docs/screenshots/scan-repeat.jpg" width="240" alt="A code scanned before, and when"/>
+  <img src="docs/screenshots/scan-foreign.jpg" width="240" alt="A code that is not in the session"/>
+  <img src="docs/screenshots/code-list.jpg" width="240" alt="Searchable list of remaining codes"/>
 </p>
 
 ## What it does
@@ -34,6 +40,47 @@ and a whole session can be sent as a file - the other phone merges the marks int
 session it already has. Sessions are also backed up to a folder of your choice and survive
 uninstalling the app.
 
+A session can also start without a document: it then collects every new code it sees and
+only catches repeats. Adding a document later turns it into a checking session.
+
+### Supported codes
+
+| Kind | What is read |
+| --- | --- |
+| GS1 element strings | GTIN, serial, batch, expiry and the rest, in any field order, with or without separators |
+| Chestny ZNAK (Russia) | GS1 with the (91)/(92) or (93) crypto tail; the list shows the (01)(21) part printed on the box |
+| EU FMD, İTS, SNCM | Medicine packs: GTIN, serial, batch and expiry |
+| GS1 Digital Link | `https://…/01/<gtin>/10/<batch>?17=<expiry>`, checked by the GTIN check digit |
+| IFA PPN (Germany) | ISO/IEC 15434 envelope with ASC MH10 identifiers |
+| HIBC LIC | Primary and secondary data per ANSI/HIBC 2.6, mod 43 check character |
+| EAN / UPC | By length and check digit |
+| Anything else | QR with a link or text is matched as is |
+
+## Architecture
+
+A single-activity Compose app with one view model per screen.
+
+```
+ui/<feature>/   Screen (stateless rendering) + ViewModel (StateFlow<UiState>, one-off events)
+data/           SessionRepository over Room (DAO, entities), SessionBackup to a user folder
+codes/          What a code is and what it carries: GS1, HIBC, PPN, Digital Link, CSV lists
+files/          Reading PDFs, images and lists; session files; CSV export
+scan/           Scan decisions: verdict, presence of codes in view, linear read vote, smoothing
+settings/       App settings, in-app language switching
+di/             Hilt module: database, DAO, application scope
+```
+
+- Dependencies are injected with Hilt; view models get the repository and read navigation
+  arguments from `SavedStateHandle`.
+- The parsing and scan decision code is plain Kotlin with no Android types, so it is
+  covered by fast JVM tests. The Room layer and the scan view model are tested against an
+  in-memory database under Robolectric.
+- Camera frames are decoded by ML Kit on a background executor; the screen receives every
+  code in the frame and `CodePresence` decides whether to answer, so a code held in view is
+  answered once, even with several codes in the viewfinder.
+- Marks are written on an application-wide scope: leaving the screen right after a scan
+  does not lose the write, and a failed write takes the shown answer back.
+
 ## Technologies used
 [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org/) 
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/jetpack/compose)
@@ -41,6 +88,7 @@ uninstalling the app.
 [![Room](https://img.shields.io/badge/Room-00ACC1?style=for-the-badge&logo=sqlite&logoColor=white)](https://developer.android.com/training/data-storage/room)
 [![CameraX](https://img.shields.io/badge/CameraX-5D9CEC?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com/training/camerax)
 [![ML Kit](https://img.shields.io/badge/ML%20Kit-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://developers.google.com/ml-kit/vision/barcode-scanning)
+[![Hilt](https://img.shields.io/badge/Hilt-2196F3?style=for-the-badge&logo=android&logoColor=white)](https://dagger.dev/hilt/)
 
 The barcode model is bundled into the package, so the app does not need Google Play
 services to be installed.
@@ -87,6 +135,11 @@ cd QR-Checker
 
 ./gradlew installDebug
 ```
+Run the same checks as CI:
+```bash
+./gradlew assembleDebug testDebugUnitTest lintDebug
+```
+
 Alternatively, open the project in [Android Studio](https://developer.android.com) and run on an emulator or device.
 
 Release builds are signed from `keystore.properties` next to the project - copy
