@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [2.0.0] - Unreleased
+## [2.0.0] - 2026-10-17
 
 ### Added
 - Codes from PDF, images, text and CSV files, several at once.
@@ -66,7 +66,7 @@ All notable changes to this project are documented here. The format follows
 ### Added
 - Visual feedback for every scan.
 
-[2.0.0]: https://github.com/LeonovAndreww/QR-Checker/compare/v1.2.1...HEAD
+[2.0.0]: https://github.com/LeonovAndreww/QR-Checker/compare/v1.2.1...v2.0.0
 [1.2.1]: https://github.com/LeonovAndreww/QR-Checker/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/LeonovAndreww/QR-Checker/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/LeonovAndreww/QR-Checker/compare/v1.1.1...v1.1.2
