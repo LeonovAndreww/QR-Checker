@@ -28,26 +28,43 @@ private const val TONE_VOLUME = 90
  *
  * Durations and strengths differ enough to tell events apart blind: a short firm pulse
  * for a marked code, a light double for a repeat, a heavy double for a foreign code.
+ *
+ * [plainTimings] are for motors without amplitude control. Those are usually rotating
+ * mass motors that need tens of milliseconds just to spin up, so the short pulses tuned
+ * for linear motors never got felt on them at all.
  */
 enum class Outcome(
     internal val timings: LongArray,
     internal val amplitudes: IntArray,
+    internal val plainTimings: LongArray,
     internal val tone: Int
 ) {
     /** The code was found and marked. */
-    SUCCESS(longArrayOf(0, 40), intArrayOf(0, 180), ToneGenerator.TONE_PROP_BEEP),
+    SUCCESS(
+        longArrayOf(0, 40), intArrayOf(0, 180),
+        longArrayOf(0, 70),
+        ToneGenerator.TONE_PROP_BEEP
+    ),
 
     /** The code was already marked: nothing wrong, nothing to do. */
-    REPEAT(longArrayOf(0, 18, 70, 18), intArrayOf(0, 120, 0, 120), ToneGenerator.TONE_PROP_ACK),
+    REPEAT(
+        longArrayOf(0, 18, 70, 18), intArrayOf(0, 120, 0, 120),
+        longArrayOf(0, 50, 90, 50),
+        ToneGenerator.TONE_PROP_ACK
+    ),
 
     /** The code is not in this session: a foreign box. */
-    FAILURE(longArrayOf(0, 70, 60, 70), intArrayOf(0, 255, 0, 255), ToneGenerator.TONE_PROP_NACK),
+    FAILURE(
+        longArrayOf(0, 70, 60, 70), intArrayOf(0, 255, 0, 255),
+        longArrayOf(0, 120, 90, 120),
+        ToneGenerator.TONE_PROP_NACK
+    ),
 
     /** A swipe reached its threshold: it can be released. */
-    THRESHOLD(longArrayOf(0, 22), intArrayOf(0, 170), TONE_SILENT),
+    THRESHOLD(longArrayOf(0, 22), intArrayOf(0, 170), longArrayOf(0, 50), TONE_SILENT),
 
     /** A small action worked: copied, toggled. */
-    ACTION(longArrayOf(0, 20), intArrayOf(0, 140), TONE_SILENT)
+    ACTION(longArrayOf(0, 20), intArrayOf(0, 140), longArrayOf(0, 45), TONE_SILENT)
 }
 
 /**
@@ -100,17 +117,15 @@ class Feedback internal constructor(
         try {
             val device = vibrator?.takeIf { it.hasVibrator() } ?: return
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                // with amplitudes where the motor supports them; elsewhere the system
-                // reduces the pattern to on/off with the same timings
                 val effect = if (device.hasAmplitudeControl()) {
                     VibrationEffect.createWaveform(outcome.timings, outcome.amplitudes, -1)
                 } else {
-                    VibrationEffect.createWaveform(outcome.timings, -1)
+                    VibrationEffect.createWaveform(outcome.plainTimings, -1)
                 }
                 device.vibrate(effect)
             } else {
                 @Suppress("DEPRECATION")
-                device.vibrate(outcome.timings, -1)
+                device.vibrate(outcome.plainTimings, -1)
             }
         } catch (t: Throwable) {
             Log.w(TAG, "Vibrate failed", t)
