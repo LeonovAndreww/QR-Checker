@@ -5,9 +5,14 @@
 [![GitHub Stars](https://img.shields.io/github/stars/LeonovAndreww/QR-Checker)](https://github.com/LeonovAndreww/QR-Checker/stargazers)
 [![License](https://img.shields.io/badge/License-Apache%202.0-D22128?style=flat)](LICENSE)
 
-Android application for checking a shipment against a list of codes: load the list from a
-document, then scan the boxes with the camera and see what is already done and what is
-still missing.
+Android app for checking codes against a list: load the list from a document, scan with
+the camera and see what is already scanned, what came up twice and what is missing.
+
+Typical uses:
+- receiving a delivery against a waybill or a Chestny ZNAK export;
+- checking a shipment before it leaves;
+- ticket control at the entrance: a ticket used twice or not on the list shows up at once;
+- collecting codes without a document, with a warning on repeats.
 
 ## Screenshots
 
@@ -24,24 +29,24 @@ still missing.
 
 ## What it does
 
-A session is a list of codes and the marks on it. The list is read out of a document -
-PDF, photos, screenshots, text or CSV, several files at once. Then you scan the boxes, and
-for every code the app answers: scanned, already scanned and how long ago, or not in this
-session at all. A torn label can be typed in by hand - any part of the code is enough to
-find it.
+A session is a list of codes and the marks on it. The list is read from PDF, images, text
+or CSV, several files at once. For every scanned code the app answers: scanned, already
+scanned and how long ago, or not in this session.
 
-Data Matrix, QR and linear barcodes are all read. A retail label usually carries a product
-barcode next to the Data Matrix, so the symbology of every code is kept and the unneeded
-kind can be unticked before the session is created.
+Data Matrix, QR and most barcode formats are read. A retail label often has a product
+barcode next to the Data Matrix, so each code keeps its format and unwanted kinds can be
+unticked before the session is created. For GS1 codes expiry and batch are shown.
 
-The scanned and remaining lists are searchable and sortable; a code is copied with a swipe
-right and moved to the bin with a swipe left, where it waits a week. A list exports to CSV,
-and a whole session can be sent as a file - the other phone merges the marks into the
-session it already has. Sessions are also backed up to a folder of your choice and survive
-uninstalling the app.
+The scanned and remaining lists can be searched, sorted and exported to CSV. A session can
+be sent to another phone as a file, and the marks are merged there. Sessions are backed up
+to a folder of your choice and survive reinstalling the app. Removed codes go to a bin for
+a week.
 
-There are also sessions without a document. They record every new code and warn about
-repeats. If a document is added later, the session starts checking against it.
+If a code doesn't scan, it can be entered by hand: part of the number is enough to find it
+in the list.
+
+Sessions without a document record every new code and warn about repeats. If a document is
+added later, the session starts checking against it.
 
 ### Supported codes
 
