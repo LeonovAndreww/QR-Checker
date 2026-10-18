@@ -1,6 +1,8 @@
 package com.datools.qrchecker.ui.scan
 
 import com.datools.qrchecker.R
+import com.datools.qrchecker.ui.resolve
+import androidx.activity.result.PickVisualMediaRequest
 import com.datools.qrchecker.Screen
 import com.datools.qrchecker.TYPE_NOT_SCANNED
 import com.datools.qrchecker.TYPE_SCANNED
@@ -10,8 +12,12 @@ import com.datools.qrchecker.navigateOnce
 import com.datools.qrchecker.settings.AppSettings
 import com.datools.qrchecker.ui.CodeMetaLine
 import com.datools.qrchecker.ui.theme.OnColor
+import com.datools.qrchecker.ui.theme.SignalAmber
+import com.datools.qrchecker.ui.theme.SignalGreen
+import com.datools.qrchecker.ui.theme.SignalRed
 import com.datools.qrchecker.ui.theme.accents
 import com.datools.qrchecker.util.formatTimeAgo
+import com.datools.qrchecker.util.Outcome
 import com.datools.qrchecker.util.rememberFeedback
 import android.Manifest
 import android.content.ClipData
@@ -37,6 +43,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.material3.CircularProgressIndicator
@@ -89,9 +96,6 @@ internal fun formatZoom(ratio: Float): String {
 /** How long the screen stays on without a single code in view. */
 private const val SCREEN_AWAKE_IDLE_MS = 5 * 60_000L
 private const val SCREEN_AWAKE_CHECK_MS = 5_000L
-
-/** Width of the widest button group in the top bar; the title keeps clear of it. */
-private val TOP_BAR_SIDE = 112.dp
 
 /** Height of the dark gradient under the top and bottom controls. */
 private val CONTROL_SCRIM = 140.dp
@@ -229,6 +233,20 @@ fun ScanScreen(navController: NavController) {
     val shareFailedText = stringResource(id = R.string.session_share_failed)
     val torchOnCd = stringResource(id = R.string.cd_torch_on)
     val torchOffCd = stringResource(id = R.string.cd_torch_off)
+    val undoText = stringResource(id = R.string.undo_mark)
+    val fromImageText = stringResource(id = R.string.manual_entry_from_image)
+    val chooseImageCodeTitle = stringResource(id = R.string.image_choose_code)
+
+    // the system photo picker: no storage permission, the user grants this one image
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri -> if (uri != null) viewModel.readImage(uri) }
+    LaunchedEffect(viewModel, context) {
+        viewModel.messages.collect { message ->
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(message.resolve(context))
+        }
+    }
 
     fun colorOf(kind: AnswerKind): OnColor = when (kind) {
         AnswerKind.MARKED, AnswerKind.RECORDED -> accents.success
@@ -238,6 +256,12 @@ fun ScanScreen(navController: NavController) {
 
     val banner = state.banner
     val bannerColor = banner?.let { colorOf(it.kind) }
+
+    fun signalOf(kind: AnswerKind): Color = when (kind) {
+        AnswerKind.MARKED, AnswerKind.RECORDED -> SignalGreen
+        AnswerKind.REPEAT -> SignalAmber
+        AnswerKind.FOREIGN, AnswerKind.SAVE_FAILED -> SignalRed
+    }
     val bannerText = banner?.let {
         when (it.kind) {
             AnswerKind.MARKED -> scannedMsg
@@ -279,16 +303,16 @@ fun ScanScreen(navController: NavController) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (hasPermission) {
                 CameraPreview(
-                    highlightColor = bannerColor?.container,
+                    highlightColor = banner?.let { signalOf(it.kind) },
                     // The colour of the last answer to this code, not its state: by state a
                     // code scanned yesterday would turn green once the orange "already
                     // scanned" banner faded, as if it had just been marked.
                     colorOf = { code ->
                         val current = state.session
-                        state.answered[code]?.let { colorOf(it).container } ?: when {
+                        state.answered[code]?.let { signalOf(it) } ?: when {
                             current == null -> null
-                            code !in current.codes -> accents.danger.container
-                            code in current.scannedCodes -> accents.warning.container
+                            code !in current.codes -> SignalRed
+                            code in current.scannedCodes -> SignalAmber
                             else -> null
                         }
                     },
@@ -338,27 +362,17 @@ fun ScanScreen(navController: NavController) {
 
             // all controls sit inside the side insets; one wrapper so nothing forgets them
             Box(modifier = Modifier.fillMaxSize().then(sides)) {
-                // The title is centred over the full width with the buttons laid on top,
-                // padded by the widest side so it stays centred and never overlaps them.
-                Box(
+                // Back on the left, actions on the right, the title in between and aligned
+                // to the start, as in a regular app bar. A centred title had to keep clear
+                // of the wider side and was cut off while space was left on the other.
+                Row(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
                         .padding(top = padding.calculateTopPadding() + 4.dp)
-                        .padding(horizontal = 4.dp)
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        loaded.name,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(horizontal = TOP_BAR_SIDE),
-                        color = Color.White,
-                        style = MaterialTheme.typography.headlineSmall,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
                     IconButton(
                         // same as system back: to the session list, even when the user
                         // came here from the create screen
@@ -366,8 +380,7 @@ fun ScanScreen(navController: NavController) {
                             navController.navigateOnce(Screen.Home.route) {
                                 popUpTo(Screen.Home.route) { inclusive = true }
                             }
-                        },
-                        modifier = Modifier.align(Alignment.CenterStart)
+                        }
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -376,52 +389,58 @@ fun ScanScreen(navController: NavController) {
                         )
                     }
 
-                    Row(
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // between shelves and inside a truck it is dark, and Data Matrix
-                        // does not read without light; shown only if there is a flash
-                        if (hasTorch) {
-                            IconButton(onClick = { torchOn = !torchOn }) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_torch_on),
-                                    contentDescription = if (torchOn) torchOffCd else torchOnCd,
-                                    tint = if (torchOn) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        Color.White
-                                    }
-                                )
-                            }
-                        }
+                    Text(
+                        loaded.name,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 4.dp),
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-                        IconButton(onClick = {
-                            scope.launch {
-                                try {
-                                    context.startActivity(shareSessionFile(context, loaded))
-                                } catch (c: CancellationException) {
-                                    throw c
-                                } catch (t: Throwable) {
-                                    Log.e(TAG, "Can't share the session", t)
-                                    snackbarHostState.showSnackbar(shareFailedText)
+                    // between shelves and inside a truck it is dark, and Data Matrix
+                    // does not read without light; shown only if there is a flash
+                    if (hasTorch) {
+                        IconButton(onClick = { torchOn = !torchOn }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_torch_on),
+                                contentDescription = if (torchOn) torchOffCd else torchOnCd,
+                                tint = if (torchOn) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    Color.White
                                 }
-                            }
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = shareSessionCd,
-                                tint = Color.White
                             )
                         }
+                    }
 
-                        IconButton(onClick = { manualCode = "" }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_keyboard),
-                                contentDescription = manualEntryCd,
-                                tint = Color.White
-                            )
+                    IconButton(onClick = {
+                        scope.launch {
+                            try {
+                                context.startActivity(shareSessionFile(context, loaded))
+                            } catch (c: CancellationException) {
+                                throw c
+                            } catch (t: Throwable) {
+                                Log.e(TAG, "Can't share the session", t)
+                                snackbarHostState.showSnackbar(shareFailedText)
+                            }
                         }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = shareSessionCd,
+                            tint = Color.White
+                        )
+                    }
+
+                    IconButton(onClick = { manualCode = "" }) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_keyboard),
+                            contentDescription = manualEntryCd,
+                            tint = Color.White
+                        )
                     }
                 }
 
@@ -458,6 +477,11 @@ fun ScanScreen(navController: NavController) {
                     }
                 }
 
+                // the lists in the colours of their answers: found by colour, not by reading
+                val scannedColors = ButtonDefaults.buttonColors(
+                    containerColor = accents.success.container,
+                    contentColor = accents.success.content
+                )
                 // a collecting session has one list, so one centred button with the count
                 if (loaded.collecting) {
                     Button(
@@ -470,7 +494,8 @@ fun ScanScreen(navController: NavController) {
                             .fillMaxWidth(0.6f)
                             .height(64.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp),
-                        shape = MaterialTheme.shapes.small
+                        shape = MaterialTheme.shapes.small,
+                        colors = scannedColors
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
@@ -506,7 +531,8 @@ fun ScanScreen(navController: NavController) {
                             .weight(1f)
                             .height(56.dp),
                         contentPadding = PaddingValues(horizontal = 4.dp),
-                        shape = MaterialTheme.shapes.small
+                        shape = MaterialTheme.shapes.small,
+                        colors = scannedColors
                     ) {
                         Text(
                             text = scannedButtonText,
@@ -536,7 +562,11 @@ fun ScanScreen(navController: NavController) {
                             .weight(1f)
                             .height(56.dp),
                         contentPadding = PaddingValues(horizontal = 4.dp),
-                        shape = MaterialTheme.shapes.small
+                        shape = MaterialTheme.shapes.small,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = accents.danger.container,
+                            contentColor = accents.danger.content
+                        )
                     ) {
                         Text(
                             text = notScannedButtonText,
@@ -594,7 +624,21 @@ fun ScanScreen(navController: NavController) {
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+                                // when the label is too damaged for the camera, a sharper
+                                // photo of it, or of the waybill, may still be readable
+                                TextButton(
+                                    onClick = {
+                                        manualCode = null
+                                        imagePicker.launch(
+                                            PickVisualMediaRequest(
+                                                ActivityResultContracts.PickVisualMedia.ImageOnly
+                                            )
+                                        )
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 0.dp)
+                                ) {
+                                    Text(fromImageText)
+                                }
 
                                 if (suggestions.isEmpty()) {
                                     Text(
@@ -670,6 +714,38 @@ fun ScanScreen(navController: NavController) {
                     )
                 }
 
+                if (state.readingImage) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                }
+
+                state.imageChoices?.let { choices ->
+                    AlertDialog(
+                        onDismissRequest = { viewModel.chooseImageCode(null) },
+                        title = { Text(chooseImageCodeTitle) },
+                        text = {
+                            LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+                                items(choices, key = { it }) { code ->
+                                    Text(
+                                        text = shortCode(code),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { viewModel.chooseImageCode(code) }
+                                            .padding(vertical = 12.dp)
+                                    )
+                                    HorizontalDivider()
+                                }
+                            }
+                        },
+                        confirmButton = {},
+                        dismissButton = {
+                            TextButton(onClick = { viewModel.chooseImageCode(null) }) {
+                                Text(cancelText)
+                            }
+                        }
+                    )
+                }
+
                 // without a hint, a camera that waits for a tap looks broken
                 if (scanOnTap && banner == null && hasPermission) {
                     Text(
@@ -697,20 +773,21 @@ fun ScanScreen(navController: NavController) {
                         .padding(top = padding.calculateTopPadding() + 64.dp)
                 ) {
                     if (banner != null && bannerText != null && bannerColor != null) {
-                        Box(
+                        // laid out like a snackbar: the answer on the left, its action on the right
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth(0.9f)
                                 .wrapContentHeight()
                                 .background(color = bannerColor.container, shape = MaterialTheme.shapes.small)
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            contentAlignment = Alignment.Center
+                                .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = bannerText,
                                     color = bannerColor.content,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    textAlign = TextAlign.Center,
+                                    textAlign = TextAlign.Start,
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -724,14 +801,14 @@ fun ScanScreen(navController: NavController) {
                                                 .padding(top = 2.dp)
                                                 .clip(MaterialTheme.shapes.extraSmall)
                                                 .clickable { copyScanned(scanned) }
-                                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                                .padding(vertical = 2.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Text(
                                                 text = shortCode(scanned),
                                                 color = bannerColor.content,
                                                 style = MaterialTheme.typography.bodySmall,
-                                                textAlign = TextAlign.Center,
+                                                textAlign = TextAlign.Start,
                                                 maxLines = 2,
                                                 overflow = TextOverflow.Ellipsis,
                                                 modifier = Modifier.weight(1f, fill = false)
@@ -755,7 +832,23 @@ fun ScanScreen(navController: NavController) {
                                         showKind = false,
                                         showFields = showCodeFields,
                                         color = bannerColor.content,
-                                        textAlign = TextAlign.Center
+                                        textAlign = TextAlign.Start
+                                    )
+                                }
+                            }
+                            // a code scanned by mistake is taken back right here, without
+                            // looking for it in the list; the same bin icon as in the lists
+                            if (banner.undoable) {
+                                IconButton(
+                                    onClick = {
+                                        feel(Outcome.ACTION)
+                                        viewModel.undo()
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = undoText,
+                                        tint = bannerColor.content
                                     )
                                 }
                             }

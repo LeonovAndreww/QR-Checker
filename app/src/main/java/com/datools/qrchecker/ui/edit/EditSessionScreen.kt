@@ -38,7 +38,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -147,11 +147,13 @@ fun EditSessionScreen(
     val pdfIconDesc = stringResource(id = R.string.cd_pdf_icon)
     val cancelText = stringResource(id = R.string.delete_cancel)
     val saveText = stringResource(id = R.string.save_button)
-    val parsingText = stringResource(id = R.string.parsing_pdf)
+    val parsingText = stringResource(
+        id = if (selectedNames.size == 1) R.string.parsing_one_file else R.string.parsing_pdf
+    )
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = { Text(titleText) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStackOnce() }) {

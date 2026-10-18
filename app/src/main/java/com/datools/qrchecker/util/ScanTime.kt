@@ -38,9 +38,16 @@ private fun is24Hour(context: Context): Boolean = when (AppSettings.clock(contex
 
 private fun timePattern(context: Context) = if (is24Hour(context)) "HH:mm" else "h:mm a"
 
+/**
+ * The language the screen is shown in. Not Locale.getDefault(): the language picked in the
+ * app's settings applies to the context's resources at once, while the default locale
+ * keeps the phone's language until a restart, so dates came out in English among Russian.
+ */
+private fun localeOf(context: Context): Locale = context.resources.configuration.locales[0]
+
 /** Exact date and time, shown when a code is expanded. */
 fun formatScanTimeForScreen(context: Context, millis: Long): String {
-    val locale = Locale.getDefault()
+    val locale = localeOf(context)
     val pattern = AndroidDateFormat.getBestDateTimePattern(
         locale,
         if (is24Hour(context)) "d MMMM yyyy HH:mm:ss" else "d MMMM yyyy h:mm:ss a"
@@ -77,18 +84,18 @@ fun formatTimeAgo(context: Context, millis: Long, now: Long = System.currentTime
     return when (daysBetween(millis, now)) {
         0 -> res.getString(R.string.ago_today_at, atTime(context, millis))
         1 -> res.getString(R.string.ago_yesterday_at, atTime(context, millis))
-        else -> res.getString(R.string.ago_on_date_at, onDate(millis), atTime(context, millis))
+        else -> res.getString(R.string.ago_on_date_at, onDate(context, millis), atTime(context, millis))
     }
 }
 
 private fun atTime(context: Context, millis: Long): String {
-    val locale = Locale.getDefault()
+    val locale = localeOf(context)
     val pattern = AndroidDateFormat.getBestDateTimePattern(locale, timePattern(context))
     return SimpleDateFormat(pattern, locale).format(Date(millis))
 }
 
-private fun onDate(millis: Long): String {
-    val locale = Locale.getDefault()
+private fun onDate(context: Context, millis: Long): String {
+    val locale = localeOf(context)
     val sameYear = yearOf(millis) == yearOf(System.currentTimeMillis())
     val pattern = AndroidDateFormat.getBestDateTimePattern(
         locale,

@@ -15,6 +15,9 @@ import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 private const val TAG = "QRChecker"
 private const val DECODE_TIMEOUT_SECONDS = 15L
@@ -90,3 +93,12 @@ suspend fun parseImageForCodes(context: Context, uri: Uri): List<ScannedCode> =
             scanner.close()
         }
     }
+
+/** Reads codes from a single picked image, for manual entry on the scan screen. */
+@Singleton
+class ImageCodeReader @Inject constructor(
+    @param:ApplicationContext private val context: Context
+) {
+    suspend fun read(uri: Uri): List<String> =
+        parseImageForCodes(context, uri).map { normalizeCode(it.value) }.filter { it.isNotEmpty() }.distinct()
+}

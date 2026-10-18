@@ -78,6 +78,14 @@ class SessionRepository @Inject constructor(
     }
 
     /**
+     * Takes back a code a collecting session has just recorded. Not the bin: the code was
+     * never really part of the session, it was scanned by mistake a moment ago.
+     */
+    suspend fun forgetRecorded(sessionId: String, code: String) {
+        dao.removeCode(sessionId, code)
+    }
+
+    /**
      * Moves a code to the bin rather than deleting it: it is the only destructive action
      * here, and missing a row in a list of thousands is easy.
      */

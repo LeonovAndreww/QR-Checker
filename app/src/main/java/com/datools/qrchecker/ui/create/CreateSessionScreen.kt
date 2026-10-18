@@ -28,12 +28,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -166,7 +167,9 @@ fun CreateSessionScreen(navController: NavController) {
     val untitledName = stringResource(id = R.string.untitled_session)
     val stillReadingText = stringResource(id = R.string.file_still_reading)
     val noCodesText = stringResource(id = R.string.error_no_codes_in_files)
-    val parsingText = stringResource(id = R.string.parsing_pdf)
+    val parsingText = stringResource(
+        id = if (selectedNames.size == 1) R.string.parsing_one_file else R.string.parsing_pdf
+    )
     val cancelParsingText = stringResource(id = R.string.parsing_cancel)
     val sessionSummaryTemplate = stringResource(id = R.string.parsed_session_summary)
     val existsTitle = stringResource(id = R.string.session_exists_title)
@@ -222,7 +225,7 @@ fun CreateSessionScreen(navController: NavController) {
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = { Text(titleText) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStackOnce() }) {
@@ -401,12 +404,23 @@ fun CreateSessionScreen(navController: NavController) {
                     .height(72.dp),
                 shape = MaterialTheme.shapes.small
             ) {
+                // the spinner takes the button's content colour; in the primary colour it was
+                // invisible on the button and only pushed the text off centre
+                val spinnerColor = LocalContentColor.current
                 if (isParsing) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = spinnerColor,
+                        strokeWidth = 2.dp
+                    )
                     Spacer(Modifier.width(8.dp))
                     Text(parsingText)
                 } else if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = spinnerColor,
+                        strokeWidth = 2.dp
+                    )
                 } else {
                     Text(continueText, style = MaterialTheme.typography.titleMedium)
                 }

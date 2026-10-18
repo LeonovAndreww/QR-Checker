@@ -74,22 +74,28 @@ private fun BoxScope.Scrollbar(state: LazyListState) {
             val total = info.totalItemsCount
             val visible = info.visibleItemsInfo
             if (total == 0 || visible.isEmpty()) return@derivedStateOf null
-            // visible share: whole rows plus the visible part of the first one
+            if (!state.canScrollForward && !state.canScrollBackward) return@derivedStateOf null
+            // Measured in pixels from the row pitch of what is on screen. Counting rows that
+            // touch the viewport made the thumb grow and shrink as a row crossed the edge.
             val first = visible.first()
-            val firstFraction = if (first.size > 0) {
-                (-first.offset).coerceAtLeast(0).toFloat() / first.size
-            } else 0f
-            val shown = visible.size.toFloat()
-            if (shown >= total && !state.canScrollForward && !state.canScrollBackward) {
-                return@derivedStateOf null
+            val last = visible.last()
+            val pitch = if (visible.size > 1) {
+                (last.offset - first.offset).toFloat() / (last.index - first.index)
+            } else {
+                first.size.toFloat()
             }
+            if (pitch <= 0f) return@derivedStateOf null
+            val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+            val content = pitch * total + info.beforeContentPadding + info.afterContentPadding
+            val maxScroll = (content - viewport).coerceAtLeast(1f)
+            val scrolled = first.index * pitch - first.offset
             // exactly at the bottom at the end, so the bar shows the list is over
-            val position = if (!state.canScrollForward) 1f
-            else (first.index + firstFraction) / (total - shown).coerceAtLeast(1f)
+            val position = if (!state.canScrollForward) 1f else scrolled / maxScroll
             Metrics(
-                size = (shown / total).coerceIn(0.05f, 1f),
+                size = (viewport / content).coerceIn(0.05f, 1f),
                 position = position.coerceIn(0f, 1f),
-                scrollable = (total - shown).coerceAtLeast(0f)
+                pitch = pitch,
+                maxScroll = maxScroll
             )
         }
     }
@@ -128,7 +134,7 @@ private fun BoxScope.Scrollbar(state: LazyListState) {
         // each change would break the drag
         val currentTop by rememberUpdatedState(top)
         val currentTravel by rememberUpdatedState(travel)
-        val currentScrollable by rememberUpdatedState(m.scrollable)
+        val currentMetrics by rememberUpdatedState(m)
 
         Box(
             modifier = Modifier
@@ -154,8 +160,10 @@ private fun BoxScope.Scrollbar(state: LazyListState) {
                             val fraction =
                                 if (travelNow > 0f) ((startTop + moved) / travelNow).coerceIn(0f, 1f) else 0f
                             // the same scale the thumb is drawn with, or the list jumps on grab
-                            val index = (fraction * currentScrollable).roundToInt()
-                            scope.launch { state.scrollToItem(index) }
+                            val target = fraction * currentMetrics.maxScroll
+                            val index = (target / currentMetrics.pitch).toInt()
+                            val offset = (target - index * currentMetrics.pitch).roundToInt()
+                            scope.launch { state.scrollToItem(index, offset) }
                         }
                     )
                 },
@@ -178,6 +186,8 @@ private fun BoxScope.Scrollbar(state: LazyListState) {
 private data class Metrics(
     val size: Float,
     val position: Float,
-    /** Rows that can be scrolled: total minus visible. */
-    val scrollable: Float
+    /** Distance between the tops of neighbouring rows, px. */
+    val pitch: Float,
+    /** How far the list scrolls in total, px. */
+    val maxScroll: Float
 )

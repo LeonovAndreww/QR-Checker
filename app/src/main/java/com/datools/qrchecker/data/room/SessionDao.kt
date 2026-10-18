@@ -110,6 +110,10 @@ abstract class SessionDao {
     )
     abstract suspend fun markUnscanned(sessionId: String, code: String): Int
 
+    /** Removes a code outright, bypassing the bin: for undoing a code just recorded. */
+    @Query("DELETE FROM session_codes WHERE sessionId = :sessionId AND code = :code AND deletedAt IS NULL")
+    abstract suspend fun removeCode(sessionId: String, code: String): Int
+
     /**
      * Moves a code to the bin, keeping its mark.
      *

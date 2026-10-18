@@ -36,7 +36,12 @@
     <!-- CreateSessionScreen -->
     <string name="setup_session_title">Настройка сессии</string>
     <string name="session_name_label">Имя сессии</string>
-    <string name="parsing_pdf">Читаю файлы…</string>
+    <string name="parsing_pdf">Чтение файлов…</string>
+    <string name="parsing_one_file">Чтение файла…</string>
+    <string name="undo_mark">Снять отметку</string>
+    <string name="manual_entry_from_image">Распознать с изображения</string>
+    <string name="image_no_codes">На изображении не найден код</string>
+    <string name="image_choose_code">На изображении несколько кодов</string>
     <string name="continue_button">Продолжить</string>
 
     <!-- EditSessionScreen -->

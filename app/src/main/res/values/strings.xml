@@ -40,6 +40,11 @@
     <string name="setup_session_title">Session setup</string>
     <string name="session_name_label">Session name</string>
     <string name="parsing_pdf">Reading the files…</string>
+    <string name="parsing_one_file">Reading the file…</string>
+    <string name="undo_mark">Remove the mark</string>
+    <string name="manual_entry_from_image">Read from an image</string>
+    <string name="image_no_codes">No code found in the image</string>
+    <string name="image_choose_code">Several codes in the image</string>
     <string name="continue_button">Continue</string>
 
     <!-- EditSessionScreen -->

@@ -3,13 +3,17 @@ package com.datools.qrchecker.ui.scan
 import com.datools.qrchecker.ARG_SESSION_ID
 import com.datools.qrchecker.codes.normalizeCode
 import com.datools.qrchecker.data.SessionBackup
+import com.datools.qrchecker.R
 import com.datools.qrchecker.data.SessionRepository
+import com.datools.qrchecker.files.ImageCodeReader
+import com.datools.qrchecker.ui.UiText
 import com.datools.qrchecker.di.ApplicationScope
 import com.datools.qrchecker.model.SessionData
 import com.datools.qrchecker.scan.CodePresence
 import com.datools.qrchecker.scan.ScanVerdict
 import com.datools.qrchecker.scan.verdictFor
 import com.datools.qrchecker.util.Outcome
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -18,6 +22,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -28,6 +33,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private const val TAG = "Scan"
 
@@ -43,7 +50,10 @@ enum class AnswerKind { MARKED, RECORDED, REPEAT, FOREIGN, SAVE_FAILED }
 data class ScanAnswer(
     val kind: AnswerKind,
     val code: String,
-    /** When a repeated code was first scanned; null for other answers or if unknown. */
+    /**
+     * When the code was scanned: for a repeat, the first scan (null if unknown); for a new
+     * mark, this one, so an undo can check the mark is still the same.
+     */
     val scannedAt: Long? = null,
     /** Tells two identical answers in a row apart, so the banner timer restarts. */
     val id: Long
@@ -58,7 +68,11 @@ data class ScanUiState(
      * The last answer given to each code on this screen. The frame around a code keeps
      * its colour after the banner is gone.
      */
-    val answered: Map<String, AnswerKind> = emptyMap()
+    val answered: Map<String, AnswerKind> = emptyMap(),
+    /** An image picked in manual entry is being read. */
+    val readingImage: Boolean = false,
+    /** Several codes were found in the image; the user picks one. */
+    val imageChoices: List<String>? = null
 )
 
 @HiltViewModel
@@ -66,6 +80,7 @@ class ScanViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val repository: SessionRepository,
     private val backup: SessionBackup,
+    private val imageReader: ImageCodeReader,
     /** Marks are written here, so leaving the screen right after a scan does not lose one. */
     @param:ApplicationScope private val appScope: CoroutineScope
 ) : ViewModel() {
@@ -83,6 +98,12 @@ class ScanViewModel @Inject constructor(
     val answers: Flow<AnswerKind> = _answers.receiveAsFlow()
 
     private val presence = CodePresence()
+
+    /**
+     * Database writes run one after another in the order they were made. An undo pressed
+     * right after a scan must not overtake the mark it takes back.
+     */
+    private val writeLock = Mutex()
     private var answerCount = 0L
     private var bannerJob: Job? = null
     private var backupJob: Job? = null
@@ -125,6 +146,40 @@ class ScanViewModel @Inject constructor(
         if (code.isNotEmpty()) answer(code)
     }
 
+    private val _messages = Channel<UiText>(Channel.BUFFERED)
+    val messages: Flow<UiText> = _messages.receiveAsFlow()
+
+    /**
+     * Reads a code from an image picked in manual entry: a close-up of a damaged label, a
+     * waybill, a screenshot. One code is answered at once; several are offered to pick.
+     */
+    fun readImage(uri: Uri) {
+        if (_uiState.value.readingImage) return
+        _uiState.update { it.copy(readingImage = true) }
+        viewModelScope.launch {
+            val codes = try {
+                imageReader.read(uri)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                Log.e(TAG, "Can't read the picked image", t)
+                emptyList()
+            }
+            _uiState.update { it.copy(readingImage = false) }
+            when (codes.size) {
+                0 -> _messages.send(UiText.Resource(R.string.image_no_codes))
+                1 -> submitManual(codes.single())
+                else -> _uiState.update { it.copy(imageChoices = codes) }
+            }
+        }
+    }
+
+    /** One of several codes found in the image was picked, or null if the choice was dismissed. */
+    fun chooseImageCode(code: String?) {
+        _uiState.update { it.copy(imageChoices = null) }
+        if (code != null) submitManual(code)
+    }
+
     /** A tap on the preview asks again about the code in view. */
     fun askAgain() = presence.forgetAnswers()
 
@@ -165,7 +220,7 @@ class ScanViewModel @Inject constructor(
                         scanTimes = it.scanTimes.orEmpty() + (code to at)
                     )
                 }
-                show(AnswerKind.RECORDED, code)
+                show(AnswerKind.RECORDED, code, at)
                 write(code, at, recorded = true) { repository.recordScanned(sessionId, code, at) }
             }
             is ScanVerdict.Marked -> {
@@ -178,7 +233,7 @@ class ScanViewModel @Inject constructor(
                         scanTimes = it.scanTimes.orEmpty() + (code to at)
                     )
                 }
-                show(AnswerKind.MARKED, code)
+                show(AnswerKind.MARKED, code, at)
                 write(code, at, recorded = false) { repository.markScanned(sessionId, code, at) }
             }
         }
@@ -190,13 +245,48 @@ class ScanViewModel @Inject constructor(
      * box whose mark never reached the database.
      */
     private fun write(code: String, at: Long, recorded: Boolean, block: suspend () -> Unit) {
-        appScope.launch {
+        // undispatched, so the lock is queued for right away and writes keep their order
+        appScope.launch(start = CoroutineStart.UNDISPATCHED) {
             try {
-                block()
+                writeLock.withLock { block() }
             } catch (t: Throwable) {
                 Log.e(TAG, "Can't save the mark of $code", t)
                 // a no-op once the screen is gone: nobody to tell
                 viewModelScope.launch { undoFailedWrite(code, at, recorded) }
+            }
+        }
+    }
+
+    /**
+     * Takes back the mark the banner reports, for a code scanned by mistake. The code
+     * stays "seen" while it is in view, so the camera does not mark it again at once.
+     */
+    fun undo() {
+        val banner = _uiState.value.banner?.takeIf { it.undoable } ?: return
+        val code = banner.code
+        val recorded = banner.kind == AnswerKind.RECORDED
+        val current = _uiState.value.session ?: return
+        if (current.scanTimes?.get(code) != banner.scannedAt) return
+
+        bannerJob?.cancel()
+        _uiState.update { it.copy(banner = null, answered = it.answered - code) }
+        updateSession {
+            it.copy(
+                codes = if (recorded) it.codes - code else it.codes,
+                scannedCodes = it.scannedCodes - code,
+                scanTimes = it.scanTimes.orEmpty() - code
+            )
+        }
+        appScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                writeLock.withLock {
+                    if (recorded) repository.forgetRecorded(sessionId, code)
+                    else repository.unmarkScanned(sessionId, code)
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "Can't undo the mark of $code", t)
+                // show what the database actually holds
+                viewModelScope.launch { reload() }
             }
         }
     }
@@ -251,3 +341,7 @@ val AnswerKind.outcome: Outcome
         AnswerKind.REPEAT -> Outcome.REPEAT
         AnswerKind.FOREIGN, AnswerKind.SAVE_FAILED -> Outcome.FAILURE
     }
+
+/** The answer can be taken back: it is a mark made on this screen. */
+val ScanAnswer.undoable: Boolean
+    get() = kind == AnswerKind.MARKED || kind == AnswerKind.RECORDED

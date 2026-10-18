@@ -4,6 +4,7 @@ import com.datools.qrchecker.ARG_SESSION_ID
 import com.datools.qrchecker.data.SessionBackup
 import com.datools.qrchecker.data.SessionRepository
 import com.datools.qrchecker.data.room.AppDatabase
+import com.datools.qrchecker.files.ImageCodeReader
 import com.datools.qrchecker.model.SessionData
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
@@ -70,6 +71,7 @@ class ScanViewModelTest {
             SavedStateHandle(mapOf(ARG_SESSION_ID to "s")),
             repository,
             backup,
+            ImageCodeReader(ApplicationProvider.getApplicationContext()),
             CoroutineScope(dispatcher)
         )
         val answers = mutableListOf<AnswerKind>()
@@ -128,6 +130,63 @@ class ScanViewModelTest {
         viewModel.onFrame(listOf("A"), "A", now = 10_000)
         runCurrent()
         assertEquals(listOf(AnswerKind.MARKED, AnswerKind.MARKED), answers)
+    }
+
+    @Test
+    fun `undo takes back a mark and the code still in view is not marked again`() = runTest(dispatcher) {
+        val (viewModel, answers) = open(listOf("A", "B"))
+        viewModel.onFrame(listOf("A"), "A", now = 1_000)
+        runCurrent()
+        viewModel.undo()
+        runCurrent()
+        assertTrue(viewModel.uiState.value.session!!.scannedCodes.isEmpty())
+        assertTrue(repository.getById("s")!!.scannedCodes.isEmpty())
+        assertEquals(null, viewModel.uiState.value.banner)
+
+        viewModel.onFrame(listOf("A"), "A", now = 1_100)
+        runCurrent()
+        assertEquals(listOf(AnswerKind.MARKED), answers)
+
+        // taken away and shown again: a new presentation
+        viewModel.onFrame(listOf("A"), "A", now = 10_000)
+        runCurrent()
+        assertEquals(listOf(AnswerKind.MARKED, AnswerKind.MARKED), answers)
+    }
+
+    @Test
+    fun `undo in a collecting session removes the recorded code`() = runTest(dispatcher) {
+        val (viewModel, _) = open(emptyList(), collecting = true)
+        viewModel.onFrame(listOf("N"), "N", now = 1_000)
+        runCurrent()
+        viewModel.undo()
+        runCurrent()
+        assertTrue(viewModel.uiState.value.session!!.codes.isEmpty())
+        val stored = repository.getById("s")!!
+        assertTrue(stored.codes.isEmpty())
+        assertTrue(repository.binnedCodes("s").isEmpty())
+    }
+
+    @Test
+    fun `a repeat cannot be undone`() = runTest(dispatcher) {
+        val (viewModel, _) = open(listOf("A"))
+        viewModel.onFrame(listOf("A"), "A", now = 1_000)
+        viewModel.askAgain()
+        viewModel.onFrame(listOf("A"), "A", now = 1_100)
+        runCurrent()
+        assertEquals(AnswerKind.REPEAT, viewModel.uiState.value.banner!!.kind)
+        viewModel.undo()
+        runCurrent()
+        assertEquals(listOf("A"), repository.getById("s")!!.scannedCodes)
+    }
+
+    @Test
+    fun `one of several codes from an image is answered once picked`() = runTest(dispatcher) {
+        val (viewModel, answers) = open(listOf("A", "B"))
+        viewModel.chooseImageCode("B")
+        runCurrent()
+        assertEquals(listOf(AnswerKind.MARKED), answers)
+        assertEquals(listOf("B"), repository.getById("s")!!.scannedCodes)
+        assertEquals(null, viewModel.uiState.value.imageChoices)
     }
 
     @Test

@@ -166,8 +166,9 @@ fun HomeScreen(navController: NavController) {
                     contentPadding = PaddingValues(top = 12.dp, bottom = 80.dp)
                 ) {
                     items(loaded, key = { it.id }) { session ->
-                        // the same gestures as code lists: right edits, left deletes; the
-                        // buttons stay, since a gesture has to be known first
+                        // the same gestures as code lists: right edits, left deletes. No icon in
+                        // the strip: the row has these buttons at its edges, and the strip in
+                        // their colour reads as the button stretching
                         SwipeActionRow(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             onThresholdCrossed = { feel(Outcome.THRESHOLD) },
@@ -176,25 +177,11 @@ fun HomeScreen(navController: NavController) {
                                 onTrigger = {
                                     feel(Outcome.ACTION)
                                     navController.navigateOnce(Screen.EditSession.createRoute(session.id))
-                                },
-                                icon = {
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        contentDescription = editCd,
-                                        tint = accents.edit.content
-                                    )
                                 }
                             ),
                             end = SwipeAction(
                                 background = accents.delete.container,
-                                onTrigger = { sessionToDelete = session },
-                                icon = {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = deleteCd,
-                                        tint = accents.delete.content
-                                    )
-                                }
+                                onTrigger = { sessionToDelete = session }
                             )
                         ) {
                             Row(

@@ -8,9 +8,11 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,6 +28,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -39,6 +42,9 @@ import kotlin.math.roundToInt
  * redraws itself when the data changes.
  */
 private const val MAX_TRAVEL = 0.42f
+
+/** How far the coloured strip reaches under the row, enough to fill its rounded corners. */
+private val STRIP_OVERLAP = 24.dp
 
 /** Where the action triggers: well before half, since nobody drags that far. */
 private const val TRIGGER_TRAVEL = 0.22f
@@ -57,7 +63,12 @@ internal fun resistedOffset(raw: Float, limit: Float): Float {
 data class SwipeAction(
     val background: Color,
     val onTrigger: () -> Unit,
-    val icon: @Composable () -> Unit
+    /**
+     * Shown in the uncovered strip. Null for rows that carry the same action as a button
+     * at that edge: the strip in the button's colour then reads as the button stretching,
+     * where a second icon would duplicate it.
+     */
+    val icon: (@Composable () -> Unit)? = null
 )
 
 /**
@@ -138,18 +149,27 @@ fun SwipeActionRow(
         }
 
         if (action != null) {
-            // the icon fades in with the drag and is fully shown at the threshold
-            val progress = if (trigger > 0f) (abs(shown) / trigger).coerceIn(0f, 1f) else 0f
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(action.background)
-                    .padding(horizontal = 20.dp),
-                contentAlignment =
-                    if (shown > 0f) Alignment.CenterStart else Alignment.CenterEnd
-            ) {
-                Box(modifier = Modifier.alpha(progress)) { action.icon() }
+            // The colour fills only the uncovered strip plus a little under the row's edge
+            // for its rounded corners. Filling the whole row showed through the gaps
+            // between buttons inside it.
+            val density = LocalDensity.current
+            val stripWidth = with(density) { abs(shown).toDp() } + STRIP_OVERLAP
+            val side = if (shown > 0f) Alignment.CenterStart else Alignment.CenterEnd
+            Box(modifier = Modifier.matchParentSize()) {
+                Box(
+                    modifier = Modifier
+                        .align(side)
+                        .fillMaxHeight()
+                        .width(stripWidth)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(action.background)
+                        .padding(horizontal = 20.dp),
+                    contentAlignment = side
+                ) {
+                    // the icon fades in with the drag and is fully shown at the threshold
+                    val progress = if (trigger > 0f) (abs(shown) / trigger).coerceIn(0f, 1f) else 0f
+                    action.icon?.let { icon -> Box(modifier = Modifier.alpha(progress)) { icon() } }
+                }
             }
         }
 

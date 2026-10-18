@@ -45,3 +45,13 @@ internal val WarningDark = Color(0xFFFFCA45)
 internal val OnWarning = Color(0xFF241C00)
 internal val DangerLight = Color(0xFFB3261E)
 internal val DangerDark = Color(0xFFFFB4AB)
+
+/*
+ * The outline drawn around a code on the camera image. Unlike the banner it carries no
+ * text, so it does not need contrast with letters, only with a live picture of any
+ * brightness: saturated signal tones, the same in both themes. The banner's dark green
+ * and red read as dim outlines over the camera.
+ */
+val SignalGreen = Color(0xFF34C759)
+val SignalAmber = Color(0xFFFFC107)
+val SignalRed = Color(0xFFFF453A)
