@@ -174,6 +174,13 @@ fun ScanScreen(navController: NavController) {
             if (lifecycleState == Lifecycle.State.RESUMED) lastActiveAt = System.currentTimeMillis()
         }
     }
+    // Back from the code lists or the edit screen: marks may have been removed there. The
+    // composition is rebuilt on the way back, so this also runs on every return.
+    LaunchedEffect(Unit) {
+        lifecycleOwner.lifecycle.currentStateFlow.collect { lifecycleState ->
+            if (lifecycleState == Lifecycle.State.RESUMED) viewModel.reload()
+        }
+    }
     LaunchedEffect(Unit) {
         while (true) {
             view.keepScreenOn = System.currentTimeMillis() - lastActiveAt < SCREEN_AWAKE_IDLE_MS

@@ -113,6 +113,24 @@ class ScanViewModelTest {
     }
 
     @Test
+    fun `a mark removed on another screen is seen after reload`() = runTest(dispatcher) {
+        val (viewModel, answers) = open(listOf("A", "B"))
+        viewModel.onFrame(listOf("A"), "A", now = 1_000)
+        runCurrent()
+        assertEquals(listOf("A"), viewModel.uiState.value.session!!.scannedCodes)
+
+        // the code list unmarks it while the scan screen stays alive underneath
+        repository.unmarkScanned("s", "A")
+        viewModel.reload()
+        runCurrent()
+        assertTrue(viewModel.uiState.value.session!!.scannedCodes.isEmpty())
+
+        viewModel.onFrame(listOf("A"), "A", now = 10_000)
+        runCurrent()
+        assertEquals(listOf(AnswerKind.MARKED, AnswerKind.MARKED), answers)
+    }
+
+    @Test
     fun `a tap asks again and the code answers as a repeat`() = runTest(dispatcher) {
         val (viewModel, answers) = open(listOf("A"))
         viewModel.onFrame(listOf("A"), "A", now = 1_000)

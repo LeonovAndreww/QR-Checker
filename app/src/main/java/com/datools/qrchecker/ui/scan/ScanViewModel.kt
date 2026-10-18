@@ -89,6 +89,15 @@ class ScanViewModel @Inject constructor(
     private var touched = false
 
     init {
+        reload()
+    }
+
+    /**
+     * Reads the session from the database again. The code lists and the edit screen change
+     * it while this view model stays alive underneath them, so the screen calls this each
+     * time it comes back; otherwise unmarked codes would still count and answer as repeats.
+     */
+    fun reload() {
         viewModelScope.launch {
             val session = try {
                 repository.getById(sessionId)
