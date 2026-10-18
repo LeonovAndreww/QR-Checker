@@ -14,7 +14,11 @@
 .cxx
 local.properties
 
-# Реквизиты подписи релиза - только локально
+# Release signing credentials stay local
 keystore.properties
 *.jks
 *.keystore
+
+# Built packages copied out of the build directory
+*.apk
+*.aab
