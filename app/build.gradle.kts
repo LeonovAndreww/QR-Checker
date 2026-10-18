@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
@@ -17,12 +16,12 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.datools.qrchecker"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.datools.qrchecker"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 8
         versionName = "2.0.0"
 
@@ -61,13 +60,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
-        }
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     buildFeatures {
@@ -87,6 +81,12 @@ ksp {
 }
 
 android.sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
 
 dependencies {
     implementation(libs.androidx.core.ktx)
