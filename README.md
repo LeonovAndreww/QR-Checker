@@ -17,13 +17,13 @@ Typical uses:
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/sessions.jpg" width="240" alt="Sessions with their progress"/>
-  <img src="docs/screenshots/reading-files.jpg" width="240" alt="Reading codes from the picked files"/>
-  <img src="docs/screenshots/scan-ok.jpg" width="240" alt="A code from the list is marked"/>
+  <img src="docs/screenshots/scan-ok.jpg" width="240" alt="Scanned successfully"/>
+  <img src="docs/screenshots/scan-repeat.jpg" width="240" alt="Already scanned"/>
+  <img src="docs/screenshots/scan-foreign.jpg" width="240" alt="Not in this session"/>
 </p>
 <p align="center">
-  <img src="docs/screenshots/scan-repeat.jpg" width="240" alt="A code scanned before, and when"/>
-  <img src="docs/screenshots/scan-foreign.jpg" width="240" alt="A code that is not in the session"/>
+  <img src="docs/screenshots/sessions.jpg" width="240" alt="Sessions with their progress"/>
+  <img src="docs/screenshots/reading-files.jpg" width="240" alt="Reading codes from the picked files"/>
   <img src="docs/screenshots/code-list.jpg" width="240" alt="Searchable list of remaining codes"/>
 </p>
 
