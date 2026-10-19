@@ -66,6 +66,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -790,6 +791,8 @@ fun ScanScreen(navController: NavController) {
                                     painter = painterResource(id = R.drawable.ic_content_copy),
                                     description = copyCodeCd,
                                     tint = bannerColor.content,
+                                    // a Material Symbols glyph, drawn larger than the bin
+                                    iconSize = 15.dp,
                                     // copies the full code, not the shortened one
                                     onClick = { copyScanned(banner.code) }
                                 )
@@ -864,6 +867,7 @@ private fun BannerAction(
     painter: Painter,
     description: String,
     tint: Color,
+    iconSize: Dp = 18.dp,
     onClick: () -> Unit
 ) {
     Box(
@@ -878,7 +882,7 @@ private fun BannerAction(
             painter = painter,
             contentDescription = description,
             tint = tint,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(iconSize)
         )
     }
 }
