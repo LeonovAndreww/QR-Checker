@@ -74,13 +74,11 @@ android {
     }
 }
 
-// the exported schema is the reference the migrations are written against, and
-// MigrationTestHelper reads it from the androidTest assets
+// The exported schema is kept in git: it is what future migrations will be written and
+// tested against.
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
-
-android.sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 
 kotlin {
     compilerOptions {
