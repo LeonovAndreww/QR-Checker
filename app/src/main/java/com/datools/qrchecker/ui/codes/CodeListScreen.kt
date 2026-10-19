@@ -391,70 +391,72 @@ fun CodesListScreen(
                                     ) {
                                         // The text on the left, the actions on the right as
                                         // equal icons, deletion last: the same order as the
-                                        // swipes. The date sits under the icons, where it is not
-                                        // lost in a long code.
-                                        Row(
+                                        // swipes. The date is in the bottom right corner, where
+                                        // it is not lost in a long code.
+                                        Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 8.dp),
-                                            verticalAlignment = Alignment.Top
+                                                .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 8.dp)
                                         ) {
-                                            // collapsed shows what is printed on the box;
-                                            // the crypto tail of a marking code is not
-                                            Column(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    // the first line level with the icons
-                                                    .padding(top = 12.dp, end = 4.dp)
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.Top
                                             ) {
-                                                Text(
-                                                    text = if (expanded) code else remember(code) { shortCode(code) },
-                                                    maxLines = if (expanded) Int.MAX_VALUE else 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    style = MaterialTheme.typography.bodyLarge
-                                                )
-                                                CodeMetaLine(
-                                                    code = code,
-                                                    showKind = codeKindShown,
-                                                    showFields = codeDetails,
-                                                    singleLine = !expanded
-                                                )
-                                            }
-                                            Column(horizontalAlignment = Alignment.End) {
-                                                Row {
-                                                    IconButton(onClick = { copyCode(code) }) {
-                                                        // a Material Symbols glyph, drawn larger
-                                                        // than the bin: shrunk to match it
-                                                        Icon(
-                                                            painter = painterResource(
-                                                                id = R.drawable.ic_content_copy
-                                                            ),
-                                                            contentDescription = copyCodeText,
-                                                            modifier = Modifier.size(20.dp)
-                                                        )
-                                                    }
-                                                    IconButton(onClick = { requestDelete(code, isScanned) }) {
-                                                        Icon(
-                                                            imageVector = Icons.Default.Delete,
-                                                            contentDescription = deleteCodeCd
-                                                        )
-                                                    }
-                                                }
-                                                // relative time when collapsed, the exact
-                                                // date when expanded
-                                                session.scanTimes?.get(code)?.let { at ->
+                                                // collapsed shows what is printed on the box;
+                                                // the crypto tail of a marking code is not
+                                                Column(
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        // the first line level with the icons
+                                                        .padding(top = 12.dp, end = 4.dp)
+                                                ) {
                                                     Text(
-                                                        text = if (expanded) {
-                                                            formatScanTimeForScreen(context, at)
-                                                        } else {
-                                                            formatTimeAgo(context, at, now)
-                                                        },
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        maxLines = 1,
-                                                        modifier = Modifier.padding(end = 12.dp)
+                                                        text = if (expanded) code else remember(code) { shortCode(code) },
+                                                        maxLines = if (expanded) Int.MAX_VALUE else 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        style = MaterialTheme.typography.bodyLarge
+                                                    )
+                                                    CodeMetaLine(
+                                                        code = code,
+                                                        showKind = codeKindShown,
+                                                        showFields = codeDetails,
+                                                        singleLine = !expanded
                                                     )
                                                 }
+                                                IconButton(onClick = { copyCode(code) }) {
+                                                    // a Material Symbols glyph, drawn larger
+                                                    // than the bin: shrunk to match it
+                                                    Icon(
+                                                        painter = painterResource(
+                                                            id = R.drawable.ic_content_copy
+                                                        ),
+                                                        contentDescription = copyCodeText,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                                IconButton(onClick = { requestDelete(code, isScanned) }) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = deleteCodeCd
+                                                    )
+                                                }
+                                            }
+                                            // relative time when collapsed, the exact date
+                                            // when expanded
+                                            session.scanTimes?.get(code)?.let { at ->
+                                                Text(
+                                                    text = if (expanded) {
+                                                        formatScanTimeForScreen(context, at)
+                                                    } else {
+                                                        formatTimeAgo(context, at, now)
+                                                    },
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    modifier = Modifier
+                                                        .align(Alignment.End)
+                                                        .padding(end = 12.dp)
+                                                )
                                             }
                                         }
                                     }
