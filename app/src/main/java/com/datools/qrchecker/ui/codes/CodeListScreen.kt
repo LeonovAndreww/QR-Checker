@@ -391,8 +391,8 @@ fun CodesListScreen(
                                     ) {
                                         // The text on the left, the actions on the right as
                                         // equal icons, deletion last: the same order as the
-                                        // swipes. The date is in the bottom right corner, where
-                                        // it is not lost in a long code.
+                                        // swipes. Under the code, a line of what is said about
+                                        // it, where it is not lost in a long code.
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -416,12 +416,6 @@ fun CodesListScreen(
                                                         overflow = TextOverflow.Ellipsis,
                                                         style = MaterialTheme.typography.bodyLarge
                                                     )
-                                                    CodeMetaLine(
-                                                        code = code,
-                                                        showKind = codeKindShown,
-                                                        showFields = codeDetails,
-                                                        singleLine = !expanded
-                                                    )
                                                 }
                                                 IconButton(onClick = { copyCode(code) }) {
                                                     // a Material Symbols glyph, drawn larger
@@ -441,22 +435,38 @@ fun CodesListScreen(
                                                     )
                                                 }
                                             }
-                                            // relative time when collapsed, the exact date
-                                            // when expanded
-                                            session.scanTimes?.get(code)?.let { at ->
-                                                Text(
-                                                    text = if (expanded) {
-                                                        formatScanTimeForScreen(context, at)
-                                                    } else {
-                                                        formatTimeAgo(context, at, now)
-                                                    },
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    modifier = Modifier
-                                                        .align(Alignment.End)
-                                                        .padding(end = 12.dp)
-                                                )
+                                            // The kind, expiry and batch in the bottom left
+                                            // corner, the date in the bottom right one.
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(end = 12.dp),
+                                                verticalAlignment = Alignment.Bottom
+                                            ) {
+                                                // a box, so the date stays on the right when
+                                                // there is nothing to say about the code
+                                                Box(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                                    CodeMetaLine(
+                                                        code = code,
+                                                        showKind = codeKindShown,
+                                                        showFields = codeDetails,
+                                                        singleLine = !expanded
+                                                    )
+                                                }
+                                                // relative time when collapsed, the exact
+                                                // date when expanded
+                                                session.scanTimes?.get(code)?.let { at ->
+                                                    Text(
+                                                        text = if (expanded) {
+                                                            formatScanTimeForScreen(context, at)
+                                                        } else {
+                                                            formatTimeAgo(context, at, now)
+                                                        },
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        maxLines = 1
+                                                    )
+                                                }
                                             }
                                         }
                                     }
