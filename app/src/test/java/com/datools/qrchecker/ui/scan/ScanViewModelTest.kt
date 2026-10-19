@@ -167,7 +167,7 @@ class ScanViewModelTest {
     }
 
     @Test
-    fun `a repeat cannot be undone`() = runTest(dispatcher) {
+    fun `undo on a repeat takes back the earlier mark`() = runTest(dispatcher) {
         val (viewModel, _) = open(listOf("A"))
         viewModel.onFrame(listOf("A"), "A", now = 1_000)
         viewModel.askAgain()
@@ -176,7 +176,23 @@ class ScanViewModelTest {
         assertEquals(AnswerKind.REPEAT, viewModel.uiState.value.banner!!.kind)
         viewModel.undo()
         runCurrent()
-        assertEquals(listOf("A"), repository.getById("s")!!.scannedCodes)
+        assertTrue(viewModel.uiState.value.session!!.scannedCodes.isEmpty())
+        assertTrue(repository.getById("s")!!.scannedCodes.isEmpty())
+        assertEquals(listOf("A"), repository.getById("s")!!.codes)
+    }
+
+    @Test
+    fun `undo on a repeat in a collecting session removes the code`() = runTest(dispatcher) {
+        val (viewModel, _) = open(emptyList(), collecting = true)
+        viewModel.onFrame(listOf("N"), "N", now = 1_000)
+        viewModel.askAgain()
+        viewModel.onFrame(listOf("N"), "N", now = 1_100)
+        runCurrent()
+        assertEquals(AnswerKind.REPEAT, viewModel.uiState.value.banner!!.kind)
+        viewModel.undo()
+        runCurrent()
+        assertTrue(repository.getById("s")!!.codes.isEmpty())
+        assertTrue(repository.binnedCodes("s").isEmpty())
     }
 
     @Test

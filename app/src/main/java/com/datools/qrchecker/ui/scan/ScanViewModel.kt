@@ -258,14 +258,18 @@ class ScanViewModel @Inject constructor(
     }
 
     /**
-     * Takes back the mark the banner reports, for a code scanned by mistake. The code
-     * stays "seen" while it is in view, so the camera does not mark it again at once.
+     * Takes back the mark the banner reports, for a code scanned by mistake. On a repeat
+     * it is the earlier mark: scanning the box again is quicker than finding it in the
+     * list. The code stays "seen" while it is in view, so the camera does not mark it
+     * again at once.
      */
     fun undo() {
         val banner = _uiState.value.banner?.takeIf { it.undoable } ?: return
         val code = banner.code
-        val recorded = banner.kind == AnswerKind.RECORDED
         val current = _uiState.value.session ?: return
+        // a collecting session holds only what was scanned: its codes go with the mark
+        val recorded = banner.kind == AnswerKind.RECORDED ||
+            (banner.kind == AnswerKind.REPEAT && current.collecting)
         if (current.scanTimes?.get(code) != banner.scannedAt) return
 
         bannerJob?.cancel()
@@ -342,6 +346,6 @@ val AnswerKind.outcome: Outcome
         AnswerKind.FOREIGN, AnswerKind.SAVE_FAILED -> Outcome.FAILURE
     }
 
-/** The answer can be taken back: it is a mark made on this screen. */
+/** The answer reports a mark that can be taken back: a new one or an earlier one. */
 val ScanAnswer.undoable: Boolean
-    get() = kind == AnswerKind.MARKED || kind == AnswerKind.RECORDED
+    get() = kind == AnswerKind.MARKED || kind == AnswerKind.RECORDED || kind == AnswerKind.REPEAT

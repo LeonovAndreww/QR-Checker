@@ -55,6 +55,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -773,89 +775,110 @@ fun ScanScreen(navController: NavController) {
                         .padding(top = padding.calculateTopPadding() + 64.dp)
                 ) {
                     if (banner != null && bannerText != null && bannerColor != null) {
-                        // laid out like a snackbar: the answer on the left, its action on the right
-                        Row(
+                        // Centred, like the answer it is. The actions are rare, so they are
+                        // small icons on the code line rather than buttons of their own.
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth(0.9f)
                                 .wrapContentHeight()
                                 .background(color = bannerColor.container, shape = MaterialTheme.shapes.small)
-                                .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            val actions: @Composable () -> Unit = {
+                                BannerAction(
+                                    painter = painterResource(id = R.drawable.ic_content_copy),
+                                    description = copyCodeCd,
+                                    tint = bannerColor.content,
+                                    // copies the full code, not the shortened one
+                                    onClick = { copyScanned(banner.code) }
+                                )
+                                // a code scanned by mistake, now or earlier, is taken back
+                                // right here, without looking for it in the list
+                                if (banner.undoable) {
+                                    BannerAction(
+                                        painter = rememberVectorPainter(Icons.Default.Delete),
+                                        description = undoText,
+                                        tint = bannerColor.content,
+                                        onClick = {
+                                            feel(Outcome.ACTION)
+                                            viewModel.undo()
+                                        }
+                                    )
+                                }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = bannerText,
                                     color = bannerColor.content,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    textAlign = TextAlign.Start,
+                                    textAlign = TextAlign.Center,
                                     maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
-                                // the printed text under a Data Matrix is often missing,
-                                // and the code cannot be read by eye
-                                if (showScanCode) {
-                                    banner.code.let { scanned ->
-                                        // copies the full code, not the shortened one
-                                        Row(
-                                            modifier = Modifier
-                                                .padding(top = 2.dp)
-                                                .clip(MaterialTheme.shapes.extraSmall)
-                                                .clickable { copyScanned(scanned) }
-                                                .padding(vertical = 2.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = shortCode(scanned),
-                                                color = bannerColor.content,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                textAlign = TextAlign.Start,
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f, fill = false)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Icon(
-                                                painter = painterResource(
-                                                    id = R.drawable.ic_content_copy
-                                                ),
-                                                contentDescription = copyCodeCd,
-                                                tint = bannerColor.content,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                                // expiry and batch are checked at the moment of scanning
-                                banner.code.let { scanned ->
-                                    CodeMetaLine(
-                                        code = scanned,
-                                        showKind = false,
-                                        showFields = showCodeFields,
-                                        color = bannerColor.content,
-                                        textAlign = TextAlign.Start
-                                    )
-                                }
+                                // with the code hidden, the actions follow the answer
+                                if (!showScanCode) actions()
                             }
-                            // a code scanned by mistake is taken back right here, without
-                            // looking for it in the list; the same bin icon as in the lists
-                            if (banner.undoable) {
-                                IconButton(
-                                    onClick = {
-                                        feel(Outcome.ACTION)
-                                        viewModel.undo()
-                                    }
+                            // the printed text under a Data Matrix is often missing,
+                            // and the code cannot be read by eye
+                            if (showScanCode) {
+                                Row(
+                                    modifier = Modifier.padding(top = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = undoText,
-                                        tint = bannerColor.content
+                                    Text(
+                                        text = shortCode(banner.code),
+                                        color = bannerColor.content,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
                                     )
+                                    actions()
                                 }
                             }
+                            // expiry and batch are checked at the moment of scanning
+                            CodeMetaLine(
+                                code = banner.code,
+                                showKind = false,
+                                showFields = showCodeFields,
+                                color = bannerColor.content,
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * A small action on the banner, as tall as a line of text. The touch area is wider than
+ * the icon, so it is still easy to hit.
+ */
+@Composable
+private fun BannerAction(
+    painter: Painter,
+    description: String,
+    tint: Color,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .padding(start = 4.dp)
+            .size(width = 32.dp, height = 24.dp)
+            .clip(MaterialTheme.shapes.extraSmall)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = description,
+            tint = tint,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
