@@ -31,6 +31,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -61,12 +62,14 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -130,6 +133,8 @@ fun ScanScreen(navController: NavController) {
     val showCodeFields by AppSettings.codeFieldsState(context)
     val scanOnTap by AppSettings.scanOnTapState(context)
     val bannerAtBottom = AppSettings.bannerPositionState(context).value == BannerPosition.BOTTOM
+    var bannerHeight by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
 
     // a torn or smudged label is otherwise a dead end
     var manualCode by remember { mutableStateOf<String?>(null) }
@@ -458,13 +463,18 @@ fun ScanScreen(navController: NavController) {
                     }
                 }
 
+                // a banner at the bottom takes this place: the zoom moves above it meanwhile
+                val zoomLift by animateDpAsState(
+                    targetValue = if (bannerAtBottom && banner != null) bannerHeight + 8.dp else 0.dp,
+                    label = "zoomLift"
+                )
                 AnimatedVisibility(
                     visible = zoomVisible,
                     enter = fadeIn(),
                     exit = fadeOut(),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = padding.calculateBottomPadding() + 88.dp)
+                        .padding(bottom = padding.calculateBottomPadding() + 88.dp + zoomLift)
                 ) {
                     Box(
                         modifier = Modifier
@@ -791,6 +801,7 @@ fun ScanScreen(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxWidth(0.9f)
                                 .wrapContentHeight()
+                                .onSizeChanged { bannerHeight = with(density) { it.height.toDp() } }
                                 .background(color = bannerColor.container, shape = MaterialTheme.shapes.small)
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
