@@ -19,6 +19,9 @@ enum class LanguageChoice(val tag: String) {
 /** Clock: as in the system, 24-hour or 12-hour. */
 enum class ClockChoice { SYSTEM, H24, H12 }
 
+/** Where the scan banner is: at the top, or at the bottom, nearer the thumb. */
+enum class BannerPosition { TOP, BOTTOM }
+
 /**
  * Appearance and feedback settings.
  *
@@ -38,6 +41,7 @@ object AppSettings {
     private const val KEY_CODE_KIND = "code_kind"
     private const val KEY_SCROLLBAR = "scrollbar"
     private const val KEY_SCAN_ON_TAP = "scan_on_tap"
+    private const val KEY_BANNER_POSITION = "banner_position"
 
     // not applicationContext: the language is read in the application's
     // attachBaseContext, before applicationContext exists
@@ -47,6 +51,7 @@ object AppSettings {
     private var themeState: MutableState<ThemeChoice>? = null
     private var languageState: MutableState<LanguageChoice>? = null
     private var clockState: MutableState<ClockChoice>? = null
+    private var bannerPositionState: MutableState<BannerPosition>? = null
     private var hapticsState: MutableState<Boolean>? = null
     private var soundState: MutableState<Boolean>? = null
     private var codeFieldsState: MutableState<Boolean>? = null
@@ -163,6 +168,17 @@ object AppSettings {
     fun setScrollbar(context: Context, on: Boolean) {
         scrollbarState(context).value = on
         prefs(context).edit { putBoolean(KEY_SCROLLBAR, on) }
+    }
+
+    /** The banner at the top by default: it is where the eye goes from the code. */
+    fun bannerPositionState(context: Context): MutableState<BannerPosition> =
+        bannerPositionState ?: mutableStateOf(
+            read(context, KEY_BANNER_POSITION, BannerPosition.TOP) { BannerPosition.valueOf(it) }
+        ).also { bannerPositionState = it }
+
+    fun setBannerPosition(context: Context, position: BannerPosition) {
+        bannerPositionState(context).value = position
+        prefs(context).edit { putString(KEY_BANNER_POSITION, position.name) }
     }
 
     /**

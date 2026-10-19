@@ -3,6 +3,7 @@ package com.datools.qrchecker.ui.settings
 import com.datools.qrchecker.R
 import com.datools.qrchecker.popBackStackOnce
 import com.datools.qrchecker.settings.AppSettings
+import com.datools.qrchecker.settings.BannerPosition
 import com.datools.qrchecker.settings.ClockChoice
 import com.datools.qrchecker.settings.LanguageChoice
 import com.datools.qrchecker.settings.ThemeChoice
@@ -83,6 +84,7 @@ fun SettingsScreen(navController: NavController) {
     val theme by AppSettings.themeState(context)
     val language by AppSettings.languageState(context)
     val clock by AppSettings.clockState(context)
+    val bannerPosition by AppSettings.bannerPositionState(context)
     val haptics by AppSettings.hapticsState(context)
     val sound by AppSettings.soundState(context)
     val codeDetails by AppSettings.codeFieldsState(context)
@@ -119,6 +121,10 @@ fun SettingsScreen(navController: NavController) {
         ClockChoice.SYSTEM to stringResource(id = R.string.clock_system),
         ClockChoice.H24 to stringResource(id = R.string.clock_24),
         ClockChoice.H12 to stringResource(id = R.string.clock_12)
+    )
+    val bannerOptions = listOf(
+        BannerPosition.TOP to stringResource(id = R.string.banner_position_top),
+        BannerPosition.BOTTOM to stringResource(id = R.string.banner_position_bottom)
     )
     val backupTitle = stringResource(id = R.string.backup_title)
     val backupWhy = stringResource(id = R.string.backup_why)
@@ -198,6 +204,18 @@ fun SettingsScreen(navController: NavController) {
                         options = clockOptions,
                         selected = clock,
                         onSelect = { AppSettings.setClock(context, it) }
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+                    Text(
+                        stringResource(id = R.string.banner_position_label),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    ChoiceRow(
+                        options = bannerOptions,
+                        selected = bannerPosition,
+                        onSelect = { AppSettings.setBannerPosition(context, it) }
                     )
 
                     // next to the theme and time format: it is about what the screen shows
@@ -338,7 +356,7 @@ fun SettingsScreen(navController: NavController) {
 }
 
 /**
- * A row of mutually exclusive options: three short ones, the selected one visible
+ * A row of mutually exclusive options: two or three short ones, the selected one visible
  * without a tap. No check mark: it squeezed the label and repeated the fill. The fill is
  * the primary colour: the default pale container is barely visible in the light theme.
  */

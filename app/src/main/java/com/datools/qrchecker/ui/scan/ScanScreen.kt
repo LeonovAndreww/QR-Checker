@@ -10,6 +10,7 @@ import com.datools.qrchecker.codes.shortCode
 import com.datools.qrchecker.files.shareSessionFile
 import com.datools.qrchecker.navigateOnce
 import com.datools.qrchecker.settings.AppSettings
+import com.datools.qrchecker.settings.BannerPosition
 import com.datools.qrchecker.ui.CodeMetaLine
 import com.datools.qrchecker.ui.theme.OnColor
 import com.datools.qrchecker.ui.theme.SignalAmber
@@ -128,6 +129,7 @@ fun ScanScreen(navController: NavController) {
     val showScanCode by AppSettings.scanCodeState(context)
     val showCodeFields by AppSettings.codeFieldsState(context)
     val scanOnTap by AppSettings.scanOnTapState(context)
+    val bannerAtBottom = AppSettings.bannerPositionState(context).value == BannerPosition.BOTTOM
 
     // a torn or smudged label is otherwise a dead end
     var manualCode by remember { mutableStateOf<String?>(null) }
@@ -771,9 +773,16 @@ fun ScanScreen(navController: NavController) {
                     visible = banner != null,
                     enter = fadeIn(),
                     exit = fadeOut(),
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = padding.calculateTopPadding() + 64.dp)
+                    modifier = if (bannerAtBottom) {
+                        // just above the list buttons, where the zoom shows
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = padding.calculateBottomPadding() + 88.dp)
+                    } else {
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = padding.calculateTopPadding() + 64.dp)
+                    }
                 ) {
                     if (banner != null && bannerText != null && bannerColor != null) {
                         // Centred, like the answer it is. The actions are rare, so they are

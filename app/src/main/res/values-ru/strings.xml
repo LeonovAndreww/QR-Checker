@@ -153,6 +153,9 @@
     <string name="clock_system">Системное</string>
     <string name="clock_24">24 ч</string>
     <string name="clock_12">12 ч</string>
+    <string name="banner_position_label">Плашка на экране сканирования</string>
+    <string name="banner_position_top">Сверху</string>
+    <string name="banner_position_bottom">Снизу</string>
     <string name="feedback_title">Сканирование</string>
     <string name="feedback_why">Как читаются коды и чем телефон на них отвечает.</string>
     <string name="feedback_haptics">Вибрация</string>

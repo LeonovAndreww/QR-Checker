@@ -14,7 +14,9 @@ All notable changes to this project are documented here. The format follows
 - Sessions without a document that record new codes.
 - "Already scanned" shows how long ago.
 - Viewfinder, tap to focus, pinch to zoom, torch, optional scan on tap.
-- Manual entry with search over the session's codes.
+- Manual entry with search over the session's codes, or a code read from an image.
+- A mark can be removed right from the scan banner, also on a repeat.
+- The scan banner can be at the top or at the bottom of the screen.
 - Bin for removed codes, emptied after a week.
 - Search, sorting and swipe actions in code lists, scrollbar.
 - Sharing a session as a file and merging marks from it.

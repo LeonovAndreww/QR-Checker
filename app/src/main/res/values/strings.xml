@@ -155,6 +155,9 @@
     <string name="clock_system">System</string>
     <string name="clock_24">24 h</string>
     <string name="clock_12">12 h</string>
+    <string name="banner_position_label">Scan banner</string>
+    <string name="banner_position_top">At the top</string>
+    <string name="banner_position_bottom">At the bottom</string>
     <string name="feedback_title">Scanning</string>
     <string name="feedback_why">How codes are read and how the phone answers them.</string>
     <string name="feedback_haptics">Vibration</string>
