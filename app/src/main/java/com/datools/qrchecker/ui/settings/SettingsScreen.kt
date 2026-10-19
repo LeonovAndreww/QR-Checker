@@ -339,7 +339,8 @@ fun SettingsScreen(navController: NavController) {
 
 /**
  * A row of mutually exclusive options: three short ones, the selected one visible
- * without a tap. No check mark: it squeezed the label and repeated the fill.
+ * without a tap. No check mark: it squeezed the label and repeated the fill. The fill is
+ * the primary colour: the default pale container is barely visible in the light theme.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -354,6 +355,10 @@ private fun <T> ChoiceRow(
                 selected = value == selected,
                 onClick = { if (value != selected) onSelect(value) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = MaterialTheme.colorScheme.primary,
+                    activeContentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 icon = {}
             ) {
                 Text(
